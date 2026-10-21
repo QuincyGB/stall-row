@@ -1,0 +1,119 @@
+# StallRow — a row of x402 micro-services in one deployment
+
+Eleven small paid endpoints under one roof, one facilitator
+configuration, one Railway service. The strategy is a portfolio: many
+real stalls, each independently priced, listed, and settled, expecting
+one or two to hit — instead of betting the season on a single route.
+Siblings: [Token Verdict](https://github.com/QuincyGB/token-verdict)
+(token-risk verdicts), [RouteVerdict](https://github.com/QuincyGB/route-verdict)
+(trust & liveness checks), [ListSmith](https://github.com/QuincyGB/list-smith)
+(listing grade & repair). No accounts, no API keys: **payment is the
+authentication** (x402 v2, exact scheme, USDC on Base).
+
+## The row
+
+| Route | Price | What it does |
+|---|---|---|
+| `POST /v1/wallet-snapshot` | $0.005 | Base wallet: ETH balance, top token holdings, first/last activity, nonce |
+| `POST /v1/allowance-audit` | $0.005 | ERC-20 approvals vs a curated spender list; unlimited approvals flagged |
+| `POST /v1/tx-decoder` | $0.002 | One Base tx → plain English: method, value, ERC-20 transfers, summary |
+| `POST /v1/gas-oracle` | $0.001 | Gas price + base-fee trend over the last ~20 blocks + cheap-window hint |
+| `POST /v1/wallet-verdict` | $0.02 | SAFE/CAUTION/AVOID: OFAC match, wallet age, activity, poisoning scan |
+| `POST /v1/tube-search` | $0.01 | YouTube search results as JSON (public page scrape, no API key) |
+| `POST /v1/page-to-markdown` | $0.01 | One page → clean Markdown (SSRF-guarded) |
+| `POST /v1/repo-vitals` | $0.005 | GitHub repo vitals + health score |
+| `POST /v1/price-check` | $0.05 | Live CDP Bazaar comps + a recommended listing price |
+| `POST /v1/card-smith` | $0.10 | Generate/grade `agent-card.json` for A2A/AgentWorld registries |
+| `POST /v1/job-scout` | $0.05 | Digest of open agent jobs from our own marketplace sweeps |
+
+Free: `GET /`, `/health`, `/quote`, `/.well-known/x402`, `/skill.md`,
+`/llms.txt`.
+
+## Failure honesty (the house rule)
+
+If an upstream cannot supply the data, the call returns **502 — and
+the x402 middleware does not settle payment on ≥ 400 responses**, so
+nobody is charged for undelivered data. Fields a source cannot supply
+come back `"unknown"` or omitted, never invented. This matters most
+for **Blockscout**: base.blockscout.com sits behind Cloudflare and
+intermittently (measured during the build: roughly half of calls from
+a datacenter IP, fewer with a browser User-Agent) answers with a
+challenge page instead of JSON. The client tries the v2 API, then the
+legacy Etherscan-style API, then degrades per field (RPC still covers
+ETH balance and nonce). Token balances, activity windows, and the
+poisoning scan are explorer-only and go `"unknown"` when challenged —
+retrying usually fills them in.
+
+## Data sources and their limits
+
+- **Base RPC** (`BASE_RPC_URL`, default `https://mainnet.base.org`):
+  balances, nonces, gas, blocks, transactions, `eth_call` allowance
+  reads. Cannot enumerate a wallet's tokens or history — that's the
+  explorer's job.
+- **Blockscout** (`BLOCKSCOUT_BASE_URL`, default
+  `https://base.blockscout.com`): token balances, transaction and
+  token-transfer history. Cloudflare caveat above.
+- **Allowance audit coverage** is bounded by the curated spender list
+  in `app/data/spenders.py` (10 major Base spenders: Permit2, Uniswap
+  V3/Universal routers, Aerodrome, 1inch, Odos, KyberSwap). Approvals
+  to any other contract are invisible, and the response says so.
+  Permit2's internal allowance map is not read.
+- **Sanctions**: exact-address match against a bundled OFAC SDN
+  snapshot (`app/data/ofac_crypto_addresses.json`, 91 EVM addresses
+  extracted 2026-10-21 from the official Treasury `sdn.csv`
+  "Digital Currency Address" entries). A snapshot ages: refresh it
+  periodically. If the snapshot is ever missing/empty the check
+  returns `"unknown"` — **never** a fabricated "clean".
+- **YouTube search** parses the public results page (`ytInitialData`);
+  YouTube can change that shape or throttle scrapers, in which case
+  the route 502s rather than guessing.
+- **Price-check** reads the CDP Bazaar public catalog
+  (`/platform/v2/x402/discovery/resources`; live envelope is
+  `{"items": [...], "pagination": {"total": …}}`, ~20/page, 28,423
+  resources at build time). The catalog's own filter params are
+  unreliable (cdp-sdk #765), so pages are matched client-side; only
+  the first 5 pages are scanned per call, and the response says how
+  many matched within them.
+- **JobScout** serves `data/jobs.json`, seeded from our own Synmerco
+  sweep and refreshed by `scripts/refresh_jobscout.py` (below).
+  Responses carry the snapshot time and a `data_stale` flag past 24h.
+
+## Run it
+
+```bash
+pip install -r requirements.txt
+python -m app.main            # or: uvicorn app.main:app --port 3000
+pytest                        # 105 tests, fully offline (MockTransport)
+```
+
+Key env vars: `X402_FACILITATOR_URL` (keyless ultravioletadao default;
+`https://facilitator.payai.network` for the PayAI index; the CDP URL
+plus `CDP_API_KEY_ID`/`CDP_API_KEY_SECRET` for the CDP Bazaar — see
+`app/config.py`), `X402_PAY_TO`, `BASE_RPC_URL`, `BLOCKSCOUT_BASE_URL`,
+`GITHUB_TOKEN` (optional, raises repo-vitals rate limits),
+`STALLROW_FETCH_TIMEOUT_S`, per-route `X402_PRICE_<ROUTE>` overrides.
+
+## JobScout refresh
+
+```bash
+python3 scripts/refresh_jobscout.py   # rewrites data/jobs.json
+```
+
+Reads the Synmerco API (`GET /v1/jobs`) the same way our sweeps do.
+The API key comes from the `SYNMERCO_KEY` env var or `~/.synmerco/key`
+when present; it is never printed and never written into the snapshot.
+Redeploy (or restart) after refreshing so the running service picks up
+the new file.
+
+## Cataloging (deploy notes for the operator)
+
+Cataloging is settlement-driven per facilitator — metadata alone
+never lists a route (background:
+`~/workspace/platform-signups/x402-bazaar.md`). Deploy as ONE Railway
+service from this repo (Dockerfile included, healthcheck `/health`),
+set `X402_FACILITATOR_URL=https://facilitator.payai.network`, then
+settle **one paid call per route** so each resource catalogs in the
+PayAI index: 5000+5000+2000+1000+20000+10000+10000+5000+50000+100000
++50000 = **258,000 units = $0.258 total**. Repeat under the CDP env
+(once CDP keys exist) for the CDP Bazaar, and re-settle at least every
+~30 days per index or listings age out.
