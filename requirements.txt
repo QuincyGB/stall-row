@@ -1,0 +1,19 @@
+# StallRow — a row of x402 pay-per-call micro-services in one deployment
+# Python 3.12+
+
+fastapi>=0.115,<0.118
+uvicorn[standard]>=0.30,<0.35
+x402[fastapi,evm]==2.25.0
+# Required only when X402_FACILITATOR_URL points at CDP (app/cdp_auth.py
+# mints the facilitator JWTs with it). Harmless on the keyless/PayAI paths.
+cdp-sdk>=1.0
+httpx>=0.27,<0.29
+# Main-content extraction for /v1/page-to-markdown.
+trafilatura>=1.12
+
+# dev / test
+pytest>=8.0
+pytest-asyncio>=0.23
+# Tests validate the bazaar extensions + check outputs against the
+# shipped JSON Schemas, and drive the x402 SDK's own extension validators.
+jsonschema>=4.0
