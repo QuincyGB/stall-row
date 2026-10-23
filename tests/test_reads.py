@@ -1,12 +1,15 @@
 """Reads: wallet snapshot, allowance audit, tx decoder, gas oracle —
 happy paths from fixtures, plus the degradation contract (explorer
-down → fields 'unknown' or an honest UpstreamError, never invented)."""
+down → fields 'unknown', never invented; the allowance audit degrades
+the same way instead of failing)."""
 
+import jsonschema
 import pytest
 
 from app.blockscout import Blockscout
 from app.config import load_settings
-from app.rpc import Rpc, UpstreamError
+from app.discovery import ROUTES
+from app.rpc import Rpc
 from app.services import reads
 from tests.fixtures import ADDR, TX_HASH, mock_client
 
@@ -58,14 +61,37 @@ async def test_allowance_audit_flags_unlimited():
     assert finding["risk"] == "high"
     assert finding["spender_name"].startswith("Permit2")
     assert finding["token_symbol"] == "USDC"
+    # Regression: the full-data body validates against the advertised schema.
+    jsonschema.validate(out, ROUTES["/v1/allowance-audit"]["output_schema"])
 
 
 @pytest.mark.asyncio
-async def test_allowance_audit_fails_honestly_without_explorer():
+async def test_allowance_audit_degrades_when_explorer_down():
+    """Explorer challenged → no exception: the audit returns a degraded
+    body (the route then answers 200) with every token-dependent field
+    marked 'unknown', mirroring wallet_snapshot's contract."""
     client, rpc, scout = _parts(blockscout_down=True)
     async with client:
-        with pytest.raises(UpstreamError):
-            await reads.allowance_audit(client, rpc, scout, ADDR)
+        out = await reads.allowance_audit(client, rpc, scout, ADDR)
+    assert out["address"] == ADDR
+    assert out["tokens_held_checked"] == "unknown"
+    assert out["active_approvals"] == "unknown"
+    assert out["unlimited_approvals"] == "unknown"
+    assert out["allowance_checks_performed"] == 0
+    assert out["spenders_checked"] == len(out["spender_coverage"]) >= 8
+    # The summary must not read as a clean bill of health.
+    assert "not a finding" in out["summary"]
+    assert "unknown" in out["note"]
+
+
+@pytest.mark.asyncio
+async def test_allowance_audit_degraded_body_is_schema_valid():
+    """Inspectors compare delivered bodies to the advertised schema —
+    the degraded shape must validate against it too."""
+    client, rpc, scout = _parts(blockscout_down=True)
+    async with client:
+        out = await reads.allowance_audit(client, rpc, scout, ADDR)
+    jsonschema.validate(out, ROUTES["/v1/allowance-audit"]["output_schema"])
 
 
 @pytest.mark.asyncio

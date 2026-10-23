@@ -17,6 +17,7 @@ USDC_ASSET = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 _S = {"type": "string"}
 _N = {"type": ["string", "null"]}
 _I = {"type": "integer"}
+_IS = {"type": ["integer", "string"]}
 _IN = {"type": ["integer", "null"]}
 _B = {"type": "boolean"}
 
@@ -101,7 +102,9 @@ ROUTES: dict[str, dict] = {
             "major spenders (Permit2, Uniswap, Aerodrome, aggregators): active "
             "approvals are listed and unlimited ones flagged high risk. Use this "
             "when an agent or its owner wants to know what a wallet has already "
-            "authorized before it holds or moves funds."
+            "authorized before it holds or moves funds. When the explorer "
+            "cannot supply the held-token list, the token-dependent fields "
+            "come back marked unknown rather than the call failing."
         ),
         "tags": ["base", "security", "approvals", "allowance", "agents"],
         "input_schema": _obj({"address": _S}, ["address"]),
@@ -109,12 +112,12 @@ ROUTES: dict[str, dict] = {
         "output_schema": _obj(
             {
                 "address": _S,
-                "tokens_held_checked": _I,
+                "tokens_held_checked": _IS,
                 "spenders_checked": _I,
                 "spender_coverage": {"type": "array", "items": _S},
                 "allowance_checks_performed": _I,
                 "active_approvals": {
-                    "type": "array",
+                    "type": ["array", "string"],
                     "items": _obj(
                         {
                             "token_address": _N,
@@ -129,9 +132,10 @@ ROUTES: dict[str, dict] = {
                         ["spender", "spender_name", "allowance_raw", "unlimited", "risk"],
                     ),
                 },
-                "unlimited_approvals": _I,
+                "unlimited_approvals": _IS,
                 "summary": _S,
                 "coverage_note": _S,
+                "note": _S,
             },
             ["address", "tokens_held_checked", "spenders_checked", "active_approvals", "unlimited_approvals", "summary"],
         ),

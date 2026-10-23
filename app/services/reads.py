@@ -125,14 +125,37 @@ async def allowance_audit(
     """For tokens the wallet actually holds with a positive balance, read
     allowance(owner, spender) via eth_call against the curated spender
     list. Held-token enumeration comes from Blockscout; when it is
-    unavailable the audit cannot run and raises (→ 502, no charge)."""
+    unavailable the audit cannot scope its checks, so — mirroring
+    wallet_snapshot — the token-dependent fields degrade to "unknown"
+    and the call still returns 200 instead of raising."""
     tokens = await scout.token_balances(address)
     if tokens is None:
-        raise UpstreamError(
-            "Blockscout token list unavailable (explorer challenged the "
-            "request); the audit needs the wallet's held tokens to scope "
-            "its eth_call checks"
-        )
+        return {
+            "address": address,
+            "tokens_held_checked": "unknown",
+            "spenders_checked": len(SPENDERS),
+            "spender_coverage": [s["name"] for s in SPENDERS],
+            "allowance_checks_performed": 0,
+            "active_approvals": "unknown",
+            "unlimited_approvals": "unknown",
+            "summary": (
+                "Audit not run: the wallet's held-token list could not "
+                "be supplied by its source, so no allowance checks were "
+                "performed and no approvals data is available — this is "
+                "not a finding that the wallet has no approvals."
+            ),
+            "coverage_note": (
+                "Only the listed spenders are checked — an approval granted to "
+                "any other contract is invisible to this audit. Permit2 token "
+                "allowance is only the first hop; Permit2 keeps a second, "
+                "internal allowance map this call does not read."
+            ),
+            "note": (
+                "Fields marked unknown could not be supplied by their source "
+                "(Blockscout intermittently serves a Cloudflare challenge "
+                "instead of JSON) — retrying usually fills them in."
+            ),
+        }
     held = [
         t
         for t in tokens

@@ -40,8 +40,8 @@ intermittently (measured during the build: roughly half of calls from
 a datacenter IP, fewer with a browser User-Agent) answers with a
 challenge page instead of JSON. The client tries the v2 API, then the
 legacy Etherscan-style API, then degrades per field (RPC still covers
-ETH balance and nonce). Token balances, activity windows, and the
-poisoning scan are explorer-only and go `"unknown"` when challenged —
+ETH balance and nonce). Token balances, activity windows, the poisoning scan, and the
+allowance audit's token-dependent fields are explorer-only and go `"unknown"` when challenged —
 retrying usually fills them in.
 
 ## Data sources and their limits
