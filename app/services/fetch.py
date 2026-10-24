@@ -6,11 +6,14 @@ buyer is never charged for undelivered data.
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import json
 import re
 import socket
-from urllib.parse import urlparse
+from html import unescape as html_unescape
+from html.parser import HTMLParser
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -154,29 +157,278 @@ def ssrf_check(url: str) -> None:
             raise ValueError(f"URL host resolves to a non-public address ({ip})")
 
 
+# Fetch hardening (2026-10-24): production paid calls failed three ways —
+# a transient upstream 503 (example.com), a bot-filter 403 (Wikipedia),
+# and a plain-text llms.txt that the HTML extractor scored as "no main
+# content". The machinery below retries transient failures with backoff,
+# answers a 403 with the descriptive User-Agent robot policies ask for,
+# follows redirects manually so every hop is SSRF-checked before it is
+# fetched, caps the body size, decodes charsets explicitly, and serves
+# text/plain + text/markdown bodies as text instead of failing them.
+
+# A descriptive UA, used after a 403: Wikimedia's robot policy (and many
+# others) refuses impersonating browser UAs from datacenter egress but
+# accepts an identified bot.
+_DESCRIPTIVE_UA = {
+    "User-Agent": (
+        "StallRow/1.0 (+https://stall-row-production.up.railway.app; "
+        "page-to-markdown fetcher)"
+    )
+}
+_PAGE_ACCEPT = (
+    "text/html,application/xhtml+xml,application/xml;q=0.9,"
+    "text/plain;q=0.8,text/markdown;q=0.8,*/*;q=0.5"
+)
+_PAGE_HEADERS_BASE = {"Accept": _PAGE_ACCEPT, "Accept-Language": "en-US,en;q=0.9"}
+
+_MAX_PAGE_BYTES = 5 * 1024 * 1024  # fail cleanly past 5 MiB
+_MAX_REDIRECTS = 5
+_FETCH_ATTEMPTS = 3
+_RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+_BACKOFF_S = (0.5, 1.5)
+
+_HTML_TYPES = frozenset({"text/html", "application/xhtml+xml"})
+_TEXT_TYPES = frozenset({"text/plain", "text/markdown", "text/x-markdown"})
+_MIN_FALLBACK_WORDS = 15
+
+
+async def _read_capped(resp: httpx.Response) -> bytes:
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in resp.aiter_bytes():
+        total += len(chunk)
+        if total > _MAX_PAGE_BYTES:
+            raise UpstreamError(
+                f"page exceeds the {_MAX_PAGE_BYTES // (1024 * 1024)} MiB size limit"
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+async def _get_following_redirects(
+    client: httpx.AsyncClient, url: str, headers: dict
+) -> tuple[str, int, httpx.Headers, bytes | None]:
+    """One GET with manual redirect following: every redirect target is
+    SSRF-checked BEFORE it is fetched (client-level following would only
+    let us check the final URL, after the target was already contacted).
+    The body is read (size-capped) only on a 200."""
+    current = url
+    for hop in range(_MAX_REDIRECTS + 1):
+        async with client.stream(
+            "GET", current, headers=headers, follow_redirects=False
+        ) as resp:
+            if resp.status_code in (301, 302, 303, 307, 308):
+                location = resp.headers.get("location")
+                if not location:
+                    raise UpstreamError(
+                        f"page returned HTTP {resp.status_code} without a Location header"
+                    )
+                if hop == _MAX_REDIRECTS:
+                    raise UpstreamError("page redirected too many times")
+                target = urljoin(current, location)
+                ssrf_check(target)  # ValueError → the handler's 422, as before
+                current = target
+                continue
+            body = await _read_capped(resp) if resp.status_code == 200 else None
+            return current, resp.status_code, resp.headers, body
+    raise UpstreamError("page redirected too many times")  # pragma: no cover
+
+
+async def _fetch_page(
+    client: httpx.AsyncClient, url: str
+) -> tuple[str, httpx.Headers, bytes]:
+    """Fetch one page with retries. Transient statuses (429/5xx) and
+    transport errors retry with backoff under the browser UA; a 403
+    (bot filter) switches the next attempt to the descriptive UA.
+    Deterministic failures (hard 404, dead host after retries, …) raise
+    UpstreamError, so the handler 502s and no payment settles."""
+    use_descriptive = False
+    last_error = "page fetch failed"
+    for attempt in range(_FETCH_ATTEMPTS):
+        if attempt:
+            await asyncio.sleep(_BACKOFF_S[attempt - 1])
+        headers = {
+            **(_DESCRIPTIVE_UA if use_descriptive else _UA),
+            **_PAGE_HEADERS_BASE,
+        }
+        try:
+            final_url, status, resp_headers, body = await _get_following_redirects(
+                client, url, headers
+            )
+        except httpx.HTTPError as e:
+            last_error = f"page fetch failed: {e}"
+            continue
+        if status == 200:
+            assert body is not None  # read exactly on 200 above
+            return final_url, resp_headers, body
+        last_error = f"page returned HTTP {status}"
+        if status == 403:
+            use_descriptive = True
+            continue
+        if status in _RETRY_STATUSES:
+            continue
+        raise UpstreamError(last_error)
+    raise UpstreamError(last_error)
+
+
+def _decode_body(body: bytes, headers: httpx.Headers) -> str:
+    """Decode with the declared charset, then a <meta charset>, then
+    UTF-8; never raise on a bad label or a stray byte."""
+    charset = None
+    m = re.search(
+        r"charset=([\w.:-]+)", headers.get("content-type", ""), re.IGNORECASE
+    )
+    if m:
+        charset = m.group(1)
+    if not charset:
+        head = body[:4096].decode("ascii", errors="ignore")
+        m = re.search(r"<meta[^>]+charset=[\"']?([\w.:-]+)", head, re.IGNORECASE)
+        if m:
+            charset = m.group(1)
+    for enc in (charset, "utf-8"):
+        if not enc:
+            continue
+        try:
+            return body.decode(enc)
+        except (LookupError, UnicodeDecodeError):
+            continue
+    return body.decode("utf-8", errors="replace")
+
+
+def _looks_like_html(text: str) -> bool:
+    head = text.lstrip()[:512].lower()
+    return head.startswith(("<!doctype html", "<html")) or "<html" in head[:256]
+
+
+def _normalize_text(text: str) -> str:
+    """Light normalization for plain-text deliveries: unify newlines,
+    trim trailing spaces, collapse 2+ blank lines to one."""
+    lines = [
+        ln.rstrip()
+        for ln in text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    ]
+    out: list[str] = []
+    blanks = 0
+    for ln in lines:
+        if ln.strip():
+            out.append(ln)
+            blanks = 0
+        else:
+            blanks += 1
+            if blanks == 1:
+                out.append("")
+    return "\n".join(out).strip("\n")
+
+
+def _text_title(normalized: str) -> str | None:
+    """A Markdown document's leading '# ' heading is its title."""
+    for ln in normalized.split("\n"):
+        s = ln.strip()
+        if not s:
+            continue
+        if s.startswith("# "):
+            return s[2:].strip() or None
+        return None
+    return None
+
+
+class _VisibleText(HTMLParser):
+    """Collect visible text with block boundaries as newlines; script,
+    style, head and template content is not visible text."""
+
+    _SKIP = frozenset({"script", "style", "head", "template", "svg"})
+    _BLOCK = frozenset(
+        {
+            "address", "article", "aside", "blockquote", "br", "dd", "div",
+            "dl", "dt", "fieldset", "figcaption", "figure", "footer", "form",
+            "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr", "li",
+            "main", "nav", "ol", "p", "pre", "section", "table", "tr",
+            "ul",
+        }
+    )
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self._skip_depth = 0
+
+    def handle_starttag(self, tag: str, attrs) -> None:  # noqa: ANN001
+        if tag in self._SKIP:
+            self._skip_depth += 1
+        elif tag in self._BLOCK:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in self._SKIP:
+            if self._skip_depth:
+                self._skip_depth -= 1
+        elif tag in self._BLOCK:
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if not self._skip_depth:
+            self.parts.append(data)
+
+
+def _visible_text(html_text: str) -> str:
+    parser = _VisibleText()
+    try:
+        parser.feed(html_text)
+    except Exception:  # noqa: BLE001 — malformed HTML: keep what parsed
+        pass
+    raw = "".join(parser.parts)
+    squashed = "\n".join(
+        re.sub(r"[ \t]+", " ", ln) for ln in raw.split("\n")
+    )
+    return _normalize_text(squashed)
+
+
 async def page_to_markdown(client: httpx.AsyncClient, url: str) -> dict:
     ssrf_check(url)
-    try:
-        resp = await client.get(url, headers=_UA, follow_redirects=True)
-    except httpx.HTTPError as e:
-        raise UpstreamError(f"page fetch failed: {e}") from e
-    if resp.status_code != 200:
-        raise UpstreamError(f"page returned HTTP {resp.status_code}")
-    final_url = str(resp.url)
-    if final_url != url:
-        ssrf_check(final_url)  # redirect targets get the same treatment
-    html = resp.text
+    final_url, headers, body = await _fetch_page(client, url)
+    text = _decode_body(body, headers)
+    ctype = headers.get("content-type", "").split(";")[0].strip().lower()
+
+    if ctype in _TEXT_TYPES and not _looks_like_html(text):
+        markdown = _normalize_text(text)
+        if not markdown:
+            raise UpstreamError("page returned no readable text content")
+        return {
+            "url": url,
+            "final_url": final_url,
+            "title": _text_title(markdown),
+            "markdown": markdown,
+            "word_count": len(markdown.split()),
+        }
+
+    if (
+        ctype
+        and ctype not in _HTML_TYPES
+        and ctype not in _TEXT_TYPES
+        and not _looks_like_html(text)
+    ):
+        raise UpstreamError(f"unsupported content type: {ctype}")
+
     import trafilatura
 
     markdown = trafilatura.extract(
-        html, output_format="markdown", include_links=True, include_images=False
+        text, output_format="markdown", include_links=True, include_images=False
     )
+    if not markdown:
+        # Trafilatura's heuristics reject some real pages (odd structure,
+        # link-dense indexes). Fall back to the page's visible text —
+        # but only when there is enough of it to be a delivery, not
+        # boilerplate dressed up as content.
+        fallback = _visible_text(text)
+        if len(fallback.split()) >= _MIN_FALLBACK_WORDS:
+            markdown = fallback
     if not markdown:
         raise UpstreamError("no main content could be extracted from the page")
     title = None
-    m = re.search(r"<title[^>]*>(.*?)</title>", html, re.IGNORECASE | re.DOTALL)
+    m = re.search(r"<title[^>]*>(.*?)</title>", text, re.IGNORECASE | re.DOTALL)
     if m:
-        title = re.sub(r"\s+", " ", m.group(1)).strip() or None
+        cleaned = html_unescape(re.sub(r"<[^>]+>", "", m.group(1)))
+        title = re.sub(r"\s+", " ", cleaned).strip() or None
     return {
         "url": url,
         "final_url": final_url,

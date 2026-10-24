@@ -78,6 +78,253 @@ async def test_page_to_markdown_rejects_loopback_before_fetching():
             await fetch.page_to_markdown(client, "http://127.0.0.1:3000/secret")
 
 
+# --- page→markdown hardening (2026-10-24) -----------------------------------
+# The three production failure modes: transient upstream 503, bot-filter
+# 403, and a plain-text llms.txt scored as "no main content". Plus the
+# guard rails around them: no retries on hard failures, redirects SSRF-
+# checked per hop, charset decoding, size cap, content-type honesty.
+
+LLMS_TXT = (
+    "# Example Docs\n"
+    "\n"
+    "> A short description of the example documentation set.\n"
+    "\n"
+    "## Pages\n"
+    "\n"
+    "- [Intro](https://93.184.216.34/intro): Start here for the overview\n"
+)
+
+
+def _client(handler):
+    import httpx
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+@pytest.fixture(autouse=True)
+def _no_backoff(monkeypatch):
+    monkeypatch.setattr(fetch, "_BACKOFF_S", (0, 0))
+
+
+@pytest.mark.asyncio
+async def test_page_to_markdown_serves_plain_text_llms():
+    import httpx
+
+    def handler(request):
+        return httpx.Response(
+            200, text=LLMS_TXT, headers={"content-type": "text/plain; charset=utf-8"}
+        )
+
+    async with _client(handler) as client:
+        out = await fetch.page_to_markdown(client, "https://93.184.216.34/llms.txt")
+    assert out["title"] == "Example Docs"
+    assert out["markdown"].startswith("# Example Docs")
+    assert "short description of the example documentation" in out["markdown"]
+    assert out["word_count"] > 10
+
+
+@pytest.mark.asyncio
+async def test_page_to_markdown_retries_transient_503():
+    import httpx
+
+    calls = {"n": 0}
+
+    def handler(request):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(503, text="upstream busy")
+        return httpx.Response(
+            200, text=PAGE_HTML, headers={"content-type": "text/html"}
+        )
+
+    async with _client(handler) as client:
+        out = await fetch.page_to_markdown(client, "https://93.184.216.34/story")
+    assert calls["n"] == 2
+    assert "main content of the example page" in out["markdown"]
+
+
+@pytest.mark.asyncio
+async def test_page_to_markdown_persistent_503_fails_after_retries():
+    import httpx
+
+    calls = {"n": 0}
+
+    def handler(request):
+        calls["n"] += 1
+        return httpx.Response(503, text="upstream busy")
+
+    async with _client(handler) as client:
+        with pytest.raises(UpstreamError, match="HTTP 503"):
+            await fetch.page_to_markdown(client, "https://93.184.216.34/story")
+    assert calls["n"] == fetch._FETCH_ATTEMPTS
+
+
+@pytest.mark.asyncio
+async def test_page_to_markdown_403_retries_with_descriptive_ua():
+    import httpx
+
+    seen_uas = []
+
+    def handler(request):
+        ua = request.headers.get("user-agent", "")
+        seen_uas.append(ua)
+        if "StallRow" not in ua:
+            return httpx.Response(403, text="bot filter")
+        return httpx.Response(
+            200, text=PAGE_HTML, headers={"content-type": "text/html"}
+        )
+
+    async with _client(handler) as client:
+        out = await fetch.page_to_markdown(client, "https://93.184.216.34/story")
+    assert len(seen_uas) == 2
+    assert "StallRow" in seen_uas[1]
+    assert "main content of the example page" in out["markdown"]
+
+
+@pytest.mark.asyncio
+async def test_page_to_markdown_hard_404_fails_without_retry():
+    import httpx
+
+    calls = {"n": 0}
+
+    def handler(request):
+        calls["n"] += 1
+        return httpx.Response(404, text="gone")
+
+    async with _client(handler) as client:
+        with pytest.raises(UpstreamError, match="HTTP 404"):
+            await fetch.page_to_markdown(client, "https://93.184.216.34/missing")
+    assert calls["n"] == 1
+
+
+@pytest.mark.asyncio
+async def test_page_to_markdown_redirect_to_loopback_rejected_before_fetch():
+    import httpx
+
+    calls = []
+
+    def handler(request):
+        calls.append(str(request.url))
+        return httpx.Response(
+            302, headers={"location": "http://127.0.0.1:3000/secret"}
+        )
+
+    async with _client(handler) as client:
+        with pytest.raises(ValueError):
+            await fetch.page_to_markdown(client, "https://93.184.216.34/redir")
+    assert len(calls) == 1  # the loopback target was never requested
+
+
+@pytest.mark.asyncio
+async def test_page_to_markdown_follows_public_redirect():
+    import httpx
+
+    def handler(request):
+        if request.url.path == "/old":
+            return httpx.Response(301, headers={"location": "/story"})
+        return httpx.Response(
+            200, text=PAGE_HTML, headers={"content-type": "text/html"}
+        )
+
+    async with _client(handler) as client:
+        out = await fetch.page_to_markdown(client, "https://93.184.216.34/old")
+    assert out["final_url"] == "https://93.184.216.34/story"
+    assert "main content of the example page" in out["markdown"]
+
+
+@pytest.mark.asyncio
+async def test_page_to_markdown_decodes_meta_charset():
+    import httpx
+
+    body = (
+        '<html><head><meta charset="iso-8859-1"><title>Café Über</title></head>'
+        "<body><article><h1>Café Über</h1>"
+        + "<p>Le café est très bon et le résumé est prêt pour les lecteurs.</p>" * 6
+        + "</article></body></html>"
+    ).encode("iso-8859-1")
+
+    def handler(request):
+        return httpx.Response(
+            200, content=body, headers={"content-type": "text/html"}
+        )
+
+    async with _client(handler) as client:
+        out = await fetch.page_to_markdown(client, "https://93.184.216.34/cafe")
+    assert out["title"] == "Café Über"
+    assert "café" in out["markdown"]
+
+
+@pytest.mark.asyncio
+async def test_page_to_markdown_size_cap(monkeypatch):
+    import httpx
+
+    monkeypatch.setattr(fetch, "_MAX_PAGE_BYTES", 1024)
+
+    def handler(request):
+        return httpx.Response(
+            200, text="x" * 4096, headers={"content-type": "text/plain"}
+        )
+
+    async with _client(handler) as client:
+        with pytest.raises(UpstreamError, match="size limit"):
+            await fetch.page_to_markdown(client, "https://93.184.216.34/big")
+
+
+@pytest.mark.asyncio
+async def test_page_to_markdown_html_served_as_text_plain_still_extracts():
+    import httpx
+
+    def handler(request):
+        return httpx.Response(
+            200, text=PAGE_HTML, headers={"content-type": "text/plain"}
+        )
+
+    async with _client(handler) as client:
+        out = await fetch.page_to_markdown(client, "https://93.184.216.34/story")
+    assert out["title"] == "Example Story"
+    assert "main content of the example page" in out["markdown"]
+
+
+@pytest.mark.asyncio
+async def test_page_to_markdown_unsupported_type_is_an_honest_error():
+    import httpx
+
+    def handler(request):
+        return httpx.Response(
+            200,
+            content=b"%PDF-1.4 fake",
+            headers={"content-type": "application/pdf"},
+        )
+
+    async with _client(handler) as client:
+        with pytest.raises(UpstreamError, match="unsupported content type"):
+            await fetch.page_to_markdown(client, "https://93.184.216.34/doc.pdf")
+
+
+@pytest.mark.asyncio
+async def test_page_to_markdown_visible_text_fallback(monkeypatch):
+    import httpx
+    import trafilatura
+
+    monkeypatch.setattr(trafilatura, "extract", lambda *a, **k: None)
+    loose = (
+        "<html><head><title>Loose</title></head><body><div>"
+        + "Loose text sitting directly in a div with no paragraph structure "
+          "at all, just words flowing on for the reader to consume fully. " * 4
+        + "</div></body></html>"
+    )
+
+    def handler(request):
+        return httpx.Response(
+            200, text=loose, headers={"content-type": "text/html"}
+        )
+
+    async with _client(handler) as client:
+        out = await fetch.page_to_markdown(client, "https://93.184.216.34/loose")
+    assert "Loose text sitting directly in a div" in out["markdown"]
+    assert out["word_count"] >= fetch._MIN_FALLBACK_WORDS
+
+
 @pytest.mark.asyncio
 async def test_repo_vitals_happy_path():
     client = mock_client()
