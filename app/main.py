@@ -92,15 +92,40 @@ routes = {
 # --- app ---------------------------------------------------------------------
 app = FastAPI(title="stall-row", version="1.0.0")
 
+# Build the payment middleware ONCE. Constructing it runs the SDK's
+# initialize(), which synchronously fetches the facilitator's /supported
+# document over the network — building it per request (as this module did
+# originally) added a full external round-trip, on the event loop, to
+# EVERY request including /health and the unpaid 402 challenges.
+_payment_middleware = fastapi_payment_middleware(routes, resource_server)
+
 
 @app.middleware("http")
 async def x402_middleware(request: Request, call_next):
-    return await fastapi_payment_middleware(routes, resource_server)(request, call_next)
+    return await _payment_middleware(request, call_next)
 
 
 def _clients() -> tuple[httpx.AsyncClient, Rpc, Blockscout]:
     client = httpx.AsyncClient(timeout=settings.fetch_timeout_s, follow_redirects=True)
     return client, Rpc(client, settings.rpc_url), Blockscout(client, settings.blockscout_base_url)
+
+
+_shared_fetch_client: httpx.AsyncClient | None = None
+
+
+def _fetch_client() -> httpx.AsyncClient:
+    """Process-wide client for the page-to-markdown stall. _clients()
+    builds a fresh AsyncClient per request, discarding the connection
+    pool, so every page fetch paid a new DNS + TCP + TLS handshake to
+    the target host. The shared client reuses connections across
+    requests (and across one fetch's redirect/retry hops). Callers
+    must NOT close it."""
+    global _shared_fetch_client
+    if _shared_fetch_client is None or _shared_fetch_client.is_closed:
+        _shared_fetch_client = httpx.AsyncClient(
+            timeout=settings.fetch_timeout_s, follow_redirects=True
+        )
+    return _shared_fetch_client
 
 
 def _public_base(request: Request) -> str:
@@ -252,9 +277,7 @@ async def tube_search(req: TubeSearchRequest):
 @app.post("/v1/page-to-markdown")
 async def page_to_markdown(req: PageRequest):
     async def go():
-        client, _, _ = _clients()
-        async with client:
-            return await fetch_svc.page_to_markdown(client, req.url.strip())
+        return await fetch_svc.page_to_markdown(_fetch_client(), req.url.strip())
 
     return await _run(go)
 

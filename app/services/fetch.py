@@ -226,7 +226,8 @@ async def _get_following_redirects(
                 if hop == _MAX_REDIRECTS:
                     raise UpstreamError("page redirected too many times")
                 target = urljoin(current, location)
-                ssrf_check(target)  # ValueError → the handler's 422, as before
+                # getaddrinfo is blocking DNS — keep it off the event loop.
+                await asyncio.to_thread(ssrf_check, target)
                 current = target
                 continue
             body = await _read_capped(resp) if resp.status_code == 200 else None
@@ -383,8 +384,29 @@ def _visible_text(html_text: str) -> str:
     return _normalize_text(squashed)
 
 
+def _extract_markdown(text: str) -> str | None:
+    """Main-content extraction. CPU-bound (trafilatura heuristics, with
+    the visible-text fallback), so page_to_markdown runs it via
+    asyncio.to_thread: on the event loop it would stall every other
+    route sharing this process for the length of the crunch."""
+    import trafilatura
+
+    markdown = trafilatura.extract(
+        text, output_format="markdown", include_links=True, include_images=False
+    )
+    if not markdown:
+        # Trafilatura's heuristics reject some real pages (odd structure,
+        # link-dense indexes). Fall back to the page's visible text —
+        # but only when there is enough of it to be a delivery, not
+        # boilerplate dressed up as content.
+        fallback = _visible_text(text)
+        if len(fallback.split()) >= _MIN_FALLBACK_WORDS:
+            markdown = fallback
+    return markdown
+
+
 async def page_to_markdown(client: httpx.AsyncClient, url: str) -> dict:
-    ssrf_check(url)
+    await asyncio.to_thread(ssrf_check, url)  # blocking DNS — off the loop
     final_url, headers, body = await _fetch_page(client, url)
     text = _decode_body(body, headers)
     ctype = headers.get("content-type", "").split(";")[0].strip().lower()
@@ -409,19 +431,7 @@ async def page_to_markdown(client: httpx.AsyncClient, url: str) -> dict:
     ):
         raise UpstreamError(f"unsupported content type: {ctype}")
 
-    import trafilatura
-
-    markdown = trafilatura.extract(
-        text, output_format="markdown", include_links=True, include_images=False
-    )
-    if not markdown:
-        # Trafilatura's heuristics reject some real pages (odd structure,
-        # link-dense indexes). Fall back to the page's visible text —
-        # but only when there is enough of it to be a delivery, not
-        # boilerplate dressed up as content.
-        fallback = _visible_text(text)
-        if len(fallback.split()) >= _MIN_FALLBACK_WORDS:
-            markdown = fallback
+    markdown = await asyncio.to_thread(_extract_markdown, text)
     if not markdown:
         raise UpstreamError("no main content could be extracted from the page")
     title = None
