@@ -1,4 +1,4 @@
-"""Settings for the stall-row x402 service (one deployment, 11 paid routes)."""
+"""Settings for the stall-row x402 service (one deployment, 12 paid routes)."""
 
 from __future__ import annotations
 
@@ -51,6 +51,7 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/price-check": 50_000,        # $0.05
     "/v1/card-smith": 100_000,         # $0.10
     "/v1/job-scout": 50_000,           # $0.05
+    "/v1/recheck": 5_000,              # $0.005
 }
 
 
@@ -77,6 +78,9 @@ class Settings:
     # X402_FACILITATOR_URL points at CDP — see use_cdp below.
     cdp_api_key_id: str | None = None
     cdp_api_key_secret: str | None = None
+    # Recheck watch state (sqlite). Per-deployment by design: the file
+    # lives on the service's disk, so a redeploy re-baselines watches.
+    recheck_db_path: str = "recheck.db"
 
     @property
     def use_cdp(self) -> bool:
@@ -128,6 +132,7 @@ def load_settings() -> Settings:
         ).strip(),
         fetch_timeout_s=float(os.environ.get("STALLROW_FETCH_TIMEOUT_S", "15")),
         github_token=(os.environ.get("GITHUB_TOKEN", "").strip() or None),
+        recheck_db_path=os.environ.get("STALLROW_RECHECK_DB", "recheck.db").strip(),
         prices=prices,
         **{k.lower(): v for k, v in cdp.items() if v is not None},
     )

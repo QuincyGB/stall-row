@@ -572,6 +572,67 @@ ROUTES: dict[str, dict] = {
             "note": "Snapshot data from our own platform sweeps.",
         },
     },
+    "/v1/recheck": {
+        "description": (
+            "Change detection for anything with a URL, built for monitoring "
+            "loops: probe one x402 resource or web page WITHOUT paying it "
+            "and answer BASELINE, UNCHANGED, or CHANGED with a field-by-field "
+            "diff (price, asset, payTo, schema, page body) against the last "
+            "check for that watch. Use this when an agent runs on a schedule "
+            "and needs to know what changed before spending money or "
+            "attention. Watch state is per-deployment; a redeploy re-baselines."
+        ),
+        "tags": ["monitoring", "x402", "change-detection", "diff", "agents"],
+        "input_schema": _obj({"url": _S, "watch_id": _S}, ["url"]),
+        "input_example": {
+            "url": "https://token-verdict-production.up.railway.app/v1/verdict",
+            "watch_id": "token-verdict-main",
+        },
+        "output_schema": _obj(
+            {
+                "watch_id": _S,
+                "url": _S,
+                "kind": {"type": "string", "enum": ["x402", "web"]},
+                "status": {
+                    "type": "string",
+                    "enum": ["BASELINE", "UNCHANGED", "CHANGED"],
+                },
+                "changes": {
+                    "type": "array",
+                    "items": _obj(
+                        {
+                            "field": _S,
+                            "before": {"type": ["string", "integer", "null"]},
+                            "after": {"type": ["string", "integer", "null"]},
+                        },
+                        ["field", "before", "after"],
+                    ),
+                },
+                "current": {"type": "object"},
+                "checked_at": _S,
+                "summary": _S,
+            },
+            ["watch_id", "url", "kind", "status", "changes", "current", "checked_at", "summary"],
+        ),
+        "output_example": {
+            "watch_id": "token-verdict-main",
+            "url": "https://token-verdict-production.up.railway.app/v1/verdict",
+            "kind": "x402",
+            "status": "CHANGED",
+            "changes": [{"field": "amount", "before": "20000", "after": "25000"}],
+            "current": {
+                "status_code": 402,
+                "amount": "25000",
+                "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+                "network": "eip155:8453",
+                "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+                "description_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "schema_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            },
+            "checked_at": "2026-10-24T16:00:00Z",
+            "summary": "Changed since the previous check: amount.",
+        },
+    },
 }
 
 for _path, _r in ROUTES.items():
@@ -675,12 +736,13 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
         "x402Version": 2,
         "service": settings.service_name,
         "description": (
-            "A row of eleven small x402 stalls in one service: Base chain "
+            "A row of twelve small x402 stalls in one service: Base chain "
             "reads (wallet snapshot, allowance audit, transaction decoder, "
             "gas oracle), a wallet trust verdict, fetch tools (YouTube "
             "search, page-to-Markdown, GitHub repo vitals), seller tools "
-            "(Bazaar price-check, agent-card smith), and a digest of open "
-            "agent jobs. Use this when an agent needs one cheap, honest "
+            "(Bazaar price-check, agent-card smith), a digest of open "
+            "agent jobs, and scheduled change detection for x402 "
+            "resources and web pages. Use this when an agent needs one cheap, honest "
             "fact mid-task and cannot run the source itself."
         ),
         "network": settings.network,
@@ -693,7 +755,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
     lines = [
         f"# {settings.service_name} — a row of x402 micro-services",
         "",
-        "Eleven paid endpoints in one deployment. No API key; payment is "
+        "Twelve paid endpoints in one deployment. No API key; payment is "
         "the authentication (x402 v2, exact scheme, USDC on Base). Every "
         "route states its data sources and marks fields it cannot supply "
         "as unknown — nothing is fabricated, and an upstream failure "
@@ -723,7 +785,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
     lines = [
         f"# {settings.service_name}",
         "",
-        f"A row of 11 paid x402 micro-services. Network {settings.network}, x402 v2.",
+        f"A row of 12 paid x402 micro-services. Network {settings.network}, x402 v2.",
         "",
         "## Endpoints",
         "",

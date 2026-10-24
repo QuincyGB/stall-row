@@ -1,10 +1,10 @@
-"""StallRow — one x402 service hosting a row of 11 paid micro-services.
+"""StallRow — one x402 service hosting a row of 12 paid micro-services.
 
 Owner's portfolio strategy (2026-10-21): many real stalls, expect one
 or two to hit. One deployment, one facilitator configuration, every
 route independently priced, listed, and settled.
 
-Paid:   11 POST /v1/* routes (see app/discovery.py ROUTES)
+Paid:   12 POST /v1/* routes (see app/discovery.py ROUTES)
 Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt
 
 Failure honesty: when an upstream cannot supply the data, handlers
@@ -42,6 +42,7 @@ from .discovery import ROUTES, llms_txt, route_extension, skill_md, x402_manifes
 from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import fetch as fetch_svc
 from .services import reads as reads_svc
+from .services import recheck as recheck_svc
 from .services import scout as scout_svc
 from .services import seller as seller_svc
 from .services import verdict as verdict_svc
@@ -200,6 +201,14 @@ class JobScoutRequest(BaseModel):
     limit: int | None = Field(default=None, ge=1, le=100)
 
 
+class RecheckRequest(BaseModel):
+    url: str = Field(description="Public http(s) URL to watch: an x402 resource or a web page")
+    watch_id: str | None = Field(
+        default=None,
+        description="Optional watch identifier; defaults to a hash of the URL",
+    )
+
+
 # --- paid routes ---------------------------------------------------------------
 
 @app.post("/v1/wallet-snapshot")
@@ -324,6 +333,23 @@ async def job_scout(req: JobScoutRequest | None = None):
     return await _run(go)
 
 
+# Recheck watch state: one sqlite file on this deployment's disk.
+# Per-deployment by design — a redeploy wipes it and every watch
+# re-baselines (BASELINE) on its next call. Stated in the route's
+# own description rather than hidden.
+_recheck_store = recheck_svc.WatchStore(settings.recheck_db_path)
+
+
+@app.post("/v1/recheck")
+async def recheck(req: RecheckRequest):
+    async def go():
+        return await recheck_svc.recheck(
+            _fetch_client(), _recheck_store, req.url, req.watch_id
+        )
+
+    return await _run(go)
+
+
 # --- free routes -----------------------------------------------------------------
 
 LANDING_HTML = """<!DOCTYPE html>
@@ -342,9 +368,9 @@ LANDING_HTML = """<!DOCTYPE html>
 </head>
 <body>
 <h1>StallRow</h1>
-<p>Eleven small x402 stalls under one roof: Base chain reads, a wallet
-trust verdict, fetch tools, seller tools, and a digest of open agent
-jobs. Every stall names its data sources and marks what it cannot
+<p>Twelve small x402 stalls under one roof: Base chain reads, a wallet
+trust verdict, fetch tools, seller tools, a digest of open agent
+jobs, and scheduled change detection for x402 resources and web pages. Every stall names its data sources and marks what it cannot
 supply as <em>unknown</em> — nothing is fabricated, and if an upstream
 fails the call returns 502 and the payment does not settle.
 No accounts, no API keys: payment is the authentication.</p>

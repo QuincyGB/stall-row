@@ -1,6 +1,6 @@
 # StallRow — a row of x402 micro-services in one deployment
 
-Eleven small paid endpoints under one roof, one facilitator
+Twelve small paid endpoints under one roof, one facilitator
 configuration, one Railway service. The strategy is a portfolio: many
 real stalls, each independently priced, listed, and settled, expecting
 one or two to hit — instead of betting the season on a single route.
@@ -25,6 +25,7 @@ authentication** (x402 v2, exact scheme, USDC on Base).
 | `POST /v1/price-check` | $0.05 | Live CDP Bazaar comps + a recommended listing price |
 | `POST /v1/card-smith` | $0.10 | Generate/grade `agent-card.json` for A2A/AgentWorld registries |
 | `POST /v1/job-scout` | $0.05 | Digest of open agent jobs from our own marketplace sweeps |
+| `POST /v1/recheck` | $0.005 | Scheduled change detection: BASELINE / UNCHANGED / CHANGED diff for one x402 resource or web page, probed unpaid |
 
 Free: `GET /`, `/health`, `/quote`, `/.well-known/x402`, `/skill.md`,
 `/llms.txt`.
@@ -77,13 +78,20 @@ retrying usually fills them in.
 - **JobScout** serves `data/jobs.json`, seeded from our own Synmerco
   sweep and refreshed by `scripts/refresh_jobscout.py` (below).
   Responses carry the snapshot time and a `data_stale` flag past 24h.
+- **Recheck state** lives in a sqlite file (`STALLROW_RECHECK_DB`,
+  default `recheck.db`): one row per watch (watch_id + URL) holding
+  the last good fingerprint. It is **per-deployment** — the file sits
+  on the service's disk, so a redeploy wipes it and every watch
+  answers `BASELINE` again on its next call. Failed probes never
+  overwrite a stored fingerprint, so a target's outage does not
+  re-baseline or fabricate a change.
 
 ## Run it
 
 ```bash
 pip install -r requirements.txt
 python -m app.main            # or: uvicorn app.main:app --port 3000
-pytest                        # 105 tests, fully offline (MockTransport)
+pytest                        # 134 tests, fully offline (MockTransport)
 ```
 
 Key env vars: `X402_FACILITATOR_URL` (keyless ultravioletadao default;
@@ -91,7 +99,8 @@ Key env vars: `X402_FACILITATOR_URL` (keyless ultravioletadao default;
 plus `CDP_API_KEY_ID`/`CDP_API_KEY_SECRET` for the CDP Bazaar — see
 `app/config.py`), `X402_PAY_TO`, `BASE_RPC_URL`, `BLOCKSCOUT_BASE_URL`,
 `GITHUB_TOKEN` (optional, raises repo-vitals rate limits),
-`STALLROW_FETCH_TIMEOUT_S`, per-route `X402_PRICE_<ROUTE>` overrides.
+`STALLROW_FETCH_TIMEOUT_S`, `STALLROW_RECHECK_DB` (recheck watch
+state file), per-route `X402_PRICE_<ROUTE>` overrides.
 
 ## JobScout refresh
 
@@ -117,3 +126,12 @@ PayAI index: 5000+5000+2000+1000+20000+10000+10000+5000+50000+100000
 +50000 = **258,000 units = $0.258 total**. Repeat under the CDP env
 (once CDP keys exist) for the CDP Bazaar, and re-settle at least every
 ~30 days per index or listings age out.
+
+**Recheck status (2026-10-24):** `/v1/recheck` is live in production
+but **not yet cataloged in either index** — no seed call has been
+made for it, by the owner's choice. Cataloging it later costs one
+$0.005 settled call per index ($0.005 via the CDP facilitator for the
+CDP Bazaar; for PayAI, StallRow's facilitator must first be flipped
+to PayAI for that one call and flipped back, as was done for
+allowance-audit). Until then the route sells nothing and appears in
+no catalog — it is reachable only by direct URL.
