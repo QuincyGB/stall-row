@@ -32,8 +32,10 @@ import asyncio
 import base64
 import hashlib
 import json
+import secrets
 import sqlite3
 import threading
+import time
 from datetime import datetime, timezone
 from urllib.parse import urljoin
 
@@ -54,6 +56,62 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace(
         "+00:00", "Z"
     )
+
+
+def _iso_of(epoch_seconds: float) -> str:
+    return (
+        datetime.fromtimestamp(epoch_seconds, tz=timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )
+
+
+# --- watch packs ---------------------------------------------------------------
+#
+# A pack is the prepaid shape of this stall: one $1.00 payment buys
+# PACK_CREDITS change-checks against ONE endpoint URL, presented by
+# pack id instead of a per-call payment. Packs live in the SAME sqlite
+# store as the watch baselines (WatchStore below) — no parallel state.
+# A pack expires PACK_TTL_DAYS after purchase; expiry is stated in the
+# buy response and the listing copy, and an expired pack refuses
+# plainly rather than silently falling back to a per-call charge.
+
+PACK_CREDITS = 250
+PACK_PRICE_UNITS = 1_000_000  # $1.00 — mirrors config.PRICE_UNITS
+PACK_TTL_DAYS = 90
+_PACK_ID_PREFIX = "pack_"
+
+
+def new_pack_id() -> str:
+    """128 bits of CSPRNG entropy, hex-encoded behind a readable
+    prefix. The id is the only credential — it is never derived from
+    the endpoint, the buyer, or the payment."""
+    return _PACK_ID_PREFIX + secrets.token_hex(16)
+
+
+class PackError(Exception):
+    """A pack spend/balance refusal. `code` is machine-stable; the
+    handler maps it to `http_status`. Nothing is charged or
+    decremented on any PackError path."""
+
+    def __init__(self, code: str, message: str, http_status: int):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.http_status = http_status
+
+
+def _pack_view(row: dict, now_epoch: float | None = None) -> dict:
+    now = time.time() if now_epoch is None else now_epoch
+    return {
+        "pack_id": row["pack_id"],
+        "url": row["url"],
+        "credits_total": row["credits_total"],
+        "credits_remaining": row["credits_remaining"],
+        "created_at": _iso_of(row["created_epoch"]),
+        "expires_at": _iso_of(row["expires_epoch"]),
+        "expired": now >= row["expires_epoch"],
+    }
 
 
 def default_watch_id(url: str) -> str:
@@ -87,6 +145,19 @@ class WatchStore:
                 )
                 """
             )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS recheck_packs (
+                    pack_id TEXT PRIMARY KEY,
+                    url TEXT NOT NULL,
+                    credits_total INTEGER NOT NULL,
+                    credits_remaining INTEGER NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    expires_epoch REAL NOT NULL,
+                    payment_key TEXT NOT NULL UNIQUE
+                )
+                """
+            )
             self._conn.commit()
 
     def get(self, key: str) -> dict | None:
@@ -117,6 +188,150 @@ class WatchStore:
         with self._lock:
             row = self._conn.execute("SELECT COUNT(*) FROM watches").fetchone()
         return int(row[0]) if row else 0
+
+    # --- watch packs ---------------------------------------------------
+    # Every pack mutation runs under the same lock as the watch state
+    # and commits before returning, so a spend is atomic in-process:
+    # two concurrent spends can never both take the last credit.
+
+    _PACK_COLS = (
+        "pack_id, url, credits_total, credits_remaining, "
+        "created_epoch, expires_epoch, payment_key"
+    )
+
+    def _pack_row(self, where: str, params: tuple) -> dict | None:
+        row = self._conn.execute(
+            f"SELECT {self._PACK_COLS} FROM recheck_packs WHERE {where}", params
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "pack_id": row[0],
+            "url": row[1],
+            "credits_total": row[2],
+            "credits_remaining": row[3],
+            "created_epoch": row[4],
+            "expires_epoch": row[5],
+            "payment_key": row[6],
+        }
+
+    def mint_pack(
+        self,
+        payment_key: str,
+        url: str,
+        credits_total: int = PACK_CREDITS,
+        ttl_days: int = PACK_TTL_DAYS,
+        now_epoch: float | None = None,
+    ) -> tuple[dict, bool]:
+        """Create a pack for one settled payment. Idempotent on
+        payment_key: a re-presented payment returns the pack it
+        already minted (created=False) instead of minting a second.
+        Returns (pack_view, created)."""
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            for _attempt in range(3):
+                pack_id = new_pack_id()
+                cur = self._conn.execute(
+                    "INSERT OR IGNORE INTO recheck_packs "
+                    "(pack_id, url, credits_total, credits_remaining, "
+                    "created_epoch, expires_epoch, payment_key) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        pack_id,
+                        url,
+                        credits_total,
+                        credits_total,
+                        now,
+                        now + ttl_days * 86_400,
+                        payment_key,
+                    ),
+                )
+                self._conn.commit()
+                if cur.rowcount == 1:
+                    row = self._pack_row("pack_id = ?", (pack_id,))
+                    assert row is not None
+                    return _pack_view(row, now), True
+                existing = self._pack_row("payment_key = ?", (payment_key,))
+                if existing is not None:
+                    return _pack_view(existing, now), False
+                # Neither inserted nor found by payment key: the ignore
+                # was a pack_id collision (astronomically unlikely) —
+                # loop and mint a fresh id.
+            raise RuntimeError("could not mint a unique pack id")
+
+    def get_pack(self, pack_id: str) -> dict | None:
+        with self._lock:
+            row = self._pack_row("pack_id = ?", (pack_id,))
+        return _pack_view(row) if row is not None else None
+
+    def pack_count(self) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM recheck_packs"
+            ).fetchone()
+        return int(row[0]) if row else 0
+
+    def reserve_credit(
+        self, pack_id: str, url: str, now_epoch: float | None = None
+    ) -> dict:
+        """Atomically take one credit for a check about to run.
+        Validation and decrement happen in one locked step, so the
+        refusal reasons are exact and concurrent spends cannot
+        overdraw. Raises PackError (unknown / wrong endpoint /
+        expired / exhausted) without decrementing anything."""
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            row = self._pack_row("pack_id = ?", (pack_id,))
+            if row is None:
+                raise PackError(
+                    "unknown_pack", "unknown pack_id", 404
+                )
+            if row["url"] != url:
+                raise PackError(
+                    "wrong_endpoint",
+                    "this pack is bound to a different endpoint URL",
+                    403,
+                )
+            if now >= row["expires_epoch"]:
+                raise PackError(
+                    "pack_expired",
+                    "this pack has expired; buy a new pack or pay per call",
+                    410,
+                )
+            if row["credits_remaining"] <= 0:
+                raise PackError(
+                    "pack_exhausted",
+                    "this pack has no credits left; buy a new pack or pay per call",
+                    402,
+                )
+            cur = self._conn.execute(
+                "UPDATE recheck_packs SET credits_remaining = "
+                "credits_remaining - 1 WHERE pack_id = ? AND "
+                "credits_remaining > 0",
+                (pack_id,),
+            )
+            self._conn.commit()
+            if cur.rowcount != 1:  # pragma: no cover — lock makes this unreachable
+                raise PackError(
+                    "pack_exhausted",
+                    "this pack has no credits left; buy a new pack or pay per call",
+                    402,
+                )
+            row = self._pack_row("pack_id = ?", (pack_id,))
+            assert row is not None
+            return _pack_view(row, now)
+
+    def refund_credit(self, pack_id: str) -> None:
+        """Return a reserved credit after OUR side failed to deliver
+        the check (fleet rule: never charge for our failure). Capped
+        at credits_total so a stray refund cannot inflate a pack."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE recheck_packs SET credits_remaining = "
+                "MIN(credits_remaining + 1, credits_total) WHERE pack_id = ?",
+                (pack_id,),
+            )
+            self._conn.commit()
 
 
 # --- probing -------------------------------------------------------------------
@@ -324,3 +539,31 @@ async def recheck(
         "checked_at": checked_at,
         "summary": "No material change since the previous check.",
     }
+
+
+async def recheck_with_pack(
+    client: httpx.AsyncClient,
+    store: WatchStore,
+    url: str,
+    watch_id: str | None,
+    pack_id: str,
+) -> dict:
+    """One change-check paid from a pack instead of per-call.
+
+    Reserve-then-run: the credit is taken atomically BEFORE the probe
+    (so concurrent spends cannot overdraw and refusals are exact), and
+    refunded if the check itself fails — a ValueError refusal or an
+    UpstreamError 502 is OUR side not delivering, and the fleet rule
+    is never to charge for that. A completed check — including one
+    that reports UNCHANGED — has delivered and keeps the credit."""
+    url = url.strip()
+    reserved = store.reserve_credit(pack_id, url)
+    try:
+        result = await recheck(client, store, url, watch_id)
+    except Exception:
+        store.refund_credit(pack_id)
+        raise
+    result["pack_id"] = pack_id
+    result["pack_credits_remaining"] = reserved["credits_remaining"]
+    result["pack_expires_at"] = reserved["expires_at"]
+    return result

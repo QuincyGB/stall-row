@@ -580,10 +580,11 @@ ROUTES: dict[str, dict] = {
             "diff (price, asset, payTo, schema, page body) against the last "
             "check for that watch. Use this when an agent runs on a schedule "
             "and needs to know what changed before spending money or "
-            "attention. Watch state is per-deployment; a redeploy re-baselines."
+            "attention. Watch state is per-deployment; a redeploy re-baselines. "
+            "Packs: $1 for 250 checks on one endpoint."
         ),
         "tags": ["monitoring", "x402", "change-detection", "diff", "agents"],
-        "input_schema": _obj({"url": _S, "watch_id": _S}, ["url"]),
+        "input_schema": _obj({"url": _S, "watch_id": _S, "pack_id": _S}, ["url"]),
         "input_example": {
             "url": "https://token-verdict-production.up.railway.app/v1/verdict",
             "watch_id": "token-verdict-main",
@@ -631,6 +632,54 @@ ROUTES: dict[str, dict] = {
             },
             "checked_at": "2026-10-24T16:00:00Z",
             "summary": "Changed since the previous check: amount.",
+        },
+    },
+    "/v1/recheck/pack": {
+        "description": (
+            "Prepaid Recheck watch pack: one $1.00 payment buys 250 "
+            "change-checks against ONE endpoint URL ($0.004 per check "
+            "instead of $0.005), good for 90 days. Returns an "
+            "unguessable pack id — spend credits by sending it with "
+            "POST /v1/recheck (body pack_id or X-Recheck-Pack header), "
+            "and read the balance free at POST /v1/recheck/pack-balance. "
+            "Use this when a monitoring loop checks the same endpoint "
+            "on a schedule and wants one payment instead of hundreds."
+        ),
+        "tags": ["monitoring", "x402", "change-detection", "prepaid", "agents"],
+        "input_schema": _obj({"url": _S}, ["url"]),
+        "input_example": {
+            "url": "https://token-verdict-production.up.railway.app/v1/verdict",
+        },
+        # Generated from a real local run of the buy handler (payment
+        # identity stubbed with a fixed authorization nonce, the way
+        # tests/test_recheck_pack.py drives it) — pinned ≤1,450 bytes
+        # serialized by test_discovery.py (Settled sample-size cap).
+        "output_schema": _obj(
+            {
+                "pack_id": _S,
+                "url": _S,
+                "credits_total": _I,
+                "credits_remaining": _I,
+                "created_at": _S,
+                "expires_at": _S,
+                "expired": _B,
+                "expiry_days": _I,
+                "price_units": _I,
+                "note": _S,
+            },
+            ["pack_id", "url", "credits_total", "credits_remaining", "expires_at"],
+        ),
+        "output_example": {
+            "pack_id": "pack_9c73fa7ea40a6411b6517bd8cb3465a6",
+            "url": "https://token-verdict-production.up.railway.app/v1/verdict",
+            "credits_total": 250,
+            "credits_remaining": 250,
+            "created_at": "2026-10-25T05:36:48Z",
+            "expires_at": "2027-01-23T05:36:48Z",
+            "expired": False,
+            "expiry_days": 90,
+            "price_units": 1000000,
+            "note": "Spend credits with POST /v1/recheck: send this pack_id in the body or the X-Recheck-Pack header. Read the balance free at POST /v1/recheck/pack-balance.",
         },
     },
 }
@@ -736,13 +785,13 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
         "x402Version": 2,
         "service": settings.service_name,
         "description": (
-            "A row of twelve small x402 stalls in one service: Base chain "
+            "A row of small x402 stalls in one service: Base chain "
             "reads (wallet snapshot, allowance audit, transaction decoder, "
             "gas oracle), a wallet trust verdict, fetch tools (YouTube "
             "search, page-to-Markdown, GitHub repo vitals), seller tools "
             "(Bazaar price-check, agent-card smith), a digest of open "
             "agent jobs, and scheduled change detection for x402 "
-            "resources and web pages. Use this when an agent needs one cheap, honest "
+            "resources and web pages, with prepaid check packs. Use this when an agent needs one cheap, honest "
             "fact mid-task and cannot run the source itself."
         ),
         "network": settings.network,
@@ -755,11 +804,18 @@ def skill_md(settings: Settings, base_url: str) -> str:
     lines = [
         f"# {settings.service_name} — a row of x402 micro-services",
         "",
-        "Twelve paid endpoints in one deployment. No API key; payment is "
+        f"{len(ROUTES)} paid endpoints in one deployment. No API key; payment is "
         "the authentication (x402 v2, exact scheme, USDC on Base). Every "
         "route states its data sources and marks fields it cannot supply "
         "as unknown — nothing is fabricated, and an upstream failure "
         "returns 502 so the payment does not settle.",
+        "",
+        "Recheck packs: buy POST /v1/recheck/pack once ($1.00 = 250 "
+        "checks on one endpoint URL, 90-day expiry), then call POST "
+        "/v1/recheck with the pack id in the body (pack_id) or the "
+        "X-Recheck-Pack header to spend credits instead of paying per "
+        "call. Check a pack's balance free at POST "
+        "/v1/recheck/pack-balance.",
         "",
         "## Paid endpoints",
         "",
@@ -777,6 +833,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `GET {base_url}/quote` — every route's price, network, payTo",
         f"- `GET {base_url}/health` — liveness",
         f"- `GET {base_url}/.well-known/x402` — machine-readable manifest",
+        f"- `POST {base_url}/v1/recheck/pack-balance` — a pack's credits + expiry (pack id required)",
     ]
     return "\n".join(lines) + "\n"
 
@@ -785,7 +842,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
     lines = [
         f"# {settings.service_name}",
         "",
-        f"A row of 12 paid x402 micro-services. Network {settings.network}, x402 v2.",
+        f"A row of {len(ROUTES)} paid x402 micro-services. Network {settings.network}, x402 v2.",
         "",
         "## Endpoints",
         "",
@@ -796,5 +853,6 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/quote — free price quote",
         f"- GET {base_url}/health — free liveness check",
         f"- GET {base_url}/.well-known/x402 — manifest",
+        f"- POST {base_url}/v1/recheck/pack-balance — free pack balance (pack id required)",
     ]
     return "\n".join(lines) + "\n"

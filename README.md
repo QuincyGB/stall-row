@@ -1,6 +1,6 @@
 # StallRow — a row of x402 micro-services in one deployment
 
-Twelve small paid endpoints under one roof, one facilitator
+Thirteen small paid endpoints under one roof, one facilitator
 configuration, one Railway service. The strategy is a portfolio: many
 real stalls, each independently priced, listed, and settled, expecting
 one or two to hit — instead of betting the season on a single route.
@@ -26,9 +26,17 @@ authentication** (x402 v2, exact scheme, USDC on Base).
 | `POST /v1/card-smith` | $0.10 | Generate/grade `agent-card.json` for A2A/AgentWorld registries |
 | `POST /v1/job-scout` | $0.05 | Digest of open agent jobs from our own marketplace sweeps |
 | `POST /v1/recheck` | $0.005 | Scheduled change detection: BASELINE / UNCHANGED / CHANGED diff for one x402 resource or web page, probed unpaid |
+| `POST /v1/recheck/pack` | $1.00 | Prepaid recheck pack: 250 change-checks on ONE endpoint URL, 90-day expiry — spend via `pack_id` on `/v1/recheck` ($0.004/check) |
 
 Free: `GET /`, `/health`, `/quote`, `/.well-known/x402`, `/skill.md`,
-`/llms.txt`.
+`/llms.txt`, and `POST /v1/recheck/pack-balance` (credits + expiry for
+a pack id; spends nothing). Pack semantics: minting is idempotent on
+the payment's EIP-3009 authorization nonce, so a re-presented payment
+returns the pack it already bought; a credit is reserved atomically
+before each check and refunded when the check itself fails (our
+failure never consumes one); unknown pack → 404, wrong endpoint →
+403, expired → 410, exhausted → 402, and no path silently falls back
+to a per-call charge.
 
 ## Failure honesty (the house rule)
 
@@ -80,8 +88,9 @@ retrying usually fills them in.
   Responses carry the snapshot time and a `data_stale` flag past 24h.
 - **Recheck state** lives in a sqlite file (`STALLROW_RECHECK_DB`,
   default `recheck.db`): one row per watch (watch_id + URL) holding
-  the last good fingerprint. It is **per-deployment** — the file sits
-  on the service's disk, so a redeploy wipes it and every watch
+  the last good fingerprint, plus one row per watch pack in the same
+  store. It is **per-deployment** — the file sits
+  on the service's disk, so a redeploy wipes it (packs included) and every watch
   answers `BASELINE` again on its next call. Failed probes never
   overwrite a stored fingerprint, so a target's outage does not
   re-baseline or fabricate a change.
@@ -91,7 +100,7 @@ retrying usually fills them in.
 ```bash
 pip install -r requirements.txt
 python -m app.main            # or: uvicorn app.main:app --port 3000
-pytest                        # 134 tests, fully offline (MockTransport)
+pytest                        # 158 tests, fully offline (MockTransport)
 ```
 
 Key env vars: `X402_FACILITATOR_URL` (keyless ultravioletadao default;

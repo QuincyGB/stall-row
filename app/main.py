@@ -4,8 +4,15 @@ Owner's portfolio strategy (2026-10-21): many real stalls, expect one
 or two to hit. One deployment, one facilitator configuration, every
 route independently priced, listed, and settled.
 
-Paid:   12 POST /v1/* routes (see app/discovery.py ROUTES)
+Paid:   13 POST /v1/* routes (see app/discovery.py ROUTES)
 Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt
+        POST /v1/recheck/pack-balance (pack id is the credential)
+
+Recheck packs: POST /v1/recheck presenting a pack id (body field
+`pack_id` or X-Recheck-Pack header) spends a prepaid credit instead
+of paying per call, so the middleware below lets such requests
+through to the handler, which validates the pack against the store
+before any check runs — an invalid pack delivers nothing.
 
 Failure honesty: when an upstream cannot supply the data, handlers
 raise UpstreamError / return 502 — and the x402 middleware does NOT
@@ -28,6 +35,10 @@ for _var in ("no_proxy", "NO_PROXY"):
         os.environ[_var] = ",".join(_kept)
 
 import httpx
+import asyncio
+import hashlib
+import json
+
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
@@ -100,10 +111,75 @@ app = FastAPI(title="stall-row", version="1.0.0")
 # EVERY request including /health and the unpaid 402 challenges.
 _payment_middleware = fastapi_payment_middleware(routes, resource_server)
 
+PACK_HEADER = "x-recheck-pack"
+
+
+async def _request_pack_id(request: Request) -> str:
+    """The pack id a recheck call presents, if any: the X-Recheck-Pack
+    header, or the body's pack_id field. Reading the body here is
+    safe — Starlette's HTTP middleware replays it to the handler."""
+    header = request.headers.get(PACK_HEADER)
+    if header and header.strip():
+        return header.strip()
+    try:
+        body = await request.body()
+        if body:
+            data = json.loads(body)
+            if isinstance(data, dict):
+                pack_id = data.get("pack_id")
+                if isinstance(pack_id, str) and pack_id.strip():
+                    return pack_id.strip()
+    except Exception:  # noqa: BLE001 — an unreadable body is just "no pack"
+        pass
+    return ""
+
 
 @app.middleware("http")
 async def x402_middleware(request: Request, call_next):
+    # A recheck call presenting a pack id is paid from the pack, not
+    # per call: skip the paywall and let the handler validate the
+    # pack against the store (unknown/wrong/expired/exhausted packs
+    # are refused there and deliver nothing).
+    if request.method == "POST" and request.url.path == "/v1/recheck":
+        if await _request_pack_id(request):
+            return await call_next(request)
     return await _payment_middleware(request, call_next)
+
+
+def _payment_key(request: Request) -> str | None:
+    """The replay identity of the verified payment behind this
+    request, for idempotent pack minting.
+
+    The middleware stashes the verified payment payload on
+    request.state. For the EVM exact scheme that payload carries the
+    EIP-3009 transfer authorization, whose nonce is single-use
+    on-chain — the strongest identity available to the handler (the
+    settlement tx hash only exists AFTER the handler returns, when
+    the middleware settles). Fallbacks: a hash of the raw payment
+    header (equally unique per signed authorization). None when no
+    payment identity is reachable at all."""
+
+    def dig(obj, *names):
+        for name in names:
+            if obj is None:
+                return None
+            obj = obj.get(name) if isinstance(obj, dict) else getattr(obj, name, None)
+        return obj
+
+    payload = getattr(request.state, "payment_payload", None)
+    nonce = dig(payload, "payload", "authorization", "nonce")
+    if isinstance(nonce, str) and nonce:
+        return f"evm3009-nonce:{nonce}"
+    payer = dig(payload, "payload", "authorization", "from")
+    if isinstance(payer, str) and payer:
+        signature = dig(payload, "payload", "signature")
+        if isinstance(signature, str) and signature:
+            return "evm3009-sig:" + hashlib.sha256(signature.encode()).hexdigest()
+    for header in ("payment-signature", "x-payment"):
+        raw = request.headers.get(header)
+        if raw:
+            return "payment-header:" + hashlib.sha256(raw.encode()).hexdigest()
+    return None
 
 
 def _clients() -> tuple[httpx.AsyncClient, Rpc, Blockscout]:
@@ -206,6 +282,25 @@ class RecheckRequest(BaseModel):
     watch_id: str | None = Field(
         default=None,
         description="Optional watch identifier; defaults to a hash of the URL",
+    )
+    pack_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional recheck pack id (or send the X-Recheck-Pack header): "
+            "spends one pack credit instead of the per-call payment"
+        ),
+    )
+
+
+class RecheckPackBuyRequest(BaseModel):
+    url: str = Field(description="The ONE endpoint URL this pack's credits may check")
+
+
+class RecheckPackBalanceRequest(BaseModel):
+    pack_id: str = Field(description="Pack id returned by POST /v1/recheck/pack")
+    url: str | None = Field(
+        default=None,
+        description="Optional: when given, the pack must be bound to this endpoint",
     )
 
 
@@ -341,13 +436,76 @@ _recheck_store = recheck_svc.WatchStore(settings.recheck_db_path)
 
 
 @app.post("/v1/recheck")
-async def recheck(req: RecheckRequest):
+async def recheck(req: RecheckRequest, request: Request):
+    pack_id = (req.pack_id or request.headers.get(PACK_HEADER) or "").strip()
+    if pack_id:
+        try:
+            return await recheck_svc.recheck_with_pack(
+                _fetch_client(), _recheck_store, req.url, req.watch_id, pack_id
+            )
+        except recheck_svc.PackError as e:
+            return JSONResponse(
+                {"error": e.message, "code": e.code, "pack_id": pack_id},
+                status_code=e.http_status,
+            )
+        except ValueError as e:
+            return JSONResponse({"error": str(e)}, status_code=422)
+        except UpstreamError as e:
+            return JSONResponse({"error": str(e)}, status_code=502)
+        except Exception:  # noqa: BLE001 — mirror _run's honesty contract
+            log.exception("pack recheck failed")
+            return JSONResponse({"error": "internal failure"}, status_code=502)
+
     async def go():
         return await recheck_svc.recheck(
             _fetch_client(), _recheck_store, req.url, req.watch_id
         )
 
     return await _run(go)
+
+
+@app.post("/v1/recheck/pack")
+async def recheck_pack_buy(req: RecheckPackBuyRequest, request: Request):
+    """Mint a watch pack. Runs only after the x402 middleware has
+    verified the $1.00 payment; minting is idempotent on the payment's
+    identity (see _payment_key), so a re-presented payment returns
+    the pack it already bought instead of minting a second one. If
+    settlement later fails, the middleware replaces this response
+    with its own failure — the buyer never sees an unpaid pack."""
+    url = req.url.strip()
+    try:
+        await asyncio.to_thread(fetch_svc.ssrf_check, url)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    payment_key = _payment_key(request)
+    if payment_key is None:
+        return JSONResponse(
+            {"error": "payment identity unavailable; pack cannot be minted safely"},
+            status_code=502,
+        )
+    pack, created = _recheck_store.mint_pack(payment_key, url)
+    return {
+        **pack,
+        "expiry_days": recheck_svc.PACK_TTL_DAYS,
+        "price_units": recheck_svc.PACK_PRICE_UNITS,
+        "note": (
+            "Spend credits with POST /v1/recheck: send this pack_id in "
+            "the body or the X-Recheck-Pack header. Read the balance "
+            "free at POST /v1/recheck/pack-balance."
+            + ("" if created else " This payment already minted this pack; returning it.")
+        ),
+    }
+
+
+@app.post("/v1/recheck/pack-balance")
+async def recheck_pack_balance(req: RecheckPackBalanceRequest):
+    """Free balance read: credits remaining + expiry for a pack.
+    Spends nothing. An unknown pack — or a pack bound to a different
+    endpoint than the one named — is a plain 404."""
+    pack = _recheck_store.get_pack(req.pack_id.strip())
+    if pack is None or (req.url is not None and pack["url"] != req.url.strip()):
+        return JSONResponse({"error": "unknown pack_id"}, status_code=404)
+    return pack
 
 
 # --- free routes -----------------------------------------------------------------
@@ -368,7 +526,7 @@ LANDING_HTML = """<!DOCTYPE html>
 </head>
 <body>
 <h1>StallRow</h1>
-<p>Twelve small x402 stalls under one roof: Base chain reads, a wallet
+<p>Thirteen small x402 stalls under one roof: Base chain reads, a wallet
 trust verdict, fetch tools, seller tools, a digest of open agent
 jobs, and scheduled change detection for x402 resources and web pages. Every stall names its data sources and marks what it cannot
 supply as <em>unknown</em> — nothing is fabricated, and if an upstream

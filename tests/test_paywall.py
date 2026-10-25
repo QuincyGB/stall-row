@@ -28,6 +28,7 @@ BODIES = {
     "/v1/card-smith": {"mode": "grade", "card": {"name": "x"}},
     "/v1/job-scout": {},
     "/v1/recheck": {"url": "https://www.x402.org/"},
+    "/v1/recheck/pack": {"url": "https://www.x402.org/"},
 }
 
 

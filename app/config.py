@@ -52,6 +52,7 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/card-smith": 100_000,         # $0.10
     "/v1/job-scout": 50_000,           # $0.05
     "/v1/recheck": 5_000,              # $0.005
+    "/v1/recheck/pack": 1_000_000,     # $1.00 — 250 prepaid rechecks on one endpoint
 }
 
 
