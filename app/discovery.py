@@ -14,6 +14,17 @@ from .config import PRICE_UNITS, Settings, units_to_price
 
 USDC_ASSET = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 
+# x402scan ownership proof: an EIP-191 personal_sign of this service's bare
+# origin URL ("https://stall-row-production.up.railway.app") by the payTo
+# wallet, signed by the owner on 2026-10-25. Published in the manifest below
+# and in the OpenAPI x-discovery / x-agentcash-provenance root keys (see
+# main.py) so x402scan can verify control of the payment address. This is
+# publish-and-verify: the proofs must stay published permanently — removing
+# them un-verifies the x402scan listing. DO NOT REMOVE.
+OWNERSHIP_PROOFS = [
+    "0x89b5fb8c99407c2e2537aa130e54c3dd17f21775b4699f54bded387a09412641126cad8aed0b6367ca8972055827221dc77b4ccfb9d82fcb96cecdc8812732be1b"
+]
+
 _S = {"type": "string"}
 _N = {"type": ["string", "null"]}
 _I = {"type": "integer"}
@@ -797,6 +808,7 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
         ),
         "network": settings.network,
         "payTo": settings.pay_to,
+        "ownershipProofs": OWNERSHIP_PROOFS,
         "resources": resources,
     }
 

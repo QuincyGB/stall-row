@@ -40,6 +40,7 @@ import hashlib
 import json
 
 from fastapi import FastAPI, Request
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 from x402.http import FacilitatorConfig, HTTPFacilitatorClient, PaymentOption, RouteConfig
@@ -49,7 +50,7 @@ from x402.server import x402ResourceServer
 
 from .blockscout import Blockscout
 from .config import PRICE_UNITS, load_settings
-from .discovery import ROUTES, llms_txt, route_extension, skill_md, x402_manifest
+from .discovery import OWNERSHIP_PROOFS, ROUTES, llms_txt, route_extension, skill_md, x402_manifest
 from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import fetch as fetch_svc
 from .services import reads as reads_svc
@@ -103,6 +104,23 @@ routes = {
 
 # --- app ---------------------------------------------------------------------
 app = FastAPI(title="stall-row", version="1.0.0")
+
+
+def _openapi_with_ownership_proofs():
+    """Default OpenAPI document plus the x402scan ownership-proof root
+    keys (x-discovery / x-agentcash-provenance). x402scan reads these to
+    verify control of the payTo address — see OWNERSHIP_PROOFS in
+    discovery.py; removing them un-verifies the listing."""
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
+    schema["x-discovery"] = {"ownershipProofs": OWNERSHIP_PROOFS}
+    schema["x-agentcash-provenance"] = {"ownershipProofs": OWNERSHIP_PROOFS}
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = _openapi_with_ownership_proofs
 
 # Build the payment middleware ONCE. Constructing it runs the SDK's
 # initialize(), which synchronously fetches the facilitator's /supported
