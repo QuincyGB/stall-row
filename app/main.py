@@ -428,11 +428,21 @@ async def job_scout(req: JobScoutRequest | None = None):
     return await _run(go)
 
 
-# Recheck watch state: one sqlite file on this deployment's disk.
-# Per-deployment by design — a redeploy wipes it and every watch
-# re-baselines (BASELINE) on its next call. Stated in the route's
-# own description rather than hidden.
-_recheck_store = recheck_svc.WatchStore(settings.recheck_db_path)
+# Recheck watch state + watch-pack balances: one sqlite file whose
+# location config.resolve_recheck_db() picked — under a mounted
+# volume it survives redeploys; on the service's own disk a redeploy
+# wipes it and every watch re-baselines (BASELINE) on its next call.
+# Which mode is live is logged here, reported in /health, and —
+# while production runs ephemeral — stated in the route's own
+# description rather than hidden.
+_recheck_store = recheck_svc.WatchStore(
+    settings.recheck_db_path, persistent=settings.recheck_db_persistent
+)
+log.info(
+    "recheck store durability: %s (path %s)",
+    "persistent" if settings.recheck_db_persistent else "EPHEMERAL",
+    settings.recheck_db_path,
+)
 
 
 @app.post("/v1/recheck")
@@ -547,7 +557,20 @@ async def landing():
 
 @app.get("/health")
 async def health():
-    return {"ok": True, "service": settings.service_name, "routes": len(PRICE_UNITS)}
+    return {
+        "ok": True,
+        "service": settings.service_name,
+        "routes": len(PRICE_UNITS),
+        # Durability of the recheck baseline/pack store, measured at
+        # startup (config.resolve_recheck_db) — "persistent" only
+        # when the store file lives on a mounted volume.
+        "storage": {
+            "recheck_store": (
+                "persistent" if settings.recheck_db_persistent else "ephemeral"
+            ),
+            "recheck_db_path": settings.recheck_db_path,
+        },
+    }
 
 
 @app.get("/quote")

@@ -14,10 +14,14 @@ check stored for that watch:
     page-to-markdown (SSRF check on the target and on every redirect
     hop, capped body, retry-with-backoff on transient failures).
 
-State is one sqlite file (the RouteVerdict store pattern). It is
-PER-DEPLOYMENT: the file lives on the service's disk, so a redeploy
-wipes it and every watch answers BASELINE again on its next call —
-a v1 limitation the route's own docs state rather than hide.
+State is one sqlite file (the RouteVerdict store pattern) holding
+BOTH the watch baselines and the watch-pack balances. Durability
+follows the file's location (config.resolve_recheck_db): under a
+mounted volume the state survives redeploys; on the service's own
+disk a redeploy wipes it and every watch answers BASELINE again.
+Which mode is live is measured at startup, logged, and reported in
+/health — and while production runs ephemeral, the route's own docs
+state the limitation rather than hide it.
 
 Failure honesty: a probe that fails (unreachable, or a non-402
 4xx/5xx left after the retry discipline) raises UpstreamError, the
@@ -32,6 +36,8 @@ import asyncio
 import base64
 import hashlib
 import json
+import logging
+import os
 import secrets
 import sqlite3
 import threading
@@ -43,6 +49,8 @@ import httpx
 
 from ..rpc import UpstreamError
 from . import fetch as fetch_svc
+
+log = logging.getLogger("stall-row.recheck")
 
 # Same retry discipline as the page fetcher: transient statuses and
 # transport errors retry with backoff; deterministic failures raise.
@@ -128,12 +136,38 @@ def _hash_text(text: str) -> str:
 class WatchStore:
     """One row per watch: the last good fingerprint and when it was
     taken. Keyed by watch_id + URL so two watches over one target —
-    and one watch id reused across targets — never collide."""
+    and one watch id reused across targets — never collide. Watch
+    packs (below) share the same file and connection.
 
-    def __init__(self, path: str):
+    `persistent` is the caller's MEASURED durability of `path`
+    (config.resolve_recheck_db): True only when the file sits on a
+    mounted volume. It is carried for reporting (startup log,
+    /health); the store itself behaves identically either way."""
+
+    def __init__(self, path: str, persistent: bool | None = None):
         self._path = path
+        self.persistent = persistent
         self._lock = threading.Lock()
+        parent = os.path.dirname(os.path.abspath(path))
+        os.makedirs(parent, exist_ok=True)
+        existed = os.path.exists(path) and os.path.getsize(path) > 0
         self._conn = sqlite3.connect(path, check_same_thread=False)
+        if existed:
+            log.info(
+                "recheck store: reopened %s (durability: %s)",
+                path,
+                "persistent" if persistent else "ephemeral",
+            )
+        else:
+            # Never fabricate continuity: a fresh file means fresh
+            # state, and the log says so in plain terms.
+            log.warning(
+                "recheck store: no existing store at %s — starting "
+                "EMPTY: baselines re-baseline and no packs carry over "
+                "(durability: %s)",
+                path,
+                "persistent" if persistent else "ephemeral",
+            )
         with self._lock:
             self._conn.execute(
                 """
@@ -159,6 +193,14 @@ class WatchStore:
                 """
             )
             self._conn.commit()
+
+    @property
+    def path(self) -> str:
+        return self._path
+
+    def close(self) -> None:
+        with self._lock:
+            self._conn.close()
 
     def get(self, key: str) -> dict | None:
         with self._lock:

@@ -56,6 +56,57 @@ PRICE_UNITS: dict[str, int] = {
 }
 
 
+# --- recheck store location --------------------------------------------------
+#
+# Where the watch/pack sqlite lives decides whether sold pack balances
+# survive a redeploy. Resolution order:
+#   1. STALLROW_RECHECK_DB set -> that exact path wins.
+#   2. A volume mounted at /data (Railway Volume) -> /data/recheck.db.
+#   3. Plain "recheck.db" on the service's own (ephemeral) disk.
+# Durability is measured, never assumed from the path string: a path is
+# persistent only when its nearest existing ancestor directory is a
+# mount point. The probes are bound at module level so tests can fake
+# a volume mount without one.
+
+VOLUME_MOUNT_PATH = "/data"
+STORE_DB_FILENAME = "recheck.db"
+
+_isdir = os.path.isdir
+_ismount = os.path.ismount
+_writable = os.access
+
+
+def _nearest_existing_dir(path: str) -> str:
+    d = os.path.dirname(os.path.abspath(path))
+    while d != "/" and not os.path.exists(d):
+        d = os.path.dirname(d)
+    return d
+
+
+def _path_is_persistent(path: str) -> bool:
+    """True when the directory that will hold `path` is a mount point
+    (a volume). "/" itself is always a mount and proves nothing, so a
+    path with no mounted ancestor above the root is ephemeral."""
+    d = _nearest_existing_dir(path)
+    return d != "/" and _ismount(d)
+
+
+def resolve_recheck_db() -> tuple[str, bool]:
+    """Resolve (db_path, persistent) for the recheck store."""
+    explicit = os.environ.get("STALLROW_RECHECK_DB", "").strip()
+    if explicit:
+        return explicit, _path_is_persistent(explicit)
+    if (
+        _isdir(VOLUME_MOUNT_PATH)
+        and _ismount(VOLUME_MOUNT_PATH)
+        and _writable(VOLUME_MOUNT_PATH, os.W_OK)
+    ):
+        candidate = os.path.join(VOLUME_MOUNT_PATH, STORE_DB_FILENAME)
+        log.info("recheck store: volume mount at %s detected", VOLUME_MOUNT_PATH)
+        return candidate, True
+    return STORE_DB_FILENAME, False
+
+
 def units_to_price(units: int) -> str:
     """5000 -> '$0.005' (the string format the x402 SDK expects)."""
     dollars = units / 1_000_000
@@ -79,9 +130,14 @@ class Settings:
     # X402_FACILITATOR_URL points at CDP — see use_cdp below.
     cdp_api_key_id: str | None = None
     cdp_api_key_secret: str | None = None
-    # Recheck watch state (sqlite). Per-deployment by design: the file
-    # lives on the service's disk, so a redeploy re-baselines watches.
+    # Recheck watch state (sqlite): watch baselines AND sold watch-pack
+    # balances in one file. Durability depends on where the file lives
+    # — see resolve_recheck_db(): a path under a mounted volume (e.g.
+    # a Railway Volume at /data) survives redeploys; the container's
+    # own disk is wiped by them. `recheck_db_persistent` is the
+    # MEASURED durability of the resolved path, reported in /health.
     recheck_db_path: str = "recheck.db"
+    recheck_db_persistent: bool = False
 
     @property
     def use_cdp(self) -> bool:
@@ -121,6 +177,8 @@ def load_settings() -> Settings:
         for k in ("CDP_API_KEY_ID", "CDP_API_KEY_SECRET")
     }
 
+    recheck_db = resolve_recheck_db()
+
     return Settings(
         pay_to=pay_to,
         network=os.environ.get("X402_NETWORK", BASE_MAINNET).strip(),
@@ -133,7 +191,8 @@ def load_settings() -> Settings:
         ).strip(),
         fetch_timeout_s=float(os.environ.get("STALLROW_FETCH_TIMEOUT_S", "15")),
         github_token=(os.environ.get("GITHUB_TOKEN", "").strip() or None),
-        recheck_db_path=os.environ.get("STALLROW_RECHECK_DB", "recheck.db").strip(),
+        recheck_db_path=recheck_db[0],
+        recheck_db_persistent=recheck_db[1],
         prices=prices,
         **{k.lower(): v for k, v in cdp.items() if v is not None},
     )
