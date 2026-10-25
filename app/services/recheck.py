@@ -20,8 +20,8 @@ follows the file's location (config.resolve_recheck_db): under a
 mounted volume the state survives redeploys; on the service's own
 disk a redeploy wipes it and every watch answers BASELINE again.
 Which mode is live is measured at startup, logged, and reported in
-/health — and while production runs ephemeral, the route's own docs
-state the limitation rather than hide it.
+/health; production currently reports persistent storage, and the
+route's own docs state that verified behavior.
 
 Failure honesty: a probe that fails (unreachable, or a non-402
 4xx/5xx left after the retry discipline) raises UpstreamError, the

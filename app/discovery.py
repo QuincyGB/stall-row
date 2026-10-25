@@ -580,8 +580,8 @@ ROUTES: dict[str, dict] = {
             "diff (price, asset, payTo, schema, page body) against the last "
             "check for that watch. Use this when an agent runs on a schedule "
             "and needs to know what changed before spending money or "
-            "attention. Watch state is per-deployment; a redeploy re-baselines. "
-            "Packs: $1 for 250 checks on one endpoint."
+            "attention. Watch and pack state persist across redeploys on "
+            "the service volume. Packs: $1 for 250 checks on one endpoint."
         ),
         "tags": ["monitoring", "x402", "change-detection", "diff", "agents"],
         "input_schema": _obj({"url": _S, "watch_id": _S, "pack_id": _S}, ["url"]),
@@ -636,14 +636,15 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/recheck/pack": {
         "description": (
-            "Prepaid Recheck watch pack: one $1.00 payment buys 250 "
-            "change-checks against ONE endpoint URL ($0.004 per check "
-            "instead of $0.005), good for 90 days. Returns an "
-            "unguessable pack id — spend credits by sending it with "
-            "POST /v1/recheck (body pack_id or X-Recheck-Pack header), "
-            "and read the balance free at POST /v1/recheck/pack-balance. "
-            "Use this when a monitoring loop checks the same endpoint "
-            "on a schedule and wants one payment instead of hundreds."
+            "Recheck watch pack: one $1.00 payment buys 250 "
+            "change-checks for ONE endpoint ($0.004 per check instead "
+            "of $0.005), good for 90 days. Pack credits persist across "
+            "redeploys on the service volume. Returns an unguessable "
+            "pack id — spend credits via POST /v1/recheck (body pack_id "
+            "or X-Recheck-Pack header), and read the balance free at "
+            "POST /v1/recheck/pack-balance. Use this when a monitoring "
+            "loop checks the same endpoint on a schedule and wants one "
+            "payment instead of hundreds."
         ),
         "tags": ["monitoring", "x402", "change-detection", "prepaid", "agents"],
         "input_schema": _obj({"url": _S}, ["url"]),

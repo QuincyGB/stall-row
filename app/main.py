@@ -432,9 +432,9 @@ async def job_scout(req: JobScoutRequest | None = None):
 # location config.resolve_recheck_db() picked — under a mounted
 # volume it survives redeploys; on the service's own disk a redeploy
 # wipes it and every watch re-baselines (BASELINE) on its next call.
-# Which mode is live is logged here, reported in /health, and —
-# while production runs ephemeral — stated in the route's own
-# description rather than hidden.
+# Which mode is live is logged here and reported in /health;
+# production currently measures persistent, and the route's own
+# description states that verified behavior.
 _recheck_store = recheck_svc.WatchStore(
     settings.recheck_db_path, persistent=settings.recheck_db_persistent
 )

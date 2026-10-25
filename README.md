@@ -86,14 +86,17 @@ retrying usually fills them in.
 - **JobScout** serves `data/jobs.json`, seeded from our own Synmerco
   sweep and refreshed by `scripts/refresh_jobscout.py` (below).
   Responses carry the snapshot time and a `data_stale` flag past 24h.
-- **Recheck state** lives in a sqlite file (`STALLROW_RECHECK_DB`,
-  default `recheck.db`): one row per watch (watch_id + URL) holding
-  the last good fingerprint, plus one row per watch pack in the same
-  store. It is **per-deployment** — the file sits
-  on the service's disk, so a redeploy wipes it (packs included) and every watch
-  answers `BASELINE` again on its next call. Failed probes never
-  overwrite a stored fingerprint, so a target's outage does not
-  re-baseline or fabricate a change.
+- **Recheck state** lives in one sqlite store: one row per watch
+  (watch_id + URL) holding the last good fingerprint, plus one row per
+  watch pack. In production the store is `/data/recheck.db` on the
+  service's Railway volume, and `/health` reports
+  `"recheck_store": "persistent"`; watch baselines and pack credits
+  therefore persist across redeploys. `STALLROW_RECHECK_DB` can set
+  another path, and without a mounted volume the fallback is ephemeral
+  local disk. The state remains local to this service's volume —
+  deleting both the service and its volume would lose it. Failed
+  probes never overwrite a stored fingerprint, so a target's outage
+  does not re-baseline or fabricate a change.
 
 ## Run it
 
