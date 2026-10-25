@@ -1,4 +1,4 @@
-"""StallRow — one x402 service hosting a row of 12 paid micro-services.
+"""StallRow — one x402 service hosting a row of 13 paid micro-services.
 
 Owner's portfolio strategy (2026-10-21): many real stalls, expect one
 or two to hit. One deployment, one facilitator configuration, every

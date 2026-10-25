@@ -103,7 +103,7 @@ retrying usually fills them in.
 ```bash
 pip install -r requirements.txt
 python -m app.main            # or: uvicorn app.main:app --port 3000
-pytest                        # 158 tests, fully offline (MockTransport)
+pytest                        # 168 tests, fully offline (MockTransport)
 ```
 
 Key env vars: `X402_FACILITATOR_URL` (keyless ultravioletadao default;
