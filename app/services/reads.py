@@ -244,36 +244,8 @@ def _addr_from_topic(topic: str) -> str:
     return "0x" + topic[-40:]
 
 
-async def tx_decoder(rpc: Rpc, tx_hash: str) -> dict:
-    tx = await rpc.eth_tx(tx_hash)
-    receipt = await rpc.eth_receipt(tx_hash)
-
-    data = tx.get("input") or "0x"
-    selector = data[:10] if len(data) >= 10 else "0x"
-    method = _METHODS.get(selector.lower())
-    value_wei = int(tx.get("value", "0x0"), 16)
-    status = {"0x1": "success", "0x0": "reverted"}.get(
-        str(receipt.get("status", "")).lower(), "unknown"
-    )
-
-    transfers = []
-    for log in receipt.get("logs", []) or []:
-        topics = log.get("topics") or []
-        if len(topics) >= 3 and topics[0].lower() == _TRANSFER_TOPIC:
-            try:
-                amount = int(log.get("data", "0x0"), 16)
-            except ValueError:
-                amount = None
-            transfers.append(
-                {
-                    "token": log.get("address"),
-                    "from": _addr_from_topic(topics[1]),
-                    "to": _addr_from_topic(topics[2]),
-                    "amount_raw": str(amount) if amount is not None else None,
-                }
-            )
-
-    to_addr = tx.get("to")
+def _summary_parts(method, selector, data, from_addr, to_addr, value_wei,
+                   transfers, status) -> str:
     parts = []
     if method:
         parts.append(f"{method[1]}")
@@ -281,28 +253,190 @@ async def tx_decoder(rpc: Rpc, tx_hash: str) -> dict:
         parts.append(f"contract call with method id {selector} (not in the known-method table)")
     else:
         parts.append("plain ETH transfer")
-    parts.append(f"from {tx.get('from')} to {to_addr}")
+    parts.append(f"from {from_addr} to {to_addr}")
     if value_wei:
         parts.append(f"moving {wei_to_eth_str(value_wei)} ETH")
     if transfers:
         parts.append(f"with {len(transfers)} ERC-20 transfer(s)")
     parts.append(f"— status: {status}")
-    summary = " ".join(parts) + "."
+    return " ".join(parts) + "."
 
-    return {
+
+def _decode_from_rpc(tx_hash: str, tx: dict, receipt: dict | None) -> dict:
+    """Full decode from chain RPC. A missing receipt (tx not mined
+    yet) degrades status/gas/transfers instead of failing the call:
+    no receipt exists, so no logs — and no transfers — exist yet."""
+    data = tx.get("input") or "0x"
+    selector = data[:10] if len(data) >= 10 else "0x"
+    method = _METHODS.get(selector.lower())
+    value_wei = int(tx.get("value", "0x0"), 16)
+
+    transfers = []
+    status = "unknown"
+    gas_used = None
+    if receipt is not None:
+        status = {"0x1": "success", "0x0": "reverted"}.get(
+            str(receipt.get("status", "")).lower(), "unknown"
+        )
+        gas_used = (
+            int(receipt["gasUsed"], 16) if receipt.get("gasUsed") else None
+        )
+        for log in receipt.get("logs", []) or []:
+            topics = log.get("topics") or []
+            if len(topics) >= 3 and topics[0].lower() == _TRANSFER_TOPIC:
+                try:
+                    amount = int(log.get("data", "0x0"), 16)
+                except ValueError:
+                    amount = None
+                transfers.append(
+                    {
+                        "token": log.get("address"),
+                        "from": _addr_from_topic(topics[1]),
+                        "to": _addr_from_topic(topics[2]),
+                        "amount_raw": str(amount) if amount is not None else None,
+                    }
+                )
+
+    out = {
         "tx_hash": tx_hash,
         "block_number": int(tx["blockNumber"], 16) if tx.get("blockNumber") else None,
         "from": tx.get("from"),
-        "to": to_addr,
+        "to": tx.get("to"),
         "value_eth": wei_to_eth_str(value_wei),
         "status": status,
         "method_id": selector if len(data) > 2 else None,
         "method": method[0] if method else None,
         "method_description": method[1] if method else None,
-        "gas_used": int(receipt["gasUsed"], 16) if receipt.get("gasUsed") else None,
+        "gas_used": gas_used,
         "erc20_transfers": transfers,
-        "summary": summary,
+        "summary": _summary_parts(
+            method, selector, data, tx.get("from"), tx.get("to"),
+            value_wei, transfers, status,
+        ),
     }
+    if receipt is None:
+        out["note"] = (
+            "No receipt exists for this transaction yet (it may still "
+            "be pending), so status, gas used and token transfers "
+            "cannot be supplied — retry once it is mined."
+        )
+    return out
+
+
+def _decode_from_explorer(tx_hash: str, scout_tx: dict,
+                          transfers: list[dict]) -> dict:
+    """Decode built from Blockscout data when the chain RPC could not
+    supply the transaction. Same shape, explorer-sourced values."""
+    data = scout_tx.get("raw_input") or "0x"
+    selector = data[:10] if len(data) >= 10 else "0x"
+    method = _METHODS.get(selector.lower())
+    if method is None and scout_tx.get("method"):
+        method = (scout_tx["method"], f"contract method {scout_tx['method']} (per block explorer)")
+    try:
+        value_wei = int(scout_tx.get("value_wei") or 0)
+    except (TypeError, ValueError):
+        value_wei = 0
+    status = scout_tx.get("status") or "unknown"
+    return {
+        "tx_hash": tx_hash,
+        "block_number": scout_tx.get("block_number"),
+        "from": scout_tx.get("from"),
+        "to": scout_tx.get("to"),
+        "value_eth": wei_to_eth_str(value_wei),
+        "status": status,
+        "method_id": selector if len(data) > 2 else None,
+        "method": method[0] if method else None,
+        "method_description": method[1] if method else None,
+        "gas_used": scout_tx.get("gas_used"),
+        "erc20_transfers": transfers,
+        "summary": _summary_parts(
+            method, selector, data, scout_tx.get("from"),
+            scout_tx.get("to"), value_wei, transfers, status,
+        ),
+        "note": (
+            "Decoded from block explorer data because the chain RPC "
+            "could not supply this transaction in time — values are "
+            "the explorer's record of the same transaction."
+        ),
+    }
+
+
+def _tx_not_found(tx_hash: str) -> dict:
+    """Truthful delivered answer for a hash no source has: a full node
+    answering null for a hash is a definitive 'not there', not an
+    upstream failure. (This is the shape an inspector's test purchase
+    with a synthetic example hash must receive — a 502 here once made
+    this the fleet's only undelivered route.)"""
+    return {
+        "tx_hash": tx_hash,
+        "block_number": None,
+        "from": None,
+        "to": None,
+        "value_eth": "unknown",
+        "status": "unknown",
+        "method_id": None,
+        "method": None,
+        "method_description": None,
+        "gas_used": None,
+        "erc20_transfers": [],
+        "summary": (
+            "Transaction not found on Base: neither the chain RPC nor "
+            "the block explorer has a transaction with this hash — it "
+            "may still be pending in the mempool, may belong to "
+            "another chain, or may not exist. No decode is possible "
+            "for a transaction that is not on the chain."
+        ),
+        "note": (
+            "Not-found is a delivered result, not a missing value: "
+            "every field that would describe the transaction is null "
+            "or unknown because there is no transaction to describe."
+        ),
+    }
+
+
+async def tx_decoder(rpc: Rpc, scout: Blockscout, tx_hash: str) -> dict:
+    """Decode one Base transaction. Source order: chain RPC (with its
+    own retry), then Blockscout (v2 → legacy). Outcomes:
+    - RPC has it → full decode (a missing receipt degrades, not fails).
+    - RPC fails or answers null but the explorer has it → explorer decode.
+    - RPC definitively answers null and the explorer has nothing →
+      a delivered not-found answer (200), never a 502.
+    - RPC failed outright AND the explorer cannot supply it → raise
+      UpstreamError (502, payment does not settle, buyer can retry)."""
+    tx: dict | None = None
+    receipt: dict | None = None
+    rpc_error: UpstreamError | None = None
+    try:
+        tx = await rpc.eth_tx(tx_hash)
+        if tx is not None:
+            try:
+                receipt = await rpc.eth_receipt(tx_hash)
+            except UpstreamError:
+                receipt = None  # degrade to the pending shape below
+    except UpstreamError as e:
+        rpc_error = e
+
+    if tx is not None:
+        return _decode_from_rpc(tx_hash, tx, receipt)
+
+    scout_tx = await scout.transaction(tx_hash)
+    if scout_tx is not None:
+        transfers = await scout.transaction_token_transfers(tx_hash)
+        if transfers is None:
+            # The one field the explorer path cannot truthfully fill;
+            # a clean retryable error beats an invented empty list.
+            raise UpstreamError(
+                "explorer supplied the transaction but not its token "
+                "transfer list — retry"
+            )
+        return _decode_from_explorer(tx_hash, scout_tx, transfers)
+
+    if rpc_error is None:
+        return _tx_not_found(tx_hash)
+    raise UpstreamError(
+        f"transaction data unavailable (RPC: {rpc_error}; explorer "
+        "returned nothing) — retry"
+    )
 
 
 async def gas_oracle(rpc: Rpc) -> dict:

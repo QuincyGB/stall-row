@@ -9,9 +9,9 @@ import pytest
 from app.blockscout import Blockscout
 from app.config import load_settings
 from app.discovery import ROUTES
-from app.rpc import Rpc
+from app.rpc import Rpc, UpstreamError
 from app.services import reads
-from tests.fixtures import ADDR, TX_HASH, mock_client
+from tests.fixtures import ADDR, OTHER, TX_HASH, mock_client
 
 S = load_settings()
 
@@ -96,9 +96,9 @@ async def test_allowance_audit_degraded_body_is_schema_valid():
 
 @pytest.mark.asyncio
 async def test_tx_decoder_happy_path():
-    client, rpc, _ = _parts()
+    client, rpc, scout = _parts()
     async with client:
-        out = await reads.tx_decoder(rpc, TX_HASH)
+        out = await reads.tx_decoder(rpc, scout, TX_HASH)
     assert out["method"] == "transfer"
     assert out["status"] == "success"
     assert out["block_number"] == 995
@@ -107,6 +107,70 @@ async def test_tx_decoder_happy_path():
     assert t["amount_raw"] == "12500000"
     assert t["to"] == ADDR
     assert "ERC-20 transfer" in out["summary"]
+
+
+@pytest.mark.asyncio
+async def test_tx_decoder_not_found_is_a_delivered_answer():
+    """Regression for the Settled 502 (2026-10-24): the advertised
+    input_example is a synthetic hash, and an inspector buying with
+    it must get a truthful schema-valid answer — not a 502. When the
+    RPC definitively answers null and the explorer has nothing, the
+    decode is 'not found', with every descriptive field null/unknown
+    and a summary that says so."""
+    client, rpc, scout = _parts(rpc_tx_missing=True, explorer_tx_missing=True)
+    async with client:
+        out = await reads.tx_decoder(rpc, scout, TX_HASH)
+    assert out["status"] == "unknown"
+    assert out["value_eth"] == "unknown"
+    assert out["from"] is None and out["to"] is None
+    assert out["block_number"] is None and out["gas_used"] is None
+    assert out["erc20_transfers"] == []
+    assert "not found" in out["summary"].lower()
+    jsonschema.validate(out, ROUTES["/v1/tx-decoder"]["output_schema"])
+
+
+@pytest.mark.asyncio
+async def test_tx_decoder_falls_back_to_explorer_when_rpc_down():
+    """RPC hard-down (503s through its retry) but the explorer has
+    the transaction: decode from Blockscout (v2 tx + its token
+    transfers) instead of 502ing."""
+    client, rpc, scout = _parts(rpc_down=True)
+    async with client:
+        out = await reads.tx_decoder(rpc, scout, TX_HASH)
+    assert out["method"] == "transfer"
+    assert out["status"] == "success"
+    assert out["block_number"] == 995
+    assert out["from"] == OTHER
+    assert out["gas_used"] == 51604
+    assert len(out["erc20_transfers"]) == 1
+    assert out["erc20_transfers"][0]["amount_raw"] == "12500000"
+    assert "explorer" in out["note"]
+    jsonschema.validate(out, ROUTES["/v1/tx-decoder"]["output_schema"])
+
+
+@pytest.mark.asyncio
+async def test_tx_decoder_502s_only_when_no_source_can_supply():
+    """Challenged explorer + down RPC is the one remaining 502: a
+    clean retryable error (payment never settles on >= 400) rather
+    than an invented decode."""
+    client, rpc, scout = _parts(rpc_down=True, blockscout_down=True)
+    async with client:
+        with pytest.raises(UpstreamError):
+            await reads.tx_decoder(rpc, scout, TX_HASH)
+
+
+@pytest.mark.asyncio
+async def test_tx_decoder_pending_receipt_degrades():
+    """Tx visible but not yet mined (receipt null): decode what the
+    tx itself proves and mark receipt-only fields unknown."""
+    client, rpc, scout = _parts(rpc_receipt_missing=True)
+    async with client:
+        out = await reads.tx_decoder(rpc, scout, TX_HASH)
+    assert out["method"] == "transfer"
+    assert out["status"] == "unknown"
+    assert out["gas_used"] is None
+    assert out["erc20_transfers"] == []
+    assert "receipt" in out["note"]
 
 
 @pytest.mark.asyncio

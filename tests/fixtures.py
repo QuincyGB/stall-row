@@ -20,7 +20,12 @@ TX_HASH = "0x" + "ab" * 32
 CHALLENGE_HTML = "<!DOCTYPE html><html><head><title>Just a moment...</title></head></html>"
 
 
-def _rpc_result(method: str, params: list):
+def _rpc_result(method: str, params: list, *, tx_missing: bool = False,
+                receipt_missing: bool = False):
+    if method == "eth_getTransactionByHash" and tx_missing:
+        return None  # a full node's definitive "no such transaction"
+    if method == "eth_getTransactionReceipt" and (tx_missing or receipt_missing):
+        return None
     if method == "eth_getBalance":
         return hex(42 * 10**15)
     if method == "eth_getTransactionCount":
@@ -67,7 +72,33 @@ def _rpc_result(method: str, params: list):
     raise AssertionError(f"unmocked RPC method {method}")
 
 
-def _blockscout_v2(path: str):
+def _blockscout_v2(path: str, *, tx_missing: bool = False):
+    if "/transactions/" in path:
+        # Per-transaction endpoints (distinct from /addresses/{a}/transactions)
+        if tx_missing:
+            return None
+        if path.endswith("/token-transfers"):
+            return {
+                "items": [
+                    {
+                        "from": {"hash": OTHER},
+                        "to": {"hash": ADDR},
+                        "total": {"value": "12500000"},
+                        "token": {"address_hash": USDC, "symbol": "USDC"},
+                    }
+                ]
+            }
+        return {
+            "hash": TX_HASH,
+            "from": {"hash": OTHER},
+            "to": {"hash": USDC},
+            "value": "0",
+            "status": "ok",
+            "method": "transfer",
+            "raw_input": "0xa9059cbb" + "0" * 64,
+            "block_number": 995,
+            "gas_used": "51604",
+        }
     if path.endswith("/token-balances"):
         return [
             {
@@ -173,19 +204,28 @@ CDP_CATALOG = {
 
 
 def make_handler(*, blockscout_down: bool = False, github_404: bool = False,
-                 cdp_down: bool = False, youtube_empty: bool = False):
+                 cdp_down: bool = False, youtube_empty: bool = False,
+                 rpc_down: bool = False, rpc_tx_missing: bool = False,
+                 rpc_receipt_missing: bool = False,
+                 explorer_tx_missing: bool = False):
     def handler(request: httpx.Request) -> httpx.Response:
         url = str(request.url)
         host = request.url.host
         if host == "mainnet.base.org":
+            if rpc_down:
+                return httpx.Response(503, text="rpc down")
             body = json.loads(request.content)
-            result = _rpc_result(body["method"], body.get("params", []))
+            result = _rpc_result(
+                body["method"], body.get("params", []),
+                tx_missing=rpc_tx_missing,
+                receipt_missing=rpc_receipt_missing,
+            )
             return httpx.Response(200, json={"jsonrpc": "2.0", "id": body["id"], "result": result})
         if host == "base.blockscout.com":
             if blockscout_down:
                 return httpx.Response(200, text=CHALLENGE_HTML, headers={"content-type": "text/html"})
             if "/api/v2/" in url:
-                data = _blockscout_v2(request.url.path)
+                data = _blockscout_v2(request.url.path, tx_missing=explorer_tx_missing)
                 if data is None:
                     return httpx.Response(404, json={"message": "not found"})
                 return httpx.Response(200, json=data)

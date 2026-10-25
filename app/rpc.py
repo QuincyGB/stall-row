@@ -10,6 +10,7 @@ a failed call never charges the buyer for undelivered data.
 
 from __future__ import annotations
 
+import asyncio
 import itertools
 
 import httpx
@@ -26,28 +27,49 @@ class Rpc:
         self._ids = itertools.count(1)
 
     async def call(self, method: str, params: list) -> object:
+        """One JSON-RPC call, with ONE retry on transient failures
+        (transport errors, HTTP 429/5xx — the public Base RPC hiccups
+        intermittently and a single hiccup used to 502 a whole paid
+        call). A JSON-RPC error object or a malformed body is
+        deterministic and is NOT retried. A JSON null result is a
+        definitive answer from the node (e.g. unknown tx hash) and is
+        returned as None, never raised."""
         payload = {
             "jsonrpc": "2.0",
             "id": next(self._ids),
             "method": method,
             "params": params,
         }
-        try:
-            resp = await self._client.post(self._url, json=payload)
-        except httpx.HTTPError as e:
-            raise UpstreamError(f"RPC {method}: transport error: {e}") from e
-        if resp.status_code != 200:
-            raise UpstreamError(f"RPC {method}: HTTP {resp.status_code}")
-        try:
-            body = resp.json()
-        except ValueError as e:
-            raise UpstreamError(f"RPC {method}: non-JSON response") from e
-        if not isinstance(body, dict) or "error" in body:
-            err = body.get("error") if isinstance(body, dict) else body
-            raise UpstreamError(f"RPC {method}: error: {err}")
-        if "result" not in body:
-            raise UpstreamError(f"RPC {method}: missing result")
-        return body["result"]
+        last_error: UpstreamError | None = None
+        for attempt in range(2):
+            if attempt:
+                await asyncio.sleep(0.25)
+            try:
+                resp = await self._client.post(self._url, json=payload)
+            except httpx.HTTPError as e:
+                last_error = UpstreamError(
+                    f"RPC {method}: transport error: {e}"
+                )
+                continue
+            if resp.status_code != 200:
+                if resp.status_code == 429 or resp.status_code >= 500:
+                    last_error = UpstreamError(
+                        f"RPC {method}: HTTP {resp.status_code}"
+                    )
+                    continue
+                raise UpstreamError(f"RPC {method}: HTTP {resp.status_code}")
+            try:
+                body = resp.json()
+            except ValueError as e:
+                raise UpstreamError(f"RPC {method}: non-JSON response") from e
+            if not isinstance(body, dict) or "error" in body:
+                err = body.get("error") if isinstance(body, dict) else body
+                raise UpstreamError(f"RPC {method}: error: {err}")
+            if "result" not in body:
+                raise UpstreamError(f"RPC {method}: missing result")
+            return body["result"]
+        assert last_error is not None
+        raise last_error
 
     # --- typed helpers -------------------------------------------------------
     async def eth_balance(self, address: str) -> int:
@@ -70,16 +92,28 @@ class Rpc:
             raise UpstreamError("RPC eth_getBlockByNumber: unexpected shape")
         return block
 
-    async def eth_tx(self, tx_hash: str) -> dict:
+    async def eth_tx(self, tx_hash: str) -> dict | None:
+        """The transaction, or None when the node definitively answers
+        null (unknown hash / not on this chain). Transport and HTTP
+        failures raise UpstreamError — None is an answer, not an error,
+        and callers must not conflate the two."""
         tx = await self.call("eth_getTransactionByHash", [tx_hash])
+        if tx is None:
+            return None
         if not isinstance(tx, dict):
-            raise UpstreamError(f"transaction not found: {tx_hash}")
+            raise UpstreamError("RPC eth_getTransactionByHash: unexpected shape")
         return tx
 
-    async def eth_receipt(self, tx_hash: str) -> dict:
+    async def eth_receipt(self, tx_hash: str) -> dict | None:
+        """The receipt, or None when the node answers null (the tx is
+        not mined yet, so no receipt — and no logs — exist)."""
         receipt = await self.call("eth_getTransactionReceipt", [tx_hash])
+        if receipt is None:
+            return None
         if not isinstance(receipt, dict):
-            raise UpstreamError(f"receipt not found (pending?): {tx_hash}")
+            raise UpstreamError(
+                "RPC eth_getTransactionReceipt: unexpected shape"
+            )
         return receipt
 
     async def eth_call(self, to: str, data: str) -> str:

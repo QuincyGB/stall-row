@@ -243,9 +243,9 @@ async def tx_decoder(req: TxRequest):
         return JSONResponse({"error": "tx_hash must be a 0x transaction hash"}, status_code=422)
 
     async def go():
-        client, rpc, _ = _clients()
+        client, rpc, scout = _clients()
         async with client:
-            return await reads_svc.tx_decoder(rpc, req.tx_hash)
+            return await reads_svc.tx_decoder(rpc, scout, req.tx_hash)
 
     return await _run(go)
 

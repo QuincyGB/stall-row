@@ -12,6 +12,8 @@ omit them. Nothing in this service fabricates an explorer field.
 
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 
 _UA = {
@@ -153,6 +155,103 @@ class Blockscout:
                     {
                         "hash": it["hash"],
                         "timestamp_epoch": int(ts) if str(ts).isdigit() else None,
+                    }
+                )
+            return out
+        return None
+
+    async def transaction(self, tx_hash: str) -> dict | None:
+        """One transaction by hash, normalised toward the RPC shape:
+        {from, to, value_wei, status, method, raw_input, block_number,
+        gas_used}. v2 first; the legacy gettxinfo action as fallback.
+        None when both paths fail (challenged / 404 / bad shape) —
+        callers decide what None means alongside their RPC answer.
+        The v2 fetch gets two draws: the Cloudflare gate is
+        per-request intermittent, so one retry is the difference
+        between a degraded answer and none."""
+        body = await self._v2(f"/transactions/{tx_hash}")
+        if body is None:
+            await asyncio.sleep(0.3)
+            body = await self._v2(f"/transactions/{tx_hash}")
+        if isinstance(body, dict) and body.get("hash"):
+            status = {"ok": "success", "error": "reverted"}.get(
+                str(body.get("status") or "").lower(), "unknown"
+            )
+            block = body.get("block_number")
+            gas = body.get("gas_used")
+            try:
+                gas_used = int(gas) if gas is not None else None
+            except (TypeError, ValueError):
+                gas_used = None
+            return {
+                "from": (body.get("from") or {}).get("hash"),
+                "to": (body.get("to") or {}).get("hash"),
+                "value_wei": str(body.get("value"))
+                if body.get("value") is not None
+                else None,
+                "status": status,
+                "method": body.get("method"),
+                "raw_input": body.get("raw_input"),
+                "block_number": block if isinstance(block, int) else None,
+                "gas_used": gas_used,
+            }
+        result = await self._legacy(
+            "transaction", "gettxinfo", txhash=tx_hash
+        )
+        if isinstance(result, dict) and (result.get("from") or result.get("to")):
+            raw_value = result.get("value")
+            value_wei = None
+            if raw_value is not None:
+                try:
+                    value_wei = str(int(str(raw_value), 0))
+                except ValueError:
+                    value_wei = str(raw_value)
+            gas = result.get("gasUsed")
+            try:
+                gas_used = int(str(gas), 0) if gas is not None else None
+            except ValueError:
+                gas_used = None
+            return {
+                "from": result.get("from"),
+                "to": result.get("to"),
+                "value_wei": value_wei,
+                "status": "unknown",  # gettxinfo carries no status field
+                "method": None,
+                "raw_input": result.get("input"),
+                "block_number": None,
+                "gas_used": gas_used,
+            }
+        return None
+
+    async def transaction_token_transfers(
+        self, tx_hash: str
+    ) -> list[dict] | None:
+        """ERC-20 transfers made BY one transaction:
+        [{token, from, to, amount_raw}] (v2 only — the legacy API has
+        no per-transaction transfer list). None when the source cannot
+        supply the list; an empty list is a real answer (the explorer
+        lists the transaction and it made no token transfers). Like
+        transaction(), the fetch gets two draws at the intermittent
+        Cloudflare gate."""
+        body = await self._v2(f"/transactions/{tx_hash}/token-transfers")
+        if body is None:
+            await asyncio.sleep(0.3)
+            body = await self._v2(f"/transactions/{tx_hash}/token-transfers")
+        if isinstance(body, dict) and isinstance(body.get("items"), list):
+            out = []
+            for it in body["items"]:
+                if not isinstance(it, dict):
+                    continue
+                total = it.get("total") or {}
+                token = it.get("token") or {}
+                out.append(
+                    {
+                        "token": token.get("address_hash") or token.get("address"),
+                        "from": (it.get("from") or {}).get("hash"),
+                        "to": (it.get("to") or {}).get("hash"),
+                        "amount_raw": str(total.get("value"))
+                        if total.get("value") is not None
+                        else None,
                     }
                 )
             return out
