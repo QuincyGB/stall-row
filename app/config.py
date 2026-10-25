@@ -1,4 +1,4 @@
-"""Settings for the stall-row x402 service (one deployment, 12 paid routes)."""
+"""Settings for the stall-row x402 service (one deployment, 13 paid routes)."""
 
 from __future__ import annotations
 
