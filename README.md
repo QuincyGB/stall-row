@@ -28,6 +28,12 @@ authentication** (x402 v2, exact scheme, USDC on Base).
 | `POST /v1/recheck` | $0.005 | Scheduled change detection: BASELINE / UNCHANGED / CHANGED diff for one x402 resource or web page, probed unpaid |
 | `POST /v1/recheck/pack` | $1.00 | Prepaid recheck pack: 250 change-checks on ONE endpoint URL, 90-day expiry — spend via `pack_id` on `/v1/recheck` ($0.004/check) |
 
+**Per-call or pack?** One-off check → pay $0.005 per call. Anything on
+a schedule — a monitoring loop, a buyer's drift check, a daily
+re-screen — → buy the $1 pack once (250 checks, one endpoint, 90
+days) and spend credits. At 3+ checks a week the pack is cheaper
+*and* removes 249 settlements from your loop.
+
 Free: `GET /`, `/health`, `/quote`, `/.well-known/x402`, `/skill.md`,
 `/llms.txt`, and `POST /v1/recheck/pack-balance` (credits + expiry for
 a pack id; spends nothing). Pack semantics: minting is idempotent on

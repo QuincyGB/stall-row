@@ -585,14 +585,15 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/recheck": {
         "description": (
-            "Change detection for anything with a URL, built for monitoring "
-            "loops: probe one x402 resource or web page WITHOUT paying it "
-            "and answer BASELINE, UNCHANGED, or CHANGED with a field-by-field "
-            "diff (price, asset, payTo, schema, page body) against the last "
-            "check for that watch. Use this when an agent runs on a schedule "
-            "and needs to know what changed before spending money or "
-            "attention. Watch and pack state persist across redeploys on "
-            "the service volume. Packs: $1 for 250 checks on one endpoint."
+            "Probe one x402 resource or page WITHOUT paying it: BASELINE / "
+            "UNCHANGED / CHANGED with a diff (price, asset, payTo, schema, "
+            "body) vs the last check. Use this when a scheduled agent must "
+            "know what changed first. Watch and pack state persist across "
+            "redeploys on the service volume. Checking the same endpoint "
+            "on a schedule? Buy the pack instead — POST /v1/recheck/pack "
+            "is $1 for 250 checks (90 days) and this route spends pack "
+            "credits when you send pack_id, so a loop makes one payment, "
+            "not hundreds."
         ),
         "tags": ["monitoring", "x402", "change-detection", "diff", "agents"],
         "input_schema": _obj({"url": _S, "watch_id": _S, "pack_id": _S}, ["url"]),
@@ -647,15 +648,15 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/recheck/pack": {
         "description": (
-            "Recheck watch pack: one $1.00 payment buys 250 "
-            "change-checks for ONE endpoint ($0.004 per check instead "
-            "of $0.005), good for 90 days. Pack credits persist across "
-            "redeploys on the service volume. Returns an unguessable "
-            "pack id — spend credits via POST /v1/recheck (body pack_id "
-            "or X-Recheck-Pack header), and read the balance free at "
-            "POST /v1/recheck/pack-balance. Use this when a monitoring "
-            "loop checks the same endpoint on a schedule and wants one "
-            "payment instead of hundreds."
+            "Recheck watch pack — the default for monitoring loops: one "
+            "$1.00 payment buys 250 change-checks for ONE endpoint "
+            "($0.004 per check instead of $0.005), good for 90 days. "
+            "Returns an unguessable pack id — spend credits via POST "
+            "/v1/recheck (body pack_id or X-Recheck-Pack header); read "
+            "the balance free at POST /v1/recheck/pack-balance, and an "
+            "exhausted pack returns 402 rather than charging per call. "
+            "Use this when anything checks the same endpoint more than "
+            "~3 times a week."
         ),
         "tags": ["monitoring", "x402", "change-detection", "prepaid", "agents"],
         "input_schema": _obj({"url": _S}, ["url"]),
@@ -862,6 +863,14 @@ def llms_txt(settings: Settings, base_url: str) -> str:
     ]
     for path in ROUTES:
         lines.append(f"- POST {base_url}{path} — {_price_str(path, settings)} USDC")
+        if path == "/v1/recheck/pack":
+            lines += [
+                "Monitoring loop? The pack is the default: $1.00 = 250 checks on one",
+                "endpoint for 90 days ($0.004/check). Spend with pack_id on",
+                "POST /v1/recheck; check the balance free at",
+                "POST /v1/recheck/pack-balance. Exhausted packs return 402 — they",
+                "never fall back to per-call billing. Renewal is a new pack purchase.",
+            ]
     lines += [
         f"- GET {base_url}/quote — free price quote",
         f"- GET {base_url}/health — free liveness check",
