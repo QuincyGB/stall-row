@@ -695,6 +695,51 @@ ROUTES: dict[str, dict] = {
             "note": "Spend credits with POST /v1/recheck: send this pack_id in the body or the X-Recheck-Pack header. Read the balance free at POST /v1/recheck/pack-balance.",
         },
     },
+    "/v1/fleet-pass": {
+        "description": (
+            "Fleet Pass — one prepaid balance for the whole fleet: one "
+            "$5.00 payment buys a $5.00 balance that spends on any paid "
+            "route across Token Verdict, RouteVerdict, ListSmith, "
+            "StallRow and LockSmith, each call debited at that route's "
+            "listed price (90 days). Send the pass id as the "
+            "X-Fleet-Pass header; read the balance free at POST "
+            "/v1/fleet-pass/balance. Use this when a loop calls more "
+            "than one fleet service and wants one budget, not a "
+            "payment per call."
+        ),
+        "tags": ["prepaid", "x402", "budget", "agents", "fleet"],
+        "input_schema": _obj({}, []),
+        "input_example": {},
+        "output_schema": _obj(
+            {
+                "pass_id": _S,
+                "balance_units": _I,
+                "balance_usd": {"type": "number"},
+                "total_units": _I,
+                "total_usd": {"type": "number"},
+                "created_at": _S,
+                "expires_at": _S,
+                "expired": _B,
+                "expiry_days": _I,
+                "price_units": _I,
+                "note": _S,
+            },
+            ["pass_id", "balance_units", "expires_at"],
+        ),
+        "output_example": {
+            "pass_id": "fpass_9c73fa7ea40a6411b6517bd8cb3465a6b3",
+            "balance_units": 5000000,
+            "balance_usd": 5.0,
+            "total_units": 5000000,
+            "total_usd": 5.0,
+            "created_at": "2026-10-26T20:00:00Z",
+            "expires_at": "2027-01-24T20:00:00Z",
+            "expired": False,
+            "expiry_days": 90,
+            "price_units": 5000000,
+            "note": "Spend with the X-Fleet-Pass header on any fleet route. Read the balance free at POST /v1/fleet-pass/balance.",
+        },
+    },
 }
 
 for _path, _r in ROUTES.items():
@@ -830,6 +875,20 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "X-Recheck-Pack header to spend credits instead of paying per "
         "call. Check a pack's balance free at POST "
         "/v1/recheck/pack-balance.",
+        "",
+        "Fleet Pass: buy POST /v1/fleet-pass once ($5.00 = a $5.00 "
+        "USD balance, 90-day expiry) and spend it on ANY paid route "
+        "across all five fleet services (Token Verdict, RouteVerdict, "
+        "ListSmith, StallRow, LockSmith) by sending the pass id as "
+        "the X-Fleet-Pass header — each call debits that route's "
+        "listed price. Check the balance free at POST "
+        "/v1/fleet-pass/balance.",
+        "",
+        "Webhook Watch: register POST /v1/watch/register (free) with "
+        "a funded recheck pack or Fleet Pass and a webhook URL — the "
+        "service rechecks on your interval and POSTs the change to "
+        "your webhook on BASELINE/CHANGED. Run one check now via POST "
+        "/v1/watch/run; read state via POST /v1/watch/status.",
         "",
         "## Paid endpoints",
         "",

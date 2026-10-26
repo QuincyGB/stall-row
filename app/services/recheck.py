@@ -192,6 +192,60 @@ class WatchStore:
                 )
                 """
             )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS fleet_passes (
+                    pass_id TEXT PRIMARY KEY,
+                    balance_units INTEGER NOT NULL,
+                    total_units INTEGER NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    expires_epoch REAL NOT NULL,
+                    payment_key TEXT NOT NULL UNIQUE
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS fleet_pass_debits (
+                    debit_id TEXT PRIMARY KEY,
+                    pass_id TEXT NOT NULL,
+                    service TEXT NOT NULL,
+                    route TEXT NOT NULL,
+                    price_units INTEGER NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    refunded INTEGER NOT NULL DEFAULT 0
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS watch_regs (
+                    watch_reg_id TEXT PRIMARY KEY,
+                    url TEXT NOT NULL,
+                    webhook_url TEXT,
+                    email TEXT,
+                    interval_s INTEGER NOT NULL,
+                    funding_kind TEXT NOT NULL,
+                    funding_id TEXT NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    last_run_epoch REAL,
+                    last_status TEXT,
+                    active INTEGER NOT NULL DEFAULT 1
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS watch_deliveries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    watch_reg_id TEXT NOT NULL,
+                    event TEXT NOT NULL,
+                    delivered_epoch REAL NOT NULL,
+                    http_status INTEGER,
+                    error TEXT
+                )
+                """
+            )
             self._conn.commit()
 
     @property
@@ -374,6 +428,296 @@ class WatchStore:
                 (pack_id,),
             )
             self._conn.commit()
+
+    # --- fleet passes --------------------------------------------------
+    # A Fleet Pass is a USD-denominated prepaid balance (micro-units)
+    # spendable on ANY fleet route: the ledger lives here, sibling
+    # services debit it over HTTP (POST /v1/fleet-pass/debit) and this
+    # store is the single source of truth. Same discipline as packs:
+    # CSPRNG id as the only credential, atomic reserve under the lock,
+    # refund by debit_id when our side fails, no silent fallback.
+
+    _PASS_COLS = (
+        "pass_id, balance_units, total_units, created_epoch, "
+        "expires_epoch, payment_key"
+    )
+
+    def _pass_row(self, where: str, params: tuple) -> dict | None:
+        row = self._conn.execute(
+            f"SELECT {self._PASS_COLS} FROM fleet_passes WHERE {where}", params
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "pass_id": row[0],
+            "balance_units": row[1],
+            "total_units": row[2],
+            "created_epoch": row[3],
+            "expires_epoch": row[4],
+            "payment_key": row[5],
+        }
+
+    @staticmethod
+    def _pass_view(row: dict, now_epoch: float | None = None) -> dict:
+        now = time.time() if now_epoch is None else now_epoch
+        return {
+            "pass_id": row["pass_id"],
+            "balance_units": row["balance_units"],
+            "balance_usd": row["balance_units"] / 1_000_000,
+            "total_units": row["total_units"],
+            "total_usd": row["total_units"] / 1_000_000,
+            "created_at": _iso_of(row["created_epoch"]),
+            "expires_at": _iso_of(row["expires_epoch"]),
+            "expired": now >= row["expires_epoch"],
+        }
+
+    def mint_pass(
+        self,
+        payment_key: str,
+        total_units: int,
+        ttl_days: int,
+        now_epoch: float | None = None,
+    ) -> tuple[dict, bool]:
+        """Create a Fleet Pass for one settled payment. Idempotent on
+        payment_key, exactly like mint_pack."""
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            for _attempt in range(3):
+                pass_id = "fpass_" + secrets.token_hex(16)
+                cur = self._conn.execute(
+                    "INSERT OR IGNORE INTO fleet_passes "
+                    "(pass_id, balance_units, total_units, created_epoch, "
+                    "expires_epoch, payment_key) VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        pass_id,
+                        total_units,
+                        total_units,
+                        now,
+                        now + ttl_days * 86_400,
+                        payment_key,
+                    ),
+                )
+                self._conn.commit()
+                if cur.rowcount == 1:
+                    row = self._pass_row("pass_id = ?", (pass_id,))
+                    assert row is not None
+                    return self._pass_view(row, now), True
+                existing = self._pass_row("payment_key = ?", (payment_key,))
+                if existing is not None:
+                    return self._pass_view(existing, now), False
+            raise RuntimeError("could not mint a unique pass id")
+
+    def get_pass(self, pass_id: str) -> dict | None:
+        with self._lock:
+            row = self._pass_row("pass_id = ?", (pass_id,))
+        return self._pass_view(row) if row is not None else None
+
+    def debit_pass(
+        self,
+        pass_id: str,
+        service: str,
+        route: str,
+        price_units: int,
+        now_epoch: float | None = None,
+    ) -> dict:
+        """Atomically debit `price_units` for one fleet call about to
+        run. The CALLER (fleetpass price table) fixes the price — the
+        buyer never names it. Raises PackError (unknown 404 / expired
+        410 / insufficient 402) without debiting anything. Returns the
+        pass view plus the debit_id a refund must cite."""
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            row = self._pass_row("pass_id = ?", (pass_id,))
+            if row is None:
+                raise PackError("unknown_pass", "unknown pass_id", 404)
+            if now >= row["expires_epoch"]:
+                raise PackError(
+                    "pass_expired",
+                    "this fleet pass has expired; buy a new pass or pay per call",
+                    410,
+                )
+            if row["balance_units"] < price_units:
+                raise PackError(
+                    "pass_insufficient",
+                    "fleet pass balance is below this route's price; "
+                    "buy a new pass or pay per call",
+                    402,
+                )
+            debit_id = "fpd_" + secrets.token_hex(12)
+            self._conn.execute(
+                "UPDATE fleet_passes SET balance_units = balance_units - ? "
+                "WHERE pass_id = ? AND balance_units >= ?",
+                (price_units, pass_id, price_units),
+            )
+            self._conn.execute(
+                "INSERT INTO fleet_pass_debits "
+                "(debit_id, pass_id, service, route, price_units, "
+                "created_epoch, refunded) VALUES (?, ?, ?, ?, ?, ?, 0)",
+                (debit_id, pass_id, service, route, price_units, now),
+            )
+            self._conn.commit()
+            row = self._pass_row("pass_id = ?", (pass_id,))
+            assert row is not None
+            view = self._pass_view(row, now)
+            view["debit_id"] = debit_id
+            view["debited_units"] = price_units
+            return view
+
+    def refund_debit(self, debit_id: str) -> bool:
+        """Re-credit one debit after our side failed to deliver.
+        Idempotent: a second refund of the same debit_id is a no-op.
+        Returns True when a refund actually landed."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT pass_id, price_units, refunded FROM "
+                "fleet_pass_debits WHERE debit_id = ?",
+                (debit_id,),
+            ).fetchone()
+            if row is None or row[2]:
+                return False
+            self._conn.execute(
+                "UPDATE fleet_passes SET balance_units = "
+                "MIN(balance_units + ?, total_units) WHERE pass_id = ?",
+                (row[1], row[0]),
+            )
+            self._conn.execute(
+                "UPDATE fleet_pass_debits SET refunded = 1 WHERE debit_id = ?",
+                (debit_id,),
+            )
+            self._conn.commit()
+            return True
+
+    def pass_debit_count(self, pass_id: str) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM fleet_pass_debits WHERE pass_id = ?",
+                (pass_id,),
+            ).fetchone()
+        return int(row[0]) if row else 0
+
+    # --- webhook watch registrations ------------------------------------
+    # A registration binds one watched URL to a delivery target and a
+    # funding credential (a recheck pack bound to that URL, or a Fleet
+    # Pass). Each periodic run spends from that credential — a run
+    # that cannot be funded marks the registration funding_failed and
+    # delivers nothing, never a free silent run.
+
+    def register_watch(
+        self,
+        url: str,
+        webhook_url: str | None,
+        email: str | None,
+        interval_s: int,
+        funding_kind: str,
+        funding_id: str,
+        now_epoch: float | None = None,
+    ) -> dict:
+        now = time.time() if now_epoch is None else now_epoch
+        watch_reg_id = "watch_" + secrets.token_hex(8)
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO watch_regs "
+                "(watch_reg_id, url, webhook_url, email, interval_s, "
+                "funding_kind, funding_id, created_epoch, active) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)",
+                (
+                    watch_reg_id,
+                    url,
+                    webhook_url,
+                    email,
+                    interval_s,
+                    funding_kind,
+                    funding_id,
+                    now,
+                ),
+            )
+            self._conn.commit()
+        return self.get_watch_reg(watch_reg_id)  # type: ignore[return-value]
+
+    def get_watch_reg(self, watch_reg_id: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT watch_reg_id, url, webhook_url, email, interval_s, "
+                "funding_kind, funding_id, created_epoch, last_run_epoch, "
+                "last_status, active FROM watch_regs WHERE watch_reg_id = ?",
+                (watch_reg_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "watch_reg_id": row[0],
+            "url": row[1],
+            "webhook_url": row[2],
+            "email": row[3],
+            "interval_s": row[4],
+            "funding_kind": row[5],
+            "funding_id": row[6],
+            "created_at": _iso_of(row[7]),
+            "last_run_at": _iso_of(row[8]) if row[8] else None,
+            "last_status": row[9],
+            "active": bool(row[10]),
+        }
+
+    def due_watch_regs(self, now_epoch: float | None = None) -> list[dict]:
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT watch_reg_id FROM watch_regs WHERE active = 1 AND "
+                "(last_run_epoch IS NULL OR last_run_epoch + interval_s <= ?)",
+                (now,),
+            ).fetchall()
+        return [
+            reg
+            for r in rows
+            if (reg := self.get_watch_reg(r[0])) is not None
+        ]
+
+    def update_watch_run(
+        self, watch_reg_id: str, status: str, now_epoch: float | None = None
+    ) -> None:
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            self._conn.execute(
+                "UPDATE watch_regs SET last_run_epoch = ?, last_status = ? "
+                "WHERE watch_reg_id = ?",
+                (now, status, watch_reg_id),
+            )
+            self._conn.commit()
+
+    def record_delivery(
+        self,
+        watch_reg_id: str,
+        event: str,
+        http_status: int | None,
+        error: str | None,
+        now_epoch: float | None = None,
+    ) -> None:
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO watch_deliveries "
+                "(watch_reg_id, event, delivered_epoch, http_status, error) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (watch_reg_id, event, now, http_status, error),
+            )
+            self._conn.commit()
+
+    def deliveries_for(self, watch_reg_id: str) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT event, delivered_epoch, http_status, error FROM "
+                "watch_deliveries WHERE watch_reg_id = ? ORDER BY id",
+                (watch_reg_id,),
+            ).fetchall()
+        return [
+            {
+                "event": r[0],
+                "delivered_at": _iso_of(r[1]),
+                "http_status": r[2],
+                "error": r[3],
+            }
+            for r in rows
+        ]
 
 
 # --- probing -------------------------------------------------------------------

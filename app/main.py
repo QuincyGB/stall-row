@@ -53,8 +53,10 @@ from .config import PRICE_UNITS, load_settings
 from .discovery import OWNERSHIP_PROOFS, ROUTES, llms_txt, route_extension, skill_md, x402_manifest
 from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import fetch as fetch_svc
+from .services import fleetpass as fleetpass_svc
 from .services import reads as reads_svc
 from .services import recheck as recheck_svc
+from .services import watch as watch_svc
 from .services import scout as scout_svc
 from .services import seller as seller_svc
 from .services import verdict as verdict_svc
@@ -152,6 +154,10 @@ async def _request_pack_id(request: Request) -> str:
     return ""
 
 
+PASS_HEADER = fleetpass_svc.PASS_HEADER
+_PASS_EXEMPT = {"/v1/recheck/pack", "/v1/fleet-pass"}
+
+
 @app.middleware("http")
 async def x402_middleware(request: Request, call_next):
     # A recheck call presenting a pack id is paid from the pack, not
@@ -161,6 +167,32 @@ async def x402_middleware(request: Request, call_next):
     if request.method == "POST" and request.url.path == "/v1/recheck":
         if await _request_pack_id(request):
             return await call_next(request)
+    # A call presenting a Fleet Pass id is paid from the pass: debit
+    # this route's listed price from the ledger BEFORE the handler
+    # runs, and refund the debit when the response is a failure —
+    # reserve-then-run, never a charge for our failure, and never a
+    # silent fallback to a per-call charge.
+    pass_id = (request.headers.get(PASS_HEADER) or "").strip()
+    if (
+        pass_id
+        and request.method == "POST"
+        and request.url.path in PRICE_UNITS
+        and request.url.path not in _PASS_EXEMPT
+    ):
+        price = fleetpass_svc.price_for("stall-row", request.url.path)
+        if price is not None:
+            try:
+                debit = _recheck_store.debit_pass(
+                    pass_id, "stall-row", request.url.path, price
+                )
+            except recheck_svc.PackError as e:
+                return JSONResponse(
+                    {"error": e.message, "code": e.code}, status_code=e.http_status
+                )
+            response = await call_next(request)
+            if response.status_code >= 400:
+                _recheck_store.refund_debit(debit["debit_id"])
+            return response
     return await _payment_middleware(request, call_next)
 
 
@@ -559,6 +591,167 @@ async def recheck_pack_balance(req: RecheckPackBalanceRequest):
     if pack is None or (req.url is not None and pack["url"] != req.url.strip()):
         return JSONResponse({"error": "unknown pack_id"}, status_code=404)
     return pack
+
+
+# --- Fleet Pass ---------------------------------------------------------------
+# The pass ledger lives in the recheck store. Buy is a paid route
+# (minting idempotent on the payment identity, like packs); balance,
+# debit and refund are free routes where the pass/debit id is the
+# credential — debit is how the SIBLING services spend a buyer's pass
+# (the price always comes from fleetpass.FLEET_ROUTES, never from the
+# request body beyond naming service + route).
+
+class FleetPassBalanceRequest(BaseModel):
+    pass_id: str = Field(description="Pass id returned by POST /v1/fleet-pass")
+
+
+class FleetPassDebitRequest(BaseModel):
+    pass_id: str = Field(description="Pass id presented by the buyer (X-Fleet-Pass)")
+    service: str = Field(description="Fleet service name, e.g. token-verdict")
+    route: str = Field(description="Fleet route path, e.g. /v1/verdict")
+
+
+class FleetPassRefundRequest(BaseModel):
+    debit_id: str = Field(description="Debit id returned by POST /v1/fleet-pass/debit")
+
+
+@app.post("/v1/fleet-pass")
+async def fleet_pass_buy(request: Request):
+    """Mint a Fleet Pass. Runs only after the x402 middleware has
+    verified the $5.00 payment; idempotent on the payment identity."""
+    payment_key = _payment_key(request)
+    if payment_key is None:
+        return JSONResponse(
+            {"error": "payment identity unavailable; pass cannot be minted safely"},
+            status_code=502,
+        )
+    fleet_pass, created = _recheck_store.mint_pass(
+        payment_key, fleetpass_svc.PASS_PRICE_UNITS, fleetpass_svc.PASS_TTL_DAYS
+    )
+    return {
+        **fleet_pass,
+        "expiry_days": fleetpass_svc.PASS_TTL_DAYS,
+        "price_units": fleetpass_svc.PASS_PRICE_UNITS,
+        "note": (
+            "Spend with the X-Fleet-Pass header on any fleet route; each "
+            "call debits that route's listed price. Read the balance "
+            "free at POST /v1/fleet-pass/balance."
+            + ("" if created else " This payment already minted this pass; returning it.")
+        ),
+    }
+
+
+@app.post("/v1/fleet-pass/balance")
+async def fleet_pass_balance(req: FleetPassBalanceRequest):
+    """Free balance read: USD balance + expiry + debit count."""
+    fleet_pass = _recheck_store.get_pass(req.pass_id.strip())
+    if fleet_pass is None:
+        return JSONResponse({"error": "unknown pass_id"}, status_code=404)
+    fleet_pass["debits"] = _recheck_store.pass_debit_count(req.pass_id.strip())
+    return fleet_pass
+
+
+@app.post("/v1/fleet-pass/debit")
+async def fleet_pass_debit(req: FleetPassDebitRequest):
+    """Debit one fleet call from a pass. The price is looked up in
+    the fleet price table — the request names service + route only."""
+    price = fleetpass_svc.price_for(req.service.strip(), req.route.strip())
+    if price is None:
+        return JSONResponse(
+            {"error": "unknown fleet service/route"}, status_code=422
+        )
+    try:
+        return _recheck_store.debit_pass(
+            req.pass_id.strip(), req.service.strip(), req.route.strip(), price
+        )
+    except recheck_svc.PackError as e:
+        return JSONResponse(
+            {"error": e.message, "code": e.code}, status_code=e.http_status
+        )
+
+
+@app.post("/v1/fleet-pass/refund")
+async def fleet_pass_refund(req: FleetPassRefundRequest):
+    """Re-credit a debit after the calling service failed to deliver.
+    Idempotent per debit_id."""
+    refunded = _recheck_store.refund_debit(req.debit_id.strip())
+    return {"debit_id": req.debit_id.strip(), "refunded": refunded}
+
+
+# --- Webhook Watch --------------------------------------------------------------
+
+class WatchRegisterRequest(BaseModel):
+    url: str = Field(description="Public http(s) URL to watch: an x402 resource or a web page")
+    webhook_url: str | None = Field(default=None, description="Public http(s) URL that receives change pushes")
+    email: str | None = Field(default=None, description="Optional contact email (stored; webhook is the live channel)")
+    interval_s: int | None = Field(default=None, ge=300, le=86400, description="Seconds between automatic checks (300–86400)")
+    pack_id: str | None = Field(default=None, description="Fund runs with this recheck pack (bound to the watched URL)")
+    fleet_pass_id: str | None = Field(default=None, description="Fund runs with this Fleet Pass ($0.005 per run)")
+
+
+class WatchIdRequest(BaseModel):
+    watch_reg_id: str = Field(description="Watch registration id returned by POST /v1/watch/register")
+
+
+@app.post("/v1/watch/register")
+async def watch_register(req: WatchRegisterRequest):
+    """Register a webhook watch. Free to register; every run spends
+    from the named funding credential. Both URLs are SSRF-checked and
+    the credential must actually cover this watch."""
+    try:
+        return await watch_svc.register(
+            _recheck_store,
+            req.url,
+            req.webhook_url,
+            req.email,
+            req.interval_s,
+            req.pack_id,
+            req.fleet_pass_id,
+        )
+    except watch_svc.WatchError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+@app.post("/v1/watch/status")
+async def watch_status(req: WatchIdRequest):
+    reg = _recheck_store.get_watch_reg(req.watch_reg_id.strip())
+    if reg is None:
+        return JSONResponse({"error": "unknown watch_reg_id"}, status_code=404)
+    reg["deliveries"] = _recheck_store.deliveries_for(req.watch_reg_id.strip())
+    return reg
+
+
+@app.post("/v1/watch/run")
+async def watch_run(req: WatchIdRequest):
+    """Run one funded check for a registration right now (the periodic
+    ticker runs the same code when a registration comes due)."""
+    reg = _recheck_store.get_watch_reg(req.watch_reg_id.strip())
+    if reg is None:
+        return JSONResponse({"error": "unknown watch_reg_id"}, status_code=404)
+    return await watch_svc.run_watch(_fetch_client(), _recheck_store, reg)
+
+
+async def _watch_ticker() -> None:
+    """Periodic funded checks for due registrations. Sequential by
+    design; a failing watch never stops the ticker."""
+    tick = float(os.environ.get("STALLROW_WATCH_TICK_S", "300"))
+    while True:
+        await asyncio.sleep(tick)
+        try:
+            for reg in _recheck_store.due_watch_regs():
+                try:
+                    await watch_svc.run_watch(
+                        _fetch_client(), _recheck_store, reg
+                    )
+                except Exception:  # noqa: BLE001 — one watch must not kill the loop
+                    log.exception("watch run failed for %s", reg["watch_reg_id"])
+        except Exception:  # noqa: BLE001
+            log.exception("watch ticker pass failed")
+
+
+@app.on_event("startup")
+async def _start_watch_ticker() -> None:
+    asyncio.get_event_loop().create_task(_watch_ticker())
 
 
 # --- free routes -----------------------------------------------------------------
