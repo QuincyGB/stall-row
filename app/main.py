@@ -164,6 +164,31 @@ async def x402_middleware(request: Request, call_next):
     return await _payment_middleware(request, call_next)
 
 
+# Request-body cap (security audit 2026-10-25): every legitimate body in
+# this API is a small JSON document; an uncapped body lets a caller
+# stream unbounded bytes at the parser. Chunked bodies without a
+# Content-Length are the residual gap (terminated at the edge).
+_MAX_BODY_BYTES = 1024 * 1024
+
+
+@app.middleware("http")
+async def _body_cap(request: Request, call_next):
+    length = request.headers.get("content-length")
+    if length is not None and length.isdigit() and int(length) > _MAX_BODY_BYTES:
+        return JSONResponse({"error": "request body too large"}, status_code=413)
+    return await call_next(request)
+
+
+def _scrub_upstreams(text: str) -> str:
+    """Never echo a configured upstream URL in an error body: an RPC or
+    indexer URL can carry an API key in its path, and transport errors
+    embed the URL they failed on (security audit 2026-10-25)."""
+    for url in (settings.rpc_url, settings.blockscout_base_url):
+        if url:
+            text = text.replace(url, "[upstream]")
+    return text
+
+
 def _payment_key(request: Request) -> str | None:
     """The replay identity of the verified payment behind this
     request, for idempotent pack minting.
@@ -238,7 +263,7 @@ async def _run(coro_fn):
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=422)
     except UpstreamError as e:
-        return JSONResponse({"error": str(e)}, status_code=502)
+        return JSONResponse({"error": _scrub_upstreams(str(e))}, status_code=502)
     except Exception:  # noqa: BLE001 — never leak tracebacks
         log.exception("paid handler failed")
         return JSONResponse({"error": "internal failure"}, status_code=502)
@@ -479,7 +504,7 @@ async def recheck(req: RecheckRequest, request: Request):
         except ValueError as e:
             return JSONResponse({"error": str(e)}, status_code=422)
         except UpstreamError as e:
-            return JSONResponse({"error": str(e)}, status_code=502)
+            return JSONResponse({"error": _scrub_upstreams(str(e))}, status_code=502)
         except Exception:  # noqa: BLE001 — mirror _run's honesty contract
             log.exception("pack recheck failed")
             return JSONResponse({"error": "internal failure"}, status_code=502)
