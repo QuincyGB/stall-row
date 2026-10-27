@@ -52,6 +52,7 @@ from .blockscout import Blockscout
 from .config import PRICE_UNITS, load_settings
 from .discovery import OWNERSHIP_PROOFS, ROUTES, llms_txt, route_extension, skill_md, x402_manifest
 from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
+from .services import counterparty as counterparty_svc
 from .services import fetch as fetch_svc
 from .services import fleetpass as fleetpass_svc
 from .services import indexfeed as indexfeed_svc
@@ -630,6 +631,58 @@ async def pre_trade_guard(req: PreTradeGuardRequest):
                 pay_to=req.pay_to.strip(),
                 amount=req.amount,
                 network=(req.network or "").strip() or None,
+                resource=(req.resource or "").strip() or None,
+            )
+
+    return await _run(go)
+
+
+class CounterpartyReportRequest(BaseModel):
+    pay_to: str = Field(description="The seller's payTo address, 0x…")
+    token_address: str | None = Field(
+        default=None, description="Optional token contract for the Token Verdict leg"
+    )
+    chain: str = Field(default="base", description="Chain for the Token Verdict leg")
+    service_url: str | None = Field(
+        default=None, description="Optional service endpoint URL for the LockSmith audit leg"
+    )
+    listing_url: str | None = Field(
+        default=None, description="Optional listing/manifest URL for the ListSmith leg"
+    )
+    resource: str | None = Field(
+        default=None,
+        description="Optional resource URL for the Index history leg (defaults to listing_url)",
+    )
+
+
+@app.post("/v1/counterparty-report")
+async def counterparty_report(req: CounterpartyReportRequest):
+    """Counterparty Report: everything the fleet can say about one
+    seller in one call — wallet snapshot, sanctions screen, and
+    Index history locally; Token Verdict / LockSmith / ListSmith
+    legs via the fleet-internal paths when the buyer names a token,
+    a service URL, or a listing URL. Legs that cannot run are
+    marked in the report; only a total failure 502s unsettled."""
+    if not is_address(req.pay_to):
+        return JSONResponse({"error": "pay_to must be a 0x EVM address"}, status_code=422)
+    if req.token_address is not None and not is_address(req.token_address):
+        return JSONResponse(
+            {"error": "token_address must be a 0x EVM address"}, status_code=422
+        )
+
+    async def go():
+        client, rpc, scout = _clients()
+        async with client:
+            return await counterparty_svc.run_counterparty(
+                client,
+                rpc,
+                scout,
+                _index_store,
+                pay_to=req.pay_to.strip(),
+                token_address=(req.token_address or "").strip() or None,
+                chain=(req.chain or "base").strip(),
+                service_url=(req.service_url or "").strip() or None,
+                listing_url=(req.listing_url or "").strip() or None,
                 resource=(req.resource or "").strip() or None,
             )
 

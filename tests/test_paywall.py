@@ -31,6 +31,7 @@ BODIES = {
     "/v1/recheck": {"url": "https://www.x402.org/"},
     "/v1/index/changes": {},
     "/v1/orchestrate": {"address": "0x940181a94A35A4569E4529A3CDfB74e38FD98631", "service_url": "https://www.x402.org/", "listing_url": "https://www.x402.org/"},
+    "/v1/counterparty-report": {"pay_to": OWNER},
     "/v1/recheck/pack": {"url": "https://www.x402.org/"},
     "/v1/fleet-pass": {},
 }

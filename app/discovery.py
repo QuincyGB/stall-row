@@ -368,6 +368,64 @@ ROUTES: dict[str, dict] = {
             "limits": "Listing history covers only the snapshots held.",
         },
     },
+    "/v1/counterparty-report": {
+        "description": (
+            "Counterparty Report — one bundled report on one seller: the "
+            "payTo's wallet snapshot, an OFAC SDN exact-match screen, and "
+            "its Verdict Index listing history, plus a Token Verdict when "
+            "you name a token, a LockSmith audit when you name a service "
+            "URL, and a ListSmith grade when you name a listing URL. Legs "
+            "that are not requested or cannot run are marked, never "
+            "padded. Use this when an agent is about to rely on a seller "
+            "it has never dealt with."
+        ),
+        "tags": ["x402", "security", "verdict", "sellers", "agents"],
+        "input_schema": _obj(
+            {
+                "pay_to": _S,
+                "token_address": _N,
+                "chain": _S,
+                "service_url": _N,
+                "listing_url": _N,
+                "resource": _N,
+            },
+            ["pay_to"],
+        ),
+        "input_example": {
+            "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+            "service_url": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+            "listing_url": "https://stall-row-production.up.railway.app/.well-known/x402",
+        },
+        "output_schema": _obj(
+            {
+                "pay_to": _S,
+                "token_address": _N,
+                "service_url": _N,
+                "listing_url": _N,
+                "generated_at": _S,
+                "legs_ok": {"type": "array", "items": _S},
+                "legs_failed": {"type": "array", "items": _S},
+                "legs_unavailable": {"type": "array", "items": _S},
+                "legs_not_requested": {"type": "array", "items": _S},
+                "legs": {"type": "object"},
+                "limits": _S,
+            },
+            ["pay_to", "generated_at", "legs_ok", "legs"],
+        ),
+        "output_example": {
+            "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+            "token_address": None,
+            "service_url": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+            "listing_url": "https://stall-row-production.up.railway.app/.well-known/x402",
+            "generated_at": "2026-10-27T12:00:00Z",
+            "legs_ok": ["wallet", "index", "locksmith", "listsmith"],
+            "legs_failed": [],
+            "legs_unavailable": [],
+            "legs_not_requested": ["token_verdict"],
+            "legs": {"wallet": {"status": "ok"}, "locksmith": {"status": "ok", "headline": "SECURE"}},
+            "limits": "Legs marked not_requested were not asked for and were not run.",
+        },
+    },
     "/v1/tube-search": {
         "description": (
             "YouTube search results as clean JSON: title, video id, URL, "
