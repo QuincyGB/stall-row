@@ -600,6 +600,52 @@ ROUTES: dict[str, dict] = {
             "limits": "Flags are evidence, not verdicts.",
         },
     },
+    "/v1/agent-card-verify": {
+        "description": (
+            "Agent-Card Verifier — an ERC-8004 agent id (resolved on "
+            "Base via the registry) or an agent.json URL in; "
+            "the card is fetched and checked against live reality: "
+            "declared endpoints probed unpaid (402 is correct for a "
+            "paid service), challenge payTos compared with the "
+            "card's declared wallets, declared prices with live "
+            "challenge amounts. Undeclared fields report not_checked, "
+            "never a guess; an unreachable card errors honestly, "
+            "unsettled. Use this when an agent's card claims more "
+            "than its endpoints do."
+        ),
+        "tags": ["x402", "agents", "erc-8004", "verification", "identity"],
+        "input_schema": _obj(
+            {"agent_id": _IN, "agent_url": _N},
+            [],
+        ),
+        "input_example": {"agent_id": 97809},
+        "output_schema": _obj(
+            {
+                "agent_id": _IN,
+                "card_url": _S,
+                "source": _S,
+                "card_name": _N,
+                "checks": {"type": "object"},
+                "summary": {"type": "object"},
+                "overall": _S,
+                "limits": _S,
+            },
+            ["card_url", "checks", "summary", "overall"],
+        ),
+        "output_example": {
+            "agent_id": 97809,
+            "card_url": "https://raw.githubusercontent.com/QuincyGB/ren-executor-metadata/main/agent.json",
+            "source": "erc8004_registry",
+            "card_name": "Ren",
+            "checks": {
+                "card_parses": {"status": "ok", "detail": "card fetched and parsed"},
+                "payto_matches": {"status": "not_checked", "detail": "no probed endpoint issued a payment challenge — not checked"},
+            },
+            "summary": {"ok": 2, "issue": 0, "not_checked": 2},
+            "overall": "no_issues_found",
+            "limits": "Live reads at report time.",
+        },
+    },
     "/v1/tube-search": {
         "description": (
             "YouTube search results as clean JSON: title, video id, URL, "

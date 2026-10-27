@@ -35,6 +35,7 @@ BODIES = {
     "/v1/grade-my-stall": {"resource_url": "https://www.x402.org/"},
     "/v1/receipt-verify": {"tx_hash": "0x" + "ab" * 32},
     "/v1/flagged-paytos": {},
+    "/v1/agent-card-verify": {"agent_id": 97809},
     "/v1/recheck/pack": {"url": "https://www.x402.org/"},
     "/v1/fleet-pass": {},
 }

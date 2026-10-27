@@ -53,6 +53,7 @@ from .blockscout import Blockscout
 from .config import PRICE_UNITS, load_settings
 from .discovery import OWNERSHIP_PROOFS, ROUTES, llms_txt, route_extension, skill_md, x402_manifest
 from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
+from .services import agentcard as agentcard_svc
 from .services import counterparty as counterparty_svc
 from .services import fetch as fetch_svc
 from .services import gradestall as gradestall_svc
@@ -777,6 +778,53 @@ async def flagged_paytos(_req: EmptyRequest | None = None):
     evidence; caps and truncations are stated in the response."""
     async def go():
         return registry_svc.build_feed(_index_store)
+
+    return await _run(go)
+
+
+class AgentCardVerifyRequest(BaseModel):
+    agent_id: int | None = Field(
+        default=None, description="ERC-8004 agent id on Base (registry-resolved)"
+    )
+    agent_url: str | None = Field(
+        default=None, description="Direct URL of the agent card JSON"
+    )
+
+
+@app.post("/v1/agent-card-verify")
+async def agent_card_verify(req: AgentCardVerifyRequest):
+    """Agent-Card Verifier: an ERC-8004 agent id (resolved through
+    the Base registry's agentURI/tokenURI) or a direct card URL in;
+    the card is fetched and checked against live reality — declared
+    endpoints probed unpaid, challenge payTos compared with the
+    card's declared wallets, declared prices compared with live
+    challenge amounts. Undeclared fields report not_checked; an
+    unreachable card 502s unsettled."""
+    if req.agent_id is None and not (req.agent_url or "").strip():
+        return JSONResponse(
+            {"error": "name an agent_id or an agent_url"}, status_code=422
+        )
+    if req.agent_id is not None and req.agent_id < 0:
+        return JSONResponse(
+            {"error": "agent_id must be a non-negative integer"}, status_code=422
+        )
+    url = (req.agent_url or "").strip()
+    if url and (
+        urlsplit(url).scheme not in ("http", "https") or not urlsplit(url).netloc
+    ):
+        return JSONResponse(
+            {"error": "agent_url must be an http(s) URL"}, status_code=422
+        )
+
+    async def go():
+        client, rpc, _scout = _clients()
+        async with client:
+            return await agentcard_svc.verify_agent_card(
+                client,
+                rpc,
+                agent_id=req.agent_id,
+                agent_url=url or None,
+            )
 
     return await _run(go)
 
