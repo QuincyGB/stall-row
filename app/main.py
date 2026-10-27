@@ -24,6 +24,7 @@ from __future__ import annotations
 import logging
 import os
 from typing import Any
+from urllib.parse import urlsplit
 
 # Scrub bracketed-IPv6 no_proxy entries before any x402 SDK client is
 # constructed (see list-smith/app/main.py — the SDK's httpx client dies
@@ -54,6 +55,7 @@ from .discovery import OWNERSHIP_PROOFS, ROUTES, llms_txt, route_extension, skil
 from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import counterparty as counterparty_svc
 from .services import fetch as fetch_svc
+from .services import gradestall as gradestall_svc
 from .services import fleetpass as fleetpass_svc
 from .services import indexfeed as indexfeed_svc
 from .services import orchestrate as orchestrate_svc
@@ -684,6 +686,45 @@ async def counterparty_report(req: CounterpartyReportRequest):
                 service_url=(req.service_url or "").strip() or None,
                 listing_url=(req.listing_url or "").strip() or None,
                 resource=(req.resource or "").strip() or None,
+            )
+
+    return await _run(go)
+
+
+class GradeMyStallRequest(BaseModel):
+    resource_url: str = Field(description="The seller's x402 resource URL")
+    pay_to: str | None = Field(
+        default=None,
+        description="Optional: the payTo the seller believes the resource uses",
+    )
+
+
+@app.post("/v1/grade-my-stall")
+async def grade_my_stall(req: GradeMyStallRequest):
+    """Grade My Stall: a seller-side report card for one resource —
+    live 402 probe, description length vs the catalogue limit, CDP
+    listing presence in the newest Index snapshot, Settled's record,
+    x402scan ownership declaration on the origin, and payTo
+    consistency across every source that names one. Checks that
+    cannot be performed report "unverified", never a guess."""
+    url = (req.resource_url or "").strip()
+    if urlsplit(url).scheme not in ("http", "https") or not urlsplit(url).netloc:
+        return JSONResponse(
+            {"error": "resource_url must be an http(s) URL"}, status_code=422
+        )
+    if req.pay_to is not None and not is_address(req.pay_to):
+        return JSONResponse(
+            {"error": "pay_to must be a 0x EVM address"}, status_code=422
+        )
+
+    async def go():
+        client, _rpc, _scout = _clients()
+        async with client:
+            return await gradestall_svc.grade_stall(
+                client,
+                _index_store,
+                resource_url=url,
+                pay_to=(req.pay_to or "").strip() or None,
             )
 
     return await _run(go)

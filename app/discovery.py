@@ -426,6 +426,50 @@ ROUTES: dict[str, dict] = {
             "limits": "Legs marked not_requested were not asked for and were not run.",
         },
     },
+    "/v1/grade-my-stall": {
+        "description": (
+            "Grade My Stall — a seller-side report card for one x402 "
+            "resource: a live unpaid probe (does it answer 402 with a "
+            "parseable challenge?), the description measured against "
+            "the 500-character limit, CDP listing presence in the "
+            "newest catalog snapshot, Settled's record, the origin's "
+            "x402scan ownership declaration, and payTo consistency "
+            "across sources. Checks that cannot be performed report "
+            "unverified, never a guess. Use this when you run a stall "
+            "and want to know how buyers' tools see it."
+        ),
+        "tags": ["x402", "sellers", "listings", "verification"],
+        "input_schema": _obj(
+            {"resource_url": _S, "pay_to": _N},
+            ["resource_url"],
+        ),
+        "input_example": {
+            "resource_url": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+            "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+        },
+        "output_schema": _obj(
+            {
+                "resource": _S,
+                "pay_to_supplied": _N,
+                "checks": {"type": "object"},
+                "summary": {"type": "object"},
+                "overall": _S,
+                "limits": _S,
+            },
+            ["resource", "checks", "summary", "overall"],
+        ),
+        "output_example": {
+            "resource": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+            "pay_to_supplied": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+            "checks": {
+                "answers_402": {"status": "ok", "detail": "answers 402 with a parseable x402 challenge"},
+                "payai": {"status": "unverified", "detail": "no public catalogue read"},
+            },
+            "summary": {"ok": 5, "issue": 0, "not_found": 0, "unverified": 2},
+            "overall": "no_issues_found",
+            "limits": "Live reads at report time, plus the newest Index snapshot.",
+        },
+    },
     "/v1/tube-search": {
         "description": (
             "YouTube search results as clean JSON: title, video id, URL, "
