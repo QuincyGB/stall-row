@@ -62,6 +62,7 @@ from .services import registry as registry_svc
 from .services import watchlist as watchlist_svc
 from .services import fleetpass as fleetpass_svc
 from .services import indexfeed as indexfeed_svc
+from .services import indexsub as indexsub_svc
 from .services import orchestrate as orchestrate_svc
 from .services import pretrade as pretrade_svc
 from .services import reads as reads_svc
@@ -166,7 +167,7 @@ async def _request_pack_id(request: Request) -> str:
 
 
 PASS_HEADER = fleetpass_svc.PASS_HEADER
-_PASS_EXEMPT = {"/v1/recheck/pack", "/v1/fleet-pass"}
+_PASS_EXEMPT = {"/v1/recheck/pack", "/v1/fleet-pass", "/v1/fleet-pass-20"}
 
 
 @app.middleware("http")
@@ -1096,6 +1097,13 @@ async def _run_rotation_alerts() -> None:
             )
         except Exception:  # noqa: BLE001 — one watchlist must not kill the loop
             log.exception("watchlist evaluation failed for %s", reg["reg_id"])
+    for reg in _recheck_store.index_subs_to_eval(newest):
+        try:
+            await indexsub_svc.evaluate(
+                _fetch_client(), _recheck_store, _index_store, reg
+            )
+        except Exception:  # noqa: BLE001 — one subscription must not kill the loop
+            log.exception("index subscription evaluation failed for %s", reg["reg_id"])
 
 
 async def _watch_ticker() -> None:
@@ -1240,6 +1248,105 @@ async def watchlist_run(req: WatchlistIdRequest):
     return await watchlist_svc.evaluate(
         _fetch_client(), _recheck_store, _index_store, reg
     )
+
+
+# --- Index subscriptions ---------------------------------------------------------
+# The standing form of POST /v1/index/changes: free to register,
+# funded per delivered evaluation from a Fleet Pass at the paid
+# route's own $0.10 price, evaluated once per new catalog snapshot
+# by the watch ticker above (and on demand via /run).
+
+class IndexSubRegisterRequest(BaseModel):
+    resource_contains: str | None = Field(default=None, description="Only resources whose URL contains this string")
+    pay_to: str | None = Field(default=None, description="Only resources paying this 0x address")
+    service_name: str | None = Field(default=None, description="Only resources whose service name contains this string")
+    network: str | None = Field(default=None, description="Only this network (e.g. eip155:8453)")
+    webhook_url: str | None = Field(default=None, description="Public http(s) URL that receives diff pushes")
+    email: str | None = Field(default=None, description="Optional contact email (stored; webhook is the live channel)")
+    fleet_pass_id: str = Field(description="Fleet Pass funding each evaluation ($0.10 per delivered diff)")
+
+
+class IndexSubIdRequest(BaseModel):
+    reg_id: str = Field(description="Registration id returned by POST /v1/index/subscribe")
+
+
+@app.post("/v1/index/subscribe")
+async def index_subscribe(req: IndexSubRegisterRequest):
+    """Register an Index subscription. Free to register; each
+    delivered evaluation spends $0.10 from the named Fleet Pass —
+    the listed price of one POST /v1/index/changes call."""
+    try:
+        return await indexsub_svc.register(
+            _recheck_store,
+            req.resource_contains,
+            req.pay_to,
+            req.service_name,
+            req.network,
+            req.webhook_url,
+            req.email,
+            req.fleet_pass_id,
+        )
+    except indexsub_svc.IndexSubError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+@app.post("/v1/index/subscription/status")
+async def index_subscription_status(req: IndexSubIdRequest):
+    reg = _recheck_store.get_index_sub(req.reg_id.strip())
+    if reg is None:
+        return JSONResponse({"error": "unknown reg_id"}, status_code=404)
+    reg["deliveries"] = _recheck_store.deliveries_for(req.reg_id.strip())
+    return reg
+
+
+@app.post("/v1/index/subscription/run")
+async def index_subscription_run(req: IndexSubIdRequest):
+    """Evaluate one subscription against the newest snapshot pair
+    right now. A registration already at the newest snapshot answers
+    no_new_snapshot and charges nothing."""
+    reg = _recheck_store.get_index_sub(req.reg_id.strip())
+    if reg is None:
+        return JSONResponse({"error": "unknown reg_id"}, status_code=404)
+    return await indexsub_svc.evaluate(
+        _fetch_client(), _recheck_store, _index_store, reg
+    )
+
+
+# --- Fleet Pass v2 -----------------------------------------------------------------
+# The $20 working pass for agent frameworks: same ledger, same
+# 90-day TTL, same debit-at-listed-prices rule as the $5 pass — a
+# bigger prepaid denomination, nothing else changes. Minting is
+# idempotent on the payment identity, like the $5 pass.
+
+@app.post("/v1/fleet-pass-20")
+async def fleet_pass_20_buy(request: Request):
+    """Mint a $20 Fleet Pass. Runs only after the x402 middleware
+    has verified the $20.00 payment; idempotent on payment identity."""
+    payment_key = _payment_key(request)
+    if payment_key is None:
+        return JSONResponse(
+            {"error": "payment identity unavailable; pass cannot be minted safely"},
+            status_code=502,
+        )
+    fleet_pass, created = _recheck_store.mint_pass(
+        payment_key,
+        fleetpass_svc.PASS_V2_PRICE_UNITS,
+        fleetpass_svc.PASS_TTL_DAYS,
+    )
+    return {
+        **fleet_pass,
+        "expiry_days": fleetpass_svc.PASS_TTL_DAYS,
+        "price_units": fleetpass_svc.PASS_V2_PRICE_UNITS,
+        "note": (
+            "The $20 Fleet Pass: a prepaid balance for agent "
+            "frameworks, spent with the X-Fleet-Pass header on any "
+            "fleet route; each call debits that route's listed "
+            "price. There are no holder discounts — passes debit at "
+            "listed prices, exactly like the $5 pass. Read the "
+            "balance free at POST /v1/fleet-pass/balance."
+            + ("" if created else " This payment already minted this pass; returning it.")
+        ),
+    }
 
 
 # --- free routes -----------------------------------------------------------------

@@ -224,3 +224,32 @@ def test_http_pass_pays_stallrow_route_and_failure_refunds(http_env, monkeypatch
     )
     assert r.status_code == 404
     assert r.json()["code"] == "unknown_pass"
+
+
+# --- Fleet Pass v2 ($20 working pass) ------------------------------------------
+
+
+def test_mint_pass_v2_denomination(store):
+    fleet_pass, created = store.mint_pass(
+        "pay-v2", fleetpass.PASS_V2_PRICE_UNITS, fleetpass.PASS_TTL_DAYS
+    )
+    assert created
+    assert fleet_pass["balance_units"] == 20_000_000
+    assert fleet_pass["balance_usd"] == 20.0
+    assert fleet_pass["total_usd"] == 20.0
+    # Same ledger: a v2 pass debits at listed prices, no discounts.
+    debit = store.debit_pass(
+        fleet_pass["pass_id"], "stall-row", "/v1/index/changes", 100_000
+    )
+    assert debit["balance_units"] == 20_000_000 - 100_000
+
+
+def test_fleet_pass_20_unpaid_402(http_env):
+    client = TestClient(main.app, raise_server_exceptions=False)
+    r = client.post("/v1/fleet-pass-20", json={})
+    assert r.status_code == 402
+    required = r.headers.get("payment-required")
+    assert required
+    challenge = json.loads(base64.b64decode(required))
+    amounts = {a["amount"] for a in challenge["accepts"]}
+    assert "20000000" in amounts

@@ -18,6 +18,7 @@ per-call pays per call explicitly, without the header.
 from __future__ import annotations
 
 PASS_PRICE_UNITS = 5_000_000  # $5.00 — mirrors config.PRICE_UNITS
+PASS_V2_PRICE_UNITS = 20_000_000  # $20.00 — the framework working pass (same ledger/TTL)
 PASS_TTL_DAYS = 90
 PASS_HEADER = "x-fleet-pass"
 

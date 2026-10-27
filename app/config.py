@@ -62,6 +62,7 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/agent-card-verify": 5_000,    # $0.005 — one ERC-8004 agent-card verification (probe tier)
     "/v1/recheck/pack": 1_000_000,     # $1.00 — 250 prepaid rechecks on one endpoint
     "/v1/fleet-pass": 5_000_000,       # $5.00 — prepaid USD balance for all fleet routes
+    "/v1/fleet-pass-20": 20_000_000,   # $20.00 — Fleet Pass v2: framework working pass, same ledger/TTL
 }
 
 

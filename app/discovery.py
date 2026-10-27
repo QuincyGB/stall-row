@@ -1209,6 +1209,52 @@ ROUTES: dict[str, dict] = {
             "note": "Spend with the X-Fleet-Pass header on any fleet route. Read the balance free at POST /v1/fleet-pass/balance.",
         },
     },
+    "/v1/fleet-pass-20": {
+        "description": (
+            "Fleet Pass v2 — the $20 working pass for agent "
+            "frameworks: one $20.00 payment buys a $20.00 prepaid "
+            "balance that spends on any paid route across Token "
+            "Verdict, RouteVerdict, ListSmith, StallRow and "
+            "LockSmith, each call debited at that route's listed "
+            "price — no holder discounts (90 days). Send the pass id "
+            "as the X-Fleet-Pass header; read the balance free at "
+            "POST /v1/fleet-pass/balance. Use this when a framework "
+            "loop calls the fleet often enough that a $5 pass would "
+            "run dry mid-run."
+        ),
+        "tags": ["prepaid", "x402", "budget", "agents", "fleet", "frameworks"],
+        "input_schema": _obj({}, []),
+        "input_example": {},
+        "output_schema": _obj(
+            {
+                "pass_id": _S,
+                "balance_units": _I,
+                "balance_usd": {"type": "number"},
+                "total_units": _I,
+                "total_usd": {"type": "number"},
+                "created_at": _S,
+                "expires_at": _S,
+                "expired": _B,
+                "expiry_days": _I,
+                "price_units": _I,
+                "note": _S,
+            },
+            ["pass_id", "balance_units", "expires_at"],
+        ),
+        "output_example": {
+            "pass_id": "fpass_9c73fa7ea40a6411b6517bd8cb3465a6b3",
+            "balance_units": 20000000,
+            "balance_usd": 20.0,
+            "total_units": 20000000,
+            "total_usd": 20.0,
+            "created_at": "2026-10-27T16:00:00Z",
+            "expires_at": "2027-01-25T16:00:00Z",
+            "expired": False,
+            "expiry_days": 90,
+            "price_units": 20000000,
+            "note": "Spend with the X-Fleet-Pass header on any fleet route; each call debits that route's listed price. Read the balance free at POST /v1/fleet-pass/balance.",
+        },
+    },
 }
 
 for _path, _r in ROUTES.items():
@@ -1377,6 +1423,20 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "to your webhook. Same funding shape as Rotation Alerts: "
         "free silent baseline first, then $0.005 per evaluation from "
         "the pass. Read state via POST /v1/watchlist/status.",
+        "",
+        "Index Subscription: register POST /v1/index/subscribe "
+        "(free) with the same filters POST /v1/index/changes accepts "
+        "(resource_contains, pay_to, service_name, network), a "
+        "webhook, and a Fleet Pass — each new catalog snapshot's "
+        "filtered diff (empty diffs included, as the feed's "
+        "heartbeat) is POSTed to your webhook. The first evaluation "
+        "is a free silent baseline; each later evaluation debits "
+        "$0.10 from the pass — the listed price of one "
+        "/v1/index/changes call. Run one now via POST "
+        "/v1/index/subscription/run; read state via POST "
+        "/v1/index/subscription/status. A $20 Fleet Pass v2 (POST "
+        "/v1/fleet-pass-20, same ledger and 90-day expiry, debits at "
+        "listed prices) funds longer subscriptions.",
         "",
         "## Paid endpoints",
         "",
