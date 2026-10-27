@@ -1260,6 +1260,15 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "evaluation debits $0.005 from the pass. Read state via POST "
         "/v1/rotation-alerts/status.",
         "",
+        "Router Watchlist: register POST /v1/watchlist/register "
+        "(free) with a webhook and a Fleet Pass — each new catalog "
+        "snapshot is diffed restricted to the top-100 resources by "
+        "30d calls (top_n configurable to 500), and entries, exits, "
+        "payTo rotations, and price changes among members are POSTed "
+        "to your webhook. Same funding shape as Rotation Alerts: "
+        "free silent baseline first, then $0.005 per evaluation from "
+        "the pass. Read state via POST /v1/watchlist/status.",
+        "",
         "## Paid endpoints",
         "",
     ]

@@ -262,6 +262,21 @@ class WatchStore:
                 )
                 """
             )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS watchlist_regs (
+                    reg_id TEXT PRIMARY KEY,
+                    top_n INTEGER NOT NULL,
+                    webhook_url TEXT,
+                    email TEXT,
+                    funding_id TEXT NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    last_eval_snapshot_id INTEGER,
+                    last_status TEXT,
+                    active INTEGER NOT NULL DEFAULT 1
+                )
+                """
+            )
             self._conn.commit()
 
     @property
@@ -830,6 +845,95 @@ class WatchStore:
             else:
                 self._conn.execute(
                     "UPDATE rotation_regs SET last_eval_snapshot_id = ?, "
+                    "last_status = ? WHERE reg_id = ?",
+                    (snapshot_id, status, reg_id),
+                )
+            self._conn.commit()
+
+    # --- router watchlist registrations -------------------------------------
+    # A watchlist registration tracks the top-N catalog resources by
+    # 30d calls (top_n on the row) and is evaluated once per new
+    # Index snapshot by services/watchlist.py. Deliveries reuse
+    # watch_deliveries (keyed by reg_id, event "watchlist_diff").
+
+    _WATCHLIST_COLS = (
+        "reg_id, top_n, webhook_url, email, funding_id, "
+        "created_epoch, last_eval_snapshot_id, last_status, active"
+    )
+
+    def _watchlist_view(self, row) -> dict:
+        return {
+            "reg_id": row[0],
+            "top_n": row[1],
+            "webhook_url": row[2],
+            "email": row[3],
+            "funding_kind": "fleet_pass",
+            "funding_id": row[4],
+            "created_at": _iso_of(row[5]),
+            "last_eval_snapshot_id": row[6],
+            "last_status": row[7],
+            "active": bool(row[8]),
+        }
+
+    def register_watchlist(
+        self,
+        top_n: int,
+        webhook_url: str | None,
+        email: str | None,
+        funding_id: str,
+        now_epoch: float | None = None,
+    ) -> dict:
+        now = time.time() if now_epoch is None else now_epoch
+        reg_id = "wl_" + secrets.token_hex(8)
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO watchlist_regs "
+                "(reg_id, top_n, webhook_url, email, "
+                "funding_id, created_epoch, active) "
+                "VALUES (?, ?, ?, ?, ?, ?, 1)",
+                (reg_id, top_n, webhook_url, email, funding_id, now),
+            )
+            self._conn.commit()
+        return self.get_watchlist_reg(reg_id)  # type: ignore[return-value]
+
+    def get_watchlist_reg(self, reg_id: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                f"SELECT {self._WATCHLIST_COLS} FROM watchlist_regs "
+                "WHERE reg_id = ?",
+                (reg_id,),
+            ).fetchone()
+        return self._watchlist_view(row) if row is not None else None
+
+    def watchlist_regs_to_eval(self, newest_snapshot_id: int) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT reg_id FROM watchlist_regs WHERE active = 1 AND "
+                "(last_eval_snapshot_id IS NULL OR "
+                "last_eval_snapshot_id < ?)",
+                (newest_snapshot_id,),
+            ).fetchall()
+        return [
+            reg
+            for r in rows
+            if (reg := self.get_watchlist_reg(r[0])) is not None
+        ]
+
+    def update_watchlist_eval(
+        self,
+        reg_id: str,
+        snapshot_id: int | None,
+        status: str,
+    ) -> None:
+        with self._lock:
+            if snapshot_id is None:
+                self._conn.execute(
+                    "UPDATE watchlist_regs SET last_status = ? WHERE reg_id = ?",
+                    (status, reg_id),
+                )
+            else:
+                self._conn.execute(
+                    "UPDATE watchlist_regs SET last_eval_snapshot_id = ?, "
                     "last_status = ? WHERE reg_id = ?",
                     (snapshot_id, status, reg_id),
                 )

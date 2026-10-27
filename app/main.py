@@ -57,6 +57,7 @@ from .services import counterparty as counterparty_svc
 from .services import fetch as fetch_svc
 from .services import gradestall as gradestall_svc
 from .services import receipts as receipts_svc
+from .services import watchlist as watchlist_svc
 from .services import fleetpass as fleetpass_svc
 from .services import indexfeed as indexfeed_svc
 from .services import orchestrate as orchestrate_svc
@@ -1020,6 +1021,13 @@ async def _run_rotation_alerts() -> None:
             )
         except Exception:  # noqa: BLE001 — one alert must not kill the loop
             log.exception("rotation evaluation failed for %s", reg["reg_id"])
+    for reg in _recheck_store.watchlist_regs_to_eval(newest):
+        try:
+            await watchlist_svc.evaluate(
+                _fetch_client(), _recheck_store, _index_store, reg
+            )
+        except Exception:  # noqa: BLE001 — one watchlist must not kill the loop
+            log.exception("watchlist evaluation failed for %s", reg["reg_id"])
 
 
 async def _watch_ticker() -> None:
@@ -1105,6 +1113,63 @@ async def rotation_run(req: RotationIdRequest):
     if reg is None:
         return JSONResponse({"error": "unknown reg_id"}, status_code=404)
     return await rotalerts_svc.evaluate(
+        _fetch_client(), _recheck_store, _index_store, reg
+    )
+
+
+# --- Router Watchlist -------------------------------------------------------------
+# The top-N catalog (default 100) by 30d calls, diffed per snapshot
+# and pushed like a recheck pack's drift — but built on the watch
+# store, because the pack machinery binds one pack to ONE endpoint
+# and a watchlist is the whole catalog's head. Free to register;
+# $0.005 per evaluation from a Fleet Pass, first evaluation a free
+# silent baseline.
+
+class WatchlistRegisterRequest(BaseModel):
+    top_n: int | None = Field(default=None, description="Watchlist size by 30d calls (default 100, max 500)")
+    webhook_url: str | None = Field(default=None, description="Public http(s) URL that receives diff pushes")
+    email: str | None = Field(default=None, description="Optional contact email (stored; webhook is the live channel)")
+    fleet_pass_id: str = Field(description="Fleet Pass funding each evaluation ($0.005 per run)")
+
+
+class WatchlistIdRequest(BaseModel):
+    reg_id: str = Field(description="Registration id returned by POST /v1/watchlist/register")
+
+
+@app.post("/v1/watchlist/register")
+async def watchlist_register(req: WatchlistRegisterRequest):
+    """Register a router watchlist. Free to register; each
+    evaluation spends $0.005 from the named Fleet Pass."""
+    try:
+        return await watchlist_svc.register(
+            _recheck_store,
+            req.top_n,
+            req.webhook_url,
+            req.email,
+            req.fleet_pass_id,
+        )
+    except watchlist_svc.WatchlistError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+@app.post("/v1/watchlist/status")
+async def watchlist_status(req: WatchlistIdRequest):
+    reg = _recheck_store.get_watchlist_reg(req.reg_id.strip())
+    if reg is None:
+        return JSONResponse({"error": "unknown reg_id"}, status_code=404)
+    reg["deliveries"] = _recheck_store.deliveries_for(req.reg_id.strip())
+    return reg
+
+
+@app.post("/v1/watchlist/run")
+async def watchlist_run(req: WatchlistIdRequest):
+    """Evaluate one watchlist registration against the newest
+    snapshot pair right now. A registration already at the newest
+    snapshot answers no_new_snapshot and charges nothing."""
+    reg = _recheck_store.get_watchlist_reg(req.reg_id.strip())
+    if reg is None:
+        return JSONResponse({"error": "unknown reg_id"}, status_code=404)
+    return await watchlist_svc.evaluate(
         _fetch_client(), _recheck_store, _index_store, reg
     )
 
