@@ -951,11 +951,10 @@ ROUTES: dict[str, dict] = {
             "network, payTo, description, service name), with added and "
             "removed resources counted. Snapshots refresh about every 6 "
             "hours; until two exist this returns 502 and charges nothing. "
-            "Filter by resource, payTo, service name, or network — "
-            "snapshots cover every chain, Solana included, and the "
-            "summary always breaks counts down by network. Use this "
-            "when a router needs what changed in the catalog since "
-            "its last sync instead of re-scanning 78k listings."
+            "Filter by resource, payTo, service name, or network — every "
+            "chain covered, Solana included; the summary breaks counts "
+            "down by network. Use this when a router needs what changed "
+            "since its last sync."
         ),
         "tags": ["index", "x402", "changelog", "catalog", "monitoring", "agents"],
         "input_schema": _obj(
