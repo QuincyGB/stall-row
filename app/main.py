@@ -59,6 +59,7 @@ from .services import orchestrate as orchestrate_svc
 from .services import pretrade as pretrade_svc
 from .services import reads as reads_svc
 from .services import recheck as recheck_svc
+from .services import rotalerts as rotalerts_svc
 from .services import watch as watch_svc
 from .services import scout as scout_svc
 from .services import seller as seller_svc
@@ -878,6 +879,25 @@ async def watch_run(req: WatchIdRequest):
     return await watch_svc.run_watch(_fetch_client(), _recheck_store, reg)
 
 
+async def _run_rotation_alerts() -> None:
+    """Evaluate every rotation-alert registration whose watermark is
+    behind the newest Index snapshot. Runs from the watch ticker
+    (snapshots land ~4x/day, so the due-check is nearly free) and
+    costs each evaluated registration one $0.005 Fleet Pass debit —
+    the registration's own funding, never a silent free run."""
+    snaps = _index_store.snapshots()
+    if len(snaps) < 2:
+        return
+    newest = snaps[-1]["id"]
+    for reg in _recheck_store.rotation_regs_to_eval(newest):
+        try:
+            await rotalerts_svc.evaluate(
+                _fetch_client(), _recheck_store, _index_store, reg
+            )
+        except Exception:  # noqa: BLE001 — one alert must not kill the loop
+            log.exception("rotation evaluation failed for %s", reg["reg_id"])
+
+
 async def _watch_ticker() -> None:
     """Periodic funded checks for due registrations. Sequential by
     design; a failing watch never stops the ticker."""
@@ -894,11 +914,75 @@ async def _watch_ticker() -> None:
                     log.exception("watch run failed for %s", reg["watch_reg_id"])
         except Exception:  # noqa: BLE001
             log.exception("watch ticker pass failed")
+        try:
+            await _run_rotation_alerts()
+        except Exception:  # noqa: BLE001
+            log.exception("rotation alert pass failed")
 
 
 @app.on_event("startup")
 async def _start_watch_ticker() -> None:
     asyncio.get_event_loop().create_task(_watch_ticker())
+
+
+# --- Rotation Alerts ------------------------------------------------------------
+# The push form of the Verdict Index: free to register, funded per
+# evaluation from a Fleet Pass ($0.005 per comparison run — the
+# Webhook Watch run price), evaluated once per new catalog snapshot
+# by the watch ticker above (and on demand via /run).
+
+class RotationRegisterRequest(BaseModel):
+    pay_to: str | None = Field(default=None, description="Watch every listing paying this 0x address")
+    resource: str | None = Field(default=None, description="Watch exactly this one resource URL")
+    webhook_url: str | None = Field(default=None, description="Public http(s) URL that receives alert pushes")
+    email: str | None = Field(default=None, description="Optional contact email (stored; webhook is the live channel)")
+    fleet_pass_id: str = Field(description="Fleet Pass funding each evaluation ($0.005 per run)")
+
+
+class RotationIdRequest(BaseModel):
+    reg_id: str = Field(description="Registration id returned by POST /v1/rotation-alerts/register")
+
+
+@app.post("/v1/rotation-alerts/register")
+async def rotation_register(req: RotationRegisterRequest):
+    """Register a rotation alert. Free to register; each evaluation
+    spends $0.005 from the named Fleet Pass. The target (payTo and/or
+    resource) and the webhook are validated before anything is
+    stored."""
+    try:
+        return await rotalerts_svc.register(
+            _recheck_store,
+            req.pay_to,
+            req.resource,
+            req.webhook_url,
+            req.email,
+            req.fleet_pass_id,
+        )
+    except rotalerts_svc.RotationError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+@app.post("/v1/rotation-alerts/status")
+async def rotation_status(req: RotationIdRequest):
+    reg = _recheck_store.get_rotation_reg(req.reg_id.strip())
+    if reg is None:
+        return JSONResponse({"error": "unknown reg_id"}, status_code=404)
+    reg["deliveries"] = _recheck_store.deliveries_for(req.reg_id.strip())
+    return reg
+
+
+@app.post("/v1/rotation-alerts/run")
+async def rotation_run(req: RotationIdRequest):
+    """Evaluate one registration against the newest snapshot pair
+    right now (the watch ticker runs the same code when a new
+    snapshot lands). A registration already at the newest snapshot
+    answers no_new_snapshot and charges nothing."""
+    reg = _recheck_store.get_rotation_reg(req.reg_id.strip())
+    if reg is None:
+        return JSONResponse({"error": "unknown reg_id"}, status_code=404)
+    return await rotalerts_svc.evaluate(
+        _fetch_client(), _recheck_store, _index_store, reg
+    )
 
 
 # --- free routes -----------------------------------------------------------------

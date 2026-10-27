@@ -1080,6 +1080,16 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "your webhook on BASELINE/CHANGED. Run one check now via POST "
         "/v1/watch/run; read state via POST /v1/watch/status.",
         "",
+        "Rotation Alerts: register POST /v1/rotation-alerts/register "
+        "(free) with a payTo and/or a resource URL, a webhook, and a "
+        "Fleet Pass — each new Verdict Index catalog snapshot (about "
+        "every 6 hours) is compared against the previous one, and "
+        "events touching your target (payTo rotation, price change, "
+        "vanishing, new listing) are POSTed to your webhook. The "
+        "first evaluation is a free silent baseline; each later "
+        "evaluation debits $0.005 from the pass. Read state via POST "
+        "/v1/rotation-alerts/status.",
+        "",
         "## Paid endpoints",
         "",
     ]

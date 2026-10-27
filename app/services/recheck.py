@@ -246,6 +246,22 @@ class WatchStore:
                 )
                 """
             )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS rotation_regs (
+                    reg_id TEXT PRIMARY KEY,
+                    pay_to TEXT,
+                    resource TEXT,
+                    webhook_url TEXT,
+                    email TEXT,
+                    funding_id TEXT NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    last_eval_snapshot_id INTEGER,
+                    last_status TEXT,
+                    active INTEGER NOT NULL DEFAULT 1
+                )
+                """
+            )
             self._conn.commit()
 
     @property
@@ -718,6 +734,106 @@ class WatchStore:
             }
             for r in rows
         ]
+
+    # --- rotation alert registrations ----------------------------------
+    # A rotation registration watches the Verdict Index snapshot stream
+    # (not a live probe): it names a payTo and/or one resource, and is
+    # evaluated once per new catalog snapshot — the diff between the
+    # two newest snapshots is checked for events touching the named
+    # target. Deliveries reuse the watch_deliveries table above (the
+    # reg_id is the key). Evaluation state (the snapshot watermark)
+    # lives on the registration row, so a restart resumes exactly
+    # where the last evaluation left off.
+
+    _ROTATION_COLS = (
+        "reg_id, pay_to, resource, webhook_url, email, funding_id, "
+        "created_epoch, last_eval_snapshot_id, last_status, active"
+    )
+
+    def _rotation_view(self, row) -> dict:
+        return {
+            "reg_id": row[0],
+            "pay_to": row[1],
+            "resource": row[2],
+            "webhook_url": row[3],
+            "email": row[4],
+            "funding_kind": "fleet_pass",
+            "funding_id": row[5],
+            "created_at": _iso_of(row[6]),
+            "last_eval_snapshot_id": row[7],
+            "last_status": row[8],
+            "active": bool(row[9]),
+        }
+
+    def register_rotation(
+        self,
+        pay_to: str | None,
+        resource: str | None,
+        webhook_url: str | None,
+        email: str | None,
+        funding_id: str,
+        now_epoch: float | None = None,
+    ) -> dict:
+        now = time.time() if now_epoch is None else now_epoch
+        reg_id = "rot_" + secrets.token_hex(8)
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO rotation_regs "
+                "(reg_id, pay_to, resource, webhook_url, email, "
+                "funding_id, created_epoch, active) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, 1)",
+                (reg_id, pay_to, resource, webhook_url, email, funding_id, now),
+            )
+            self._conn.commit()
+        return self.get_rotation_reg(reg_id)  # type: ignore[return-value]
+
+    def get_rotation_reg(self, reg_id: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                f"SELECT {self._ROTATION_COLS} FROM rotation_regs "
+                "WHERE reg_id = ?",
+                (reg_id,),
+            ).fetchone()
+        return self._rotation_view(row) if row is not None else None
+
+    def rotation_regs_to_eval(self, newest_snapshot_id: int) -> list[dict]:
+        """Active registrations whose watermark is behind the newest
+        snapshot (or not yet set)."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT reg_id FROM rotation_regs WHERE active = 1 AND "
+                "(last_eval_snapshot_id IS NULL OR "
+                "last_eval_snapshot_id < ?)",
+                (newest_snapshot_id,),
+            ).fetchall()
+        return [
+            reg
+            for r in rows
+            if (reg := self.get_rotation_reg(r[0])) is not None
+        ]
+
+    def update_rotation_eval(
+        self,
+        reg_id: str,
+        snapshot_id: int | None,
+        status: str,
+    ) -> None:
+        """Record an evaluation outcome. snapshot_id=None records the
+        status without moving the watermark (a funding failure must
+        not silently skip a snapshot's changes)."""
+        with self._lock:
+            if snapshot_id is None:
+                self._conn.execute(
+                    "UPDATE rotation_regs SET last_status = ? WHERE reg_id = ?",
+                    (status, reg_id),
+                )
+            else:
+                self._conn.execute(
+                    "UPDATE rotation_regs SET last_eval_snapshot_id = ?, "
+                    "last_status = ? WHERE reg_id = ?",
+                    (snapshot_id, status, reg_id),
+                )
+            self._conn.commit()
 
 
 # --- probing -------------------------------------------------------------------
