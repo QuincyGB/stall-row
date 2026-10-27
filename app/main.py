@@ -57,6 +57,7 @@ from .services import counterparty as counterparty_svc
 from .services import fetch as fetch_svc
 from .services import gradestall as gradestall_svc
 from .services import receipts as receipts_svc
+from .services import registry as registry_svc
 from .services import watchlist as watchlist_svc
 from .services import fleetpass as fleetpass_svc
 from .services import indexfeed as indexfeed_svc
@@ -757,6 +758,20 @@ async def receipt_verify(req: ReceiptVerifyRequest):
             return await receipts_svc.verify_receipt(
                 client, rpc, tx_hash=req.tx_hash, fleet_pay_to=settings.pay_to
             )
+
+    return await _run(go)
+
+
+@app.post("/v1/flagged-paytos")
+async def flagged_paytos(_req: EmptyRequest | None = None):
+    """Bad-payTo Registry Feed: the currently flagged payTos with
+    their evidence — the bundled OFAC SDN snapshot's addresses, plus
+    payTos the newest Index snapshot pair shows rotated away from
+    live listings or tied to vanished listings. Built from the same
+    two sources Pre-Trade Guard screens against. No entry without
+    evidence; caps and truncations are stated in the response."""
+    async def go():
+        return registry_svc.build_feed(_index_store)
 
     return await _run(go)
 

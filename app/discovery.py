@@ -538,6 +538,68 @@ ROUTES: dict[str, dict] = {
             "limits": "Base only (eip155:8453).",
         },
     },
+    "/v1/flagged-paytos": {
+        "description": (
+            "Bad-payTo Registry Feed — the currently flagged payTos, "
+            "each with its evidence: every address in the bundled "
+            "OFAC SDN snapshot, payTos the newest catalog snapshot "
+            "pair shows rotated away from live listings, and payTos "
+            "of listings that vanished between snapshots. Built "
+            "from the same two sources the Pre-Trade Guard screens "
+            "against. No entry without evidence; entry and evidence "
+            "caps are stated, never silent. Use this when a router "
+            "or guard wants the fleet's current avoid-list in one "
+            "cheap call."
+        ),
+        "tags": ["x402", "security", "sanctions", "registry", "agents"],
+        "input_schema": _obj({}, []),
+        "input_example": {},
+        "output_schema": _obj(
+            {
+                "generated_at": _S,
+                "baseline_at": _N,
+                "current_at": _N,
+                "counts": {"type": "object"},
+                "truncation": {"type": "object"},
+                "index_note": _N,
+                "entries": {"type": "array", "items": {"type": "object"}},
+                "limits": _S,
+            },
+            ["generated_at", "counts", "entries"],
+        ),
+        "output_example": {
+            "generated_at": "2026-10-27T12:00:00Z",
+            "baseline_at": "2026-10-27T05:38:08Z",
+            "current_at": "2026-10-27T11:39:12Z",
+            "counts": {
+                "ofac_sdn": 91,
+                "rotated_away_events": 3,
+                "vanished_events": 12,
+                "flagged_paytos": 101,
+                "entries_returned": 101,
+            },
+            "truncation": {
+                "entries_capped_at": 500,
+                "entries_truncated": 0,
+                "evidence_examples_per_reason": 5,
+            },
+            "index_note": None,
+            "entries": [
+                {
+                    "pay_to": "0x0330070fd38ec3bb94f58fa55d40368271e9e54a",
+                    "reasons": ["ofac_sdn"],
+                    "evidence": {
+                        "ofac_sdn": {
+                            "snapshot_date": "2026-10-21",
+                            "snapshot_source": "https://www.treasury.gov/ofac/downloads/sdn.csv",
+                            "detail": "Address appears verbatim in the bundled OFAC SDN digital-currency snapshot.",
+                        }
+                    },
+                }
+            ],
+            "limits": "Flags are evidence, not verdicts.",
+        },
+    },
     "/v1/tube-search": {
         "description": (
             "YouTube search results as clean JSON: title, video id, URL, "
