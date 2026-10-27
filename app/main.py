@@ -595,14 +595,23 @@ async def _index_ticker() -> None:
     then whenever the newest snapshot ages past the refresh window.
     A failed pull stores nothing and never stops the ticker."""
     refresh_min_s = float(os.environ.get("STALLROW_INDEX_REFRESH_MIN_S", "21600"))
+    bootstrap_min_s = float(
+        os.environ.get(
+            "STALLROW_INDEX_BOOTSTRAP_MIN_S",
+            str(indexfeed_svc.DEFAULT_BOOTSTRAP_INTERVAL_S),
+        )
+    )
     tick = float(os.environ.get("STALLROW_INDEX_TICK_S", "900"))
     while True:
         try:
             stored = await indexfeed_svc.refresh_if_stale(
-                _index_store, _fetch_client(), refresh_min_s
+                _index_store, _fetch_client(), refresh_min_s, bootstrap_min_s
             )
             if stored:
-                log.info("verdict index: catalog snapshot stored")
+                log.info(
+                    "verdict index: catalog snapshot stored (%d held)",
+                    len(_index_store.snapshots()),
+                )
         except Exception:  # noqa: BLE001 — a failed pull stores nothing
             log.exception("verdict index refresh failed")
         await asyncio.sleep(tick)

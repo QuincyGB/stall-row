@@ -93,3 +93,74 @@ async def test_fetch_catalogue_rejects_bad_upstream():
     with pytest.raises(UpstreamError):
         await indexfeed.fetch_catalogue(client)
     await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_fetch_catalogue_identifies_itself():
+    import httpx
+
+    seen = {}
+
+    def handler(request):
+        seen["ua"] = request.headers.get("user-agent")
+        return httpx.Response(200, json={"items": [], "pagination": {"total": 0}})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    rows = await indexfeed.fetch_catalogue(client)
+    await client.aclose()
+    assert rows == []
+    assert seen["ua"] == indexfeed.INDEX_USER_AGENT
+
+
+def _fake_fetch(monkeypatch, rows):
+    calls = {"n": 0}
+
+    async def fake(client):
+        calls["n"] += 1
+        return rows
+
+    monkeypatch.setattr(indexfeed, "fetch_catalogue", fake)
+    return calls
+
+
+@pytest.mark.asyncio
+async def test_refresh_bootstrap_reaches_a_sellable_pair(monkeypatch, tmp_path):
+    """Cold start: snapshot #2 must land on the bootstrap interval,
+    not after a full refresh window — otherwise a fresh deploy
+    cannot sell the route for ~6h (the production bug)."""
+    import time
+
+    store = indexfeed.IndexStore(str(tmp_path / "idx.db"))
+    rows = _rows(_item("https://x/v1/a"))
+    calls = _fake_fetch(monkeypatch, rows)
+    now = time.time()
+
+    # Empty store: refresh immediately.
+    assert await indexfeed.refresh_if_stale(store, None, 21600, 900) is True
+    assert len(store.snapshots()) == 1
+
+    # One snapshot, younger than the bootstrap interval: wait.
+    assert await indexfeed.refresh_if_stale(store, None, 21600, 900) is False
+    assert calls["n"] == 1
+
+    # Age the held snapshot past bootstrap (but far inside the
+    # normal window): the second snapshot must be taken now.
+    store._conn.execute(
+        "UPDATE index_snapshots SET captured_epoch = ?", (now - 1000,)
+    )
+    store._conn.commit()
+    assert await indexfeed.refresh_if_stale(store, None, 21600, 900) is True
+    assert len(store.snapshots()) == 2
+
+    # Pair complete: bootstrap no longer applies — the pair is
+    # inside the normal window, so no third pull.
+    assert await indexfeed.refresh_if_stale(store, None, 21600, 900) is False
+    assert calls["n"] == 2
+
+    # Past the normal window the pair refreshes as usual.
+    store._conn.execute(
+        "UPDATE index_snapshots SET captured_epoch = captured_epoch - 21601"
+    )
+    store._conn.commit()
+    assert await indexfeed.refresh_if_stale(store, None, 21600, 900) is True
+    assert calls["n"] == 3

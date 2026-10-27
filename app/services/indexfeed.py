@@ -12,7 +12,10 @@ heavy to run inside a paid call. A background ticker owns refreshes
 (startup + every STALLROW_INDEX_REFRESH_MIN_S, default 6h); the paid
 route only reads the two newest snapshots. Until two snapshots exist
 there is no honest diff to sell, so the route answers 502 — and an
-unsettled 502 charges nobody (fleet rule).
+unsettled 502 charges nobody (fleet rule). While under two
+snapshots the ticker refreshes on a short bootstrap interval
+(STALLROW_INDEX_BOOTSTRAP_MIN_S, default 900s) so a cold start
+becomes sellable in about one tick, not one full window.
 
 Diff scope, stated plainly: events are computed over the fields a
 buyer's risk actually turns on — amount, asset, network, payTo,
@@ -38,6 +41,13 @@ MAX_PAGES = 200
 KEEP_SNAPSHOTS = 3
 DEFAULT_EVENT_LIMIT = 100
 MAX_EVENT_LIMIT = 500
+# The catalog pull identifies itself and takes a per-request timeout
+# sized for ~3 MB pages; the proven one-off baseline pull used the
+# same shape. The shared fetch client's defaults (generic UA, the
+# page-fetch timeout) are sized for single pages, not an 80-page walk.
+INDEX_USER_AGENT = "verdict-row-index/1.0"
+PAGE_TIMEOUT_S = 60.0
+DEFAULT_BOOTSTRAP_INTERVAL_S = 900.0
 
 TRACKED_FIELDS = ("amount", "asset", "network", "payTo", "description", "serviceName")
 
@@ -85,6 +95,8 @@ async def fetch_catalogue(client: httpx.AsyncClient) -> list[dict]:
             resp = await client.get(
                 CDP_DISCOVERY_RESOURCES_URL,
                 params={"offset": offset, "limit": PAGE_LIMIT},
+                headers={"User-Agent": INDEX_USER_AGENT},
+                timeout=PAGE_TIMEOUT_S,
             )
         except httpx.HTTPError as e:
             raise UpstreamError(f"CDP catalog fetch failed: {e}") from e
@@ -292,14 +304,27 @@ def diff_entries(
 
 
 async def refresh_if_stale(
-    store: IndexStore, client: httpx.AsyncClient, min_interval_s: float
+    store: IndexStore,
+    client: httpx.AsyncClient,
+    min_interval_s: float,
+    bootstrap_interval_s: float = DEFAULT_BOOTSTRAP_INTERVAL_S,
 ) -> bool:
-    """Store a fresh snapshot when the newest is older than
-    min_interval_s (or none exists). Returns True when a snapshot
+    """Store a fresh snapshot when the newest is older than the
+    staleness window (or none exists). Returns True when a snapshot
     was stored. Fetch failures propagate as UpstreamError and store
-    nothing."""
+    nothing.
+
+    Bootstrap rule: while fewer than two snapshots exist there is
+    no diff to sell at all, so the window shrinks to
+    bootstrap_interval_s — a cold start (or a store wiped back
+    under two) reaches a sellable pair in about one tick instead
+    of waiting out a full refresh window. Once a pair exists the
+    normal window rules, so steady state still pulls ~4x/day."""
     snaps = store.snapshots()
-    if snaps and (time.time() - snaps[-1]["captured_epoch"]) < min_interval_s:
+    window = min_interval_s
+    if len(snaps) < 2:
+        window = min(window, bootstrap_interval_s)
+    if snaps and (time.time() - snaps[-1]["captured_epoch"]) < window:
         return False
     rows = await fetch_catalogue(client)
     store.save_snapshot(rows)
