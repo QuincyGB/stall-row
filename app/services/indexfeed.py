@@ -249,13 +249,37 @@ def diff_entries(
     resource_contains: str | None = None,
     pay_to: str | None = None,
     service_name: str | None = None,
+    network: str | None = None,
     limit: int = DEFAULT_EVENT_LIMIT,
 ) -> dict:
     """Pure diff over two normalized entry maps. Summary counts are
     pre-filter; the events list is filtered + capped, field changes
     on surviving resources first (the signal), then adds, then
-    removals (the noise)."""
+    removals (the noise).
+
+    Chain-aware: the summary always carries by_network before/after
+    counts over the full maps (snapshots capture every chain — SVM
+    resources included; each resource is stored under its first
+    priced accept, so a multi-accept resource counts under that
+    accept's network only). With `network` set (e.g. "eip155:8453"
+    or a Solana chain id like "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"),
+    the diff itself — resources_before/after, added/removed/
+    field_changes, and the events — is restricted to that network,
+    and the summary names the filter."""
     limit = max(1, min(int(limit or DEFAULT_EVENT_LIMIT), MAX_EVENT_LIMIT))
+    by_network: dict[str, dict] = {}
+    for entries, side in ((old, "before"), (new, "after")):
+        for row in entries.values():
+            net = row.get("network") or "unknown"
+            bucket = by_network.setdefault(net, {"before": 0, "after": 0})
+            bucket[side] += 1
+    if network is not None:
+        old = {
+            r: row for r, row in old.items() if (row.get("network") or "") == network
+        }
+        new = {
+            r: row for r, row in new.items() if (row.get("network") or "") == network
+        }
     changed: list[dict] = []
     added: list[dict] = []
     removed: list[dict] = []
@@ -290,14 +314,18 @@ def diff_entries(
         return True
 
     events = [e for e in (changed + added + removed) if keep(e)]
+    summary = {
+        "resources_before": len(old),
+        "resources_after": len(new),
+        "field_changes": len(changed),
+        "added": len(added),
+        "removed": len(removed),
+        "by_network": by_network,
+    }
+    if network is not None:
+        summary["network_filter"] = network
     return {
-        "summary": {
-            "resources_before": len(old),
-            "resources_after": len(new),
-            "field_changes": len(changed),
-            "added": len(added),
-            "removed": len(removed),
-        },
+        "summary": summary,
         "events_returned": min(len(events), limit),
         "events": events[:limit],
     }

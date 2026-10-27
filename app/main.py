@@ -387,6 +387,10 @@ class IndexChangesRequest(BaseModel):
     service_name: str | None = Field(
         default=None, description="Only events whose service name contains this string"
     )
+    network: str | None = Field(
+        default=None,
+        description="Restrict the diff to one network (e.g. eip155:8453 or a Solana chain id)",
+    )
     limit: int | None = Field(
         default=None, description="Max events to return (default 100, cap 500)"
     )
@@ -607,6 +611,7 @@ async def index_changes(req: IndexChangesRequest):
             resource_contains=req.resource_contains,
             pay_to=req.pay_to,
             service_name=req.service_name,
+            network=(req.network or "").strip() or None,
             limit=req.limit or indexfeed_svc.DEFAULT_EVENT_LIMIT,
         )
 

@@ -47,6 +47,7 @@ def test_diff_field_change_added_removed():
     assert out["summary"] == {
         "resources_before": 2, "resources_after": 2,
         "field_changes": 1, "added": 1, "removed": 1,
+        "by_network": {"eip155:8453": {"before": 2, "after": 2}},
     }
     kinds = [(e["resource"], e["kind"]) for e in out["events"]]
     assert kinds[0] == ("https://x/v1/a", "field_changed")  # signal first
@@ -164,3 +165,80 @@ async def test_refresh_bootstrap_reaches_a_sellable_pair(monkeypatch, tmp_path):
     store._conn.commit()
     assert await indexfeed.refresh_if_stale(store, None, 21600, 900) is True
     assert calls["n"] == 3
+
+
+# --- chain-aware diffs (Solana coverage) ---------------------------------------
+
+SOLANA = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+
+
+def _svm_item(resource, amount="5000", pay_to="SolWallet111", name="SVM Stall"):
+    return {
+        "resource": resource,
+        "serviceName": name,
+        "description": "a solana stall",
+        "accepts": [
+            {"scheme": "exact", "network": SOLANA, "amount": amount,
+             "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+             "payTo": pay_to}
+        ],
+        "lastUpdated": "2026-10-26T00:00:00Z",
+        "quality": {"l30DaysTotalCalls": 7, "l30DaysUniquePayers": 2},
+    }
+
+
+def test_svm_items_normalize_and_store():
+    row = indexfeed.normalize_item(_svm_item("https://s.example/v1/a"))
+    assert row["network"] == SOLANA
+    assert row["payTo"] == "SolWallet111"
+
+
+def _mixed(*items):
+    return _as_map([indexfeed.normalize_item(i) for i in items])
+
+
+def test_diff_by_network_counts_mixed_chains():
+    old = _mixed(
+        _item("https://x/v1/a"),
+        _svm_item("https://s/v1/a"),
+        _svm_item("https://s/v1/b"),
+    )
+    new = _mixed(
+        _item("https://x/v1/a"),
+        _svm_item("https://s/v1/a", amount="9000"),
+    )
+    out = indexfeed.diff_entries(old, new)
+    assert out["summary"]["by_network"] == {
+        "eip155:8453": {"before": 1, "after": 1},
+        SOLANA: {"before": 2, "after": 1},
+    }
+    # Solana events are in the unfiltered diff too.
+    fields = {(e["resource"], e.get("field")) for e in out["events"]}
+    assert ("https://s/v1/a", "amount") in fields
+    kinds = {(e["resource"], e["kind"]) for e in out["events"]}
+    assert ("https://s/v1/b", "removed") in kinds
+
+
+def test_diff_network_filter_restricts_to_one_chain():
+    old = _mixed(
+        _item("https://x/v1/a"),
+        _svm_item("https://s/v1/a"),
+        _svm_item("https://s/v1/b"),
+    )
+    new = _mixed(
+        _item("https://x/v1/a", amount="777"),
+        _svm_item("https://s/v1/a", amount="9000"),
+    )
+    out = indexfeed.diff_entries(old, new, network=SOLANA)
+    assert out["summary"]["network_filter"] == SOLANA
+    assert out["summary"]["resources_before"] == 2
+    assert out["summary"]["resources_after"] == 1
+    assert out["summary"]["removed"] == 1
+    # by_network still reports the full picture.
+    assert out["summary"]["by_network"]["eip155:8453"] == {"before": 1, "after": 1}
+    resources = {e["resource"] for e in out["events"]}
+    assert resources == {"https://s/v1/a", "https://s/v1/b"}
+    # And the EVM filter sees only the EVM change.
+    evm = indexfeed.diff_entries(old, new, network="eip155:8453")
+    assert {e["resource"] for e in evm["events"]} == {"https://x/v1/a"}
+    assert evm["summary"]["field_changes"] == 1
