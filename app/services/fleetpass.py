@@ -52,6 +52,7 @@ FLEET_ROUTES: dict[tuple[str, str], int] = {
     ("stall-row", "/v1/orchestrate"): 750_000,
     ("stall-row", "/v1/counterparty-report"): 1_000_000,
     ("stall-row", "/v1/grade-my-stall"): 5_000,
+    ("stall-row", "/v1/receipt-verify"): 2_000,
 }
 
 

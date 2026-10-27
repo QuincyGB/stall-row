@@ -56,6 +56,7 @@ from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import counterparty as counterparty_svc
 from .services import fetch as fetch_svc
 from .services import gradestall as gradestall_svc
+from .services import receipts as receipts_svc
 from .services import fleetpass as fleetpass_svc
 from .services import indexfeed as indexfeed_svc
 from .services import orchestrate as orchestrate_svc
@@ -725,6 +726,35 @@ async def grade_my_stall(req: GradeMyStallRequest):
                 _index_store,
                 resource_url=url,
                 pay_to=(req.pay_to or "").strip() or None,
+            )
+
+    return await _run(go)
+
+
+class ReceiptVerifyRequest(BaseModel):
+    tx_hash: str = Field(description="Base transaction hash, 0x + 64 hex")
+
+
+@app.post("/v1/receipt-verify")
+async def receipt_verify(req: ReceiptVerifyRequest):
+    """Receipt Verifier: a Base tx hash in, a normalized verified
+    receipt out — payer, payTo and amount from the transaction's
+    USDC Transfer log, settlement status and confirmations from the
+    receipt and the chain head, and the fleet routes priced at
+    exactly the paid amount listed as candidates (an amount alone
+    never identifies a route). Unknown or unconfirmed transactions
+    502 unsettled. Base only."""
+    if not receipts_svc._TX_HASH_RE.match((req.tx_hash or "").strip()):
+        return JSONResponse(
+            {"error": "tx_hash must be a 0x-prefixed 64-hex transaction hash"},
+            status_code=422,
+        )
+
+    async def go():
+        client, rpc, _scout = _clients()
+        async with client:
+            return await receipts_svc.verify_receipt(
+                client, rpc, tx_hash=req.tx_hash, fleet_pay_to=settings.pay_to
             )
 
     return await _run(go)

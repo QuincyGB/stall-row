@@ -470,6 +470,72 @@ ROUTES: dict[str, dict] = {
             "limits": "Live reads at report time, plus the newest Index snapshot.",
         },
     },
+    "/v1/receipt-verify": {
+        "description": (
+            "Receipt Verifier — a Base transaction hash in, a "
+            "normalized verified receipt out: payer, payTo and "
+            "amount from the USDC Transfer log, asset and network, "
+            "settled status and confirmations. When the payTo is "
+            "this fleet's own and the amount matches a priced route, "
+            "routes at that price are listed as candidates — an "
+            "amount alone never proves which route was called. "
+            "Unknown transactions error honestly, unsettled. Use "
+            "this when someone claims they paid and you want the "
+            "chain's version. Base only."
+        ),
+        "tags": ["x402", "payments", "verification", "receipts"],
+        "input_schema": _obj({"tx_hash": _S}, ["tx_hash"]),
+        "input_example": {
+            "tx_hash": "0xeabaf4f583441a52af8ba936783aa96a13d5e71e8a0bf69d9d622076bd346c75",
+        },
+        "output_schema": _obj(
+            {
+                "tx_hash": _S,
+                "network": _S,
+                "chain": _S,
+                "payer": _N,
+                "pay_to": _N,
+                "amount_units": {"type": "integer"},
+                "amount_usd": _S,
+                "asset": _N,
+                "asset_symbol": _S,
+                "settled": {"type": "boolean"},
+                "receipt_status": _N,
+                "block_number": _IN,
+                "confirmations": _IN,
+                "usdc_transfers": {"type": "array", "items": {"type": "object"}},
+                "fleet_route_candidates": {"type": "array", "items": {"type": "object"}},
+                "limits": _S,
+            },
+            ["tx_hash", "network", "payer", "pay_to", "amount_units", "settled"],
+        ),
+        "output_example": {
+            "tx_hash": "0xeabaf4f583441a52af8ba936783aa96a13d5e71e8a0bf69d9d622076bd346c75",
+            "network": "eip155:8453",
+            "chain": "base",
+            "payer": "0xa4f183a6799F0310FcCC545B07F2DcC960223de2",
+            "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+            "amount_units": 1000000,
+            "amount_usd": "1",
+            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "asset_symbol": "USDC",
+            "settled": True,
+            "receipt_status": "0x1",
+            "block_number": 28000000,
+            "confirmations": 120,
+            "usdc_transfers": [
+                {
+                    "from": "0xa4f183a6799F0310FcCC545B07F2DcC960223de2",
+                    "to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+                    "amount_units": 1000000,
+                }
+            ],
+            "fleet_route_candidates": [
+                {"service": "stall-row", "route": "/v1/counterparty-report"}
+            ],
+            "limits": "Base only (eip155:8453).",
+        },
+    },
     "/v1/tube-search": {
         "description": (
             "YouTube search results as clean JSON: title, video id, URL, "
