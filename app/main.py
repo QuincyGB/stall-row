@@ -55,6 +55,7 @@ from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import fetch as fetch_svc
 from .services import fleetpass as fleetpass_svc
 from .services import indexfeed as indexfeed_svc
+from .services import orchestrate as orchestrate_svc
 from .services import reads as reads_svc
 from .services import recheck as recheck_svc
 from .services import watch as watch_svc
@@ -383,6 +384,15 @@ class IndexChangesRequest(BaseModel):
     )
 
 
+class OrchestrateRequest(BaseModel):
+    address: str = Field(description="Token contract address for the Token Verdict leg")
+    chain: str = Field(default="base", description="Chain for the Token Verdict leg")
+    service_url: str = Field(
+        description="The service endpoint URL: RouteVerdict checks it, LockSmith audits it"
+    )
+    listing_url: str = Field(description="The listing/manifest URL ListSmith grades")
+
+
 class RecheckPackBuyRequest(BaseModel):
     url: str = Field(description="The ONE endpoint URL this pack's credits may check")
 
@@ -534,6 +544,25 @@ log.info(
     "persistent" if settings.recheck_db_persistent else "EPHEMERAL",
     settings.recheck_db_path,
 )
+
+
+@app.post("/v1/orchestrate")
+async def orchestrate(req: OrchestrateRequest):
+    """One combined fleet report: Token Verdict on the token,
+    RouteVerdict + LockSmith on the service URL, ListSmith on the
+    listing URL — via the siblings' internal unpaid paths. Partial
+    reports mark failed legs; a total failure 502s unsettled."""
+
+    async def go():
+        return await orchestrate_svc.run_orchestrate(
+            _fetch_client(),
+            address=req.address.strip(),
+            chain=(req.chain or "base").strip(),
+            service_url=req.service_url.strip(),
+            listing_url=req.listing_url.strip(),
+        )
+
+    return await _run(go)
 
 
 # Verdict Index snapshot store: same sqlite file as the recheck

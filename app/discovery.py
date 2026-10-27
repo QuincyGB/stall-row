@@ -718,6 +718,58 @@ ROUTES: dict[str, dict] = {
             ],
         },
     },
+    "/v1/orchestrate": {
+        "description": (
+            "One combined fleet report for $0.75: Token Verdict's "
+            "verdict on a token, RouteVerdict's delivery check and "
+            "LockSmith's security audit summary on a service URL, and "
+            "ListSmith's grade on a listing URL — four fleet services "
+            "in one call. A failed leg is marked in the report, not "
+            "hidden; only a total failure returns 502 and charges "
+            "nothing. Use this when an agent is about to trust a "
+            "token and a stall in the same workflow and wants one "
+            "receipt instead of four payments."
+        ),
+        "tags": ["bundle", "x402", "verdict", "audit", "agents", "fleet"],
+        "input_schema": _obj(
+            {"address": _S, "chain": _S, "service_url": _S, "listing_url": _S},
+            ["address", "service_url", "listing_url"],
+        ),
+        "input_example": {
+            "address": "0x940181a94A35A4569E4529A3CDfB74e38FD98631",
+            "chain": "base",
+            "service_url": "https://token-verdict-production.up.railway.app/v1/verdict",
+            "listing_url": "https://token-verdict-production.up.railway.app/.well-known/x402",
+        },
+        "output_schema": _obj(
+            {
+                "token": _obj({"address": _S, "chain": _S}, ["address", "chain"]),
+                "service_url": _S,
+                "listing_url": _S,
+                "legs_ok": {"type": "array", "items": _S},
+                "legs_failed": {"type": "array", "items": _S},
+                "legs": {
+                    "type": "object",
+                    "additionalProperties": _obj(
+                        {"status": _S, "headline": _N, "error": _N},
+                        ["status"],
+                    ),
+                },
+            },
+            ["token", "service_url", "listing_url", "legs_ok", "legs_failed", "legs"],
+        ),
+        "output_example": {
+            "token": {"address": "0x9401\u2026", "chain": "base"},
+            "service_url": "https://example-stall.app/v1/call",
+            "listing_url": "https://example-stall.app/.well-known/x402",
+            "legs_ok": ["token_verdict", "route_verdict", "locksmith", "listsmith"],
+            "legs_failed": [],
+            "legs": {
+                "token_verdict": {"status": "ok", "headline": "SOLID (risk 12.0)"},
+                "locksmith": {"status": "ok", "headline": "SECURE"},
+            },
+        },
+    },
     "/v1/recheck/pack": {
         "description": (
             "Recheck watch pack — the default for monitoring loops: one "

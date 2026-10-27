@@ -278,6 +278,6 @@ def test_unpaid_recheck_challenge_is_exact():
     assert challenge["resource"]["url"].endswith("/v1/recheck")
 
     health = client.get("/health").json()
-    assert health["routes"] == 15
+    assert health["routes"] == 16
     quote = client.get("/quote").json()
     assert quote["endpoints"]["/v1/recheck"]["price_units"] == 5000

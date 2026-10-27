@@ -53,6 +53,7 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/job-scout": 50_000,           # $0.05
     "/v1/recheck": 5_000,              # $0.005
     "/v1/index/changes": 100_000,      # $0.10 — Verdict Index catalog changelog diff
+    "/v1/orchestrate": 750_000,        # $0.75 — one combined fleet report (4 legs)
     "/v1/recheck/pack": 1_000_000,     # $1.00 — 250 prepaid rechecks on one endpoint
     "/v1/fleet-pass": 5_000_000,       # $5.00 — prepaid USD balance for all fleet routes
 }
