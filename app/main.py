@@ -54,6 +54,7 @@ from .discovery import OWNERSHIP_PROOFS, ROUTES, llms_txt, route_extension, skil
 from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import fetch as fetch_svc
 from .services import fleetpass as fleetpass_svc
+from .services import indexfeed as indexfeed_svc
 from .services import reads as reads_svc
 from .services import recheck as recheck_svc
 from .services import watch as watch_svc
@@ -367,6 +368,21 @@ class RecheckRequest(BaseModel):
     )
 
 
+class IndexChangesRequest(BaseModel):
+    resource_contains: str | None = Field(
+        default=None, description="Only events whose resource URL contains this string"
+    )
+    pay_to: str | None = Field(
+        default=None, description="Only events for resources paid to this address"
+    )
+    service_name: str | None = Field(
+        default=None, description="Only events whose service name contains this string"
+    )
+    limit: int | None = Field(
+        default=None, description="Max events to return (default 100, cap 500)"
+    )
+
+
 class RecheckPackBuyRequest(BaseModel):
     url: str = Field(description="The ONE endpoint URL this pack's credits may check")
 
@@ -518,6 +534,54 @@ log.info(
     "persistent" if settings.recheck_db_persistent else "EPHEMERAL",
     settings.recheck_db_path,
 )
+
+
+# Verdict Index snapshot store: same sqlite file as the recheck
+# store (same volume, same durability story), refreshed by a
+# background ticker — a full catalog pull is ~80 requests and must
+# never run inside a paid call.
+_index_store = indexfeed_svc.IndexStore(settings.recheck_db_path)
+
+
+@app.post("/v1/index/changes")
+async def index_changes(req: IndexChangesRequest):
+    """Verdict Index: diff of the two newest catalog snapshots.
+    Until two snapshots exist there is no honest diff, so the
+    service raises UpstreamError and the call 502s unsettled."""
+
+    async def go():
+        return indexfeed_svc.changes(
+            _index_store,
+            resource_contains=req.resource_contains,
+            pay_to=req.pay_to,
+            service_name=req.service_name,
+            limit=req.limit or indexfeed_svc.DEFAULT_EVENT_LIMIT,
+        )
+
+    return await _run(go)
+
+
+async def _index_ticker() -> None:
+    """Catalog snapshot refresh: once at startup (if none is fresh),
+    then whenever the newest snapshot ages past the refresh window.
+    A failed pull stores nothing and never stops the ticker."""
+    refresh_min_s = float(os.environ.get("STALLROW_INDEX_REFRESH_MIN_S", "21600"))
+    tick = float(os.environ.get("STALLROW_INDEX_TICK_S", "900"))
+    while True:
+        try:
+            stored = await indexfeed_svc.refresh_if_stale(
+                _index_store, _fetch_client(), refresh_min_s
+            )
+            if stored:
+                log.info("verdict index: catalog snapshot stored")
+        except Exception:  # noqa: BLE001 — a failed pull stores nothing
+            log.exception("verdict index refresh failed")
+        await asyncio.sleep(tick)
+
+
+@app.on_event("startup")
+async def _start_index_ticker() -> None:
+    asyncio.get_event_loop().create_task(_index_ticker())
 
 
 @app.post("/v1/recheck")

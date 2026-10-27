@@ -646,6 +646,78 @@ ROUTES: dict[str, dict] = {
             "summary": "Changed since the previous check: amount.",
         },
     },
+    "/v1/index/changes": {
+        "description": (
+            "Verdict Index — the CDP Bazaar catalog changelog: the diff "
+            "between our two newest full-catalog snapshots (price, asset, "
+            "network, payTo, description, service name), with added and "
+            "removed resources counted. Snapshots refresh about every 6 "
+            "hours; until two exist this returns 502 and charges nothing. "
+            "Filter by resource, payTo or service name. Use this when a "
+            "router needs what changed in the catalog since its last "
+            "sync instead of re-scanning 78k listings."
+        ),
+        "tags": ["index", "x402", "changelog", "catalog", "monitoring", "agents"],
+        "input_schema": _obj(
+            {"resource_contains": _S, "pay_to": _S, "service_name": _S, "limit": _I},
+            [],
+        ),
+        "input_example": {"resource_contains": "token-verdict", "limit": 50},
+        "output_schema": _obj(
+            {
+                "baseline_at": _S,
+                "current_at": _S,
+                "generated_at": _S,
+                "summary": _obj(
+                    {
+                        "resources_before": _I,
+                        "resources_after": _I,
+                        "field_changes": _I,
+                        "added": _I,
+                        "removed": _I,
+                    },
+                    ["resources_before", "resources_after", "field_changes", "added", "removed"],
+                ),
+                "events_returned": _I,
+                "events": {
+                    "type": "array",
+                    "items": _obj(
+                        {
+                            "resource": _S,
+                            "kind": {"type": "string", "enum": ["field_changed", "added", "removed"]},
+                            "field": _N,
+                            "before": {"type": ["string", "null"]},
+                            "after": {"type": ["string", "null"]},
+                        },
+                        ["resource", "kind"],
+                    ),
+                },
+            },
+            ["baseline_at", "current_at", "summary", "events"],
+        ),
+        "output_example": {
+            "baseline_at": "2026-10-26T18:00:00Z",
+            "current_at": "2026-10-27T00:00:00Z",
+            "generated_at": "2026-10-27T00:05:00Z",
+            "summary": {
+                "resources_before": 78127,
+                "resources_after": 78142,
+                "field_changes": 3,
+                "added": 412,
+                "removed": 397,
+            },
+            "events_returned": 1,
+            "events": [
+                {
+                    "resource": "https://token-verdict-production.up.railway.app/v1/verdict",
+                    "kind": "field_changed",
+                    "field": "description",
+                    "before": "old copy",
+                    "after": "new copy",
+                }
+            ],
+        },
+    },
     "/v1/recheck/pack": {
         "description": (
             "Recheck watch pack — the default for monitoring loops: one "
