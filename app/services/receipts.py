@@ -4,7 +4,11 @@ A transaction hash in, a normalized verified receipt out — read
 from Base RPC only (eth_getTransactionByHash, eth_getTransactionReceipt,
 eth_blockNumber), the same chain reads the rest of the fleet uses:
 
-  payer      — the transaction's `from`.
+  payer      — the source of the funds: the USDC Transfer log's
+               `from`. Facilitator-relayed x402 payments are
+               submitted by a relayer, so the transaction's own
+               `from` is reported separately as tx_sender — the two
+               differ exactly when a facilitator relayed the payment.
   pay_to     — the recipient of the tx's USDC Transfer log (the
                payment itself); when the tx carries no USDC
                transfer, the transaction's own `to` and the asset
@@ -98,7 +102,7 @@ async def verify_receipt(
     head = await rpc.eth_block_number()
 
     transfers = _usdc_transfers(receipt)
-    payer = tx.get("from")
+    payer = transfers[0]["from"] if transfers else tx.get("from")
     if transfers:
         primary = transfers[0]
         pay_to = primary["to"]
@@ -148,6 +152,7 @@ async def verify_receipt(
         "network": NETWORK,
         "chain": "base",
         "payer": payer,
+        "tx_sender": tx.get("from"),
         "pay_to": pay_to,
         "amount_units": amount_units,
         "amount_usd": f"{amount_units / 1_000_000:.6f}".rstrip("0").rstrip(".")

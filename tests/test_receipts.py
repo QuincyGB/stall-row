@@ -29,6 +29,7 @@ async def test_verified_usdc_receipt_from_fixtures():
             client, rpc, tx_hash=TX_HASH, fleet_pay_to=ADDR
         )
     assert out["payer"] == OTHER
+    assert out["tx_sender"] == OTHER  # fixture tx is not facilitator-relayed
     assert out["pay_to"] == ADDR
     assert out["amount_units"] == 12_500_000
     assert out["amount_usd"] == "12.5"
