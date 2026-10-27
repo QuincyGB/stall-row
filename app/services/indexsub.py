@@ -26,6 +26,10 @@ watermark and pushes nothing — diffs that predate the registration
 are not the subscriber's feed). A run that cannot be funded marks
 the registration funding_failed and does NOT advance the watermark.
 A delivery computed but failed on OUR side refunds the debit.
+Freshness is enforced, not assumed: if the newest snapshot has
+aged past the Index freshness window (the snapshot ticker is
+failing), a would-be delivery is skipped instead — no debit, no
+watermark advance — until a fresh snapshot lands.
 
 Cadence honesty: snapshots land about every 6 hours (~4/day), so a
 funded subscription spends roughly $0.40/day while snapshots keep
@@ -194,10 +198,15 @@ async def evaluate(
     store: recheck_svc.WatchStore,
     index_store: IndexStore,
     reg: dict,
+    now_epoch: float | None = None,
+    stale_after: float | None = None,
 ) -> dict:
     """One evaluation of one subscription against the two newest
     snapshots. Funding refusals return as funding_failed (not
-    raised), mirroring rotalerts.evaluate."""
+    raised), mirroring rotalerts.evaluate. A would-be delivery
+    against a STALE newest snapshot returns skipped instead: no
+    debit, no watermark advance, no diff — a feed built on an old
+    pair would describe a catalog that no longer exists."""
     pair = index_store.latest_two()
     if pair is None:
         return {
@@ -223,6 +232,21 @@ async def evaluate(
         return {
             "reg_id": reg["reg_id"],
             "status": "baseline",
+            "snapshot_id": after["id"],
+            "current_at": after["captured_at"],
+            "debited_units": 0,
+            "webhook_push_attempted": False,
+        }
+    if indexfeed_svc.snapshot_is_stale(after, now_epoch, stale_after):
+        store.update_index_sub_eval(reg["reg_id"], None, "skipped")
+        return {
+            "reg_id": reg["reg_id"],
+            "status": "skipped",
+            "reason": (
+                "latest index snapshot is stale (captured "
+                f"{after['captured_at']}, beyond the freshness window); "
+                "refusing to diff against stale data"
+            ),
             "snapshot_id": after["id"],
             "current_at": after["captured_at"],
             "debited_units": 0,

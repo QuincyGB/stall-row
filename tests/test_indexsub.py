@@ -121,13 +121,17 @@ async def test_evaluate_baseline_then_diff_then_no_new(stores):
     reg = await _register(store)
     state = {"deliveries": []}
     async with _client(state) as client:
-        first = await indexsub.evaluate(client, store, index, reg)
+        first = await indexsub.evaluate(
+            client, store, index, reg, now_epoch=2_000_000
+        )
         assert first["status"] == "baseline" and first["debited_units"] == 0
         assert state["deliveries"] == []
         reg = store.get_index_sub(reg["reg_id"])
         # New snapshot pair with a price change on RES.
         index.save_snapshot([_row(RES, PAY_TO, amount="25000")], epoch=3_000_000)
-        second = await indexsub.evaluate(client, store, index, reg)
+        second = await indexsub.evaluate(
+            client, store, index, reg, now_epoch=3_000_000
+        )
         assert second["status"] == "delivered"
         assert second["debited_units"] == 100_000
         events = second["diff"]["events"]
@@ -137,7 +141,8 @@ async def test_evaluate_baseline_then_diff_then_no_new(stores):
         assert len(state["deliveries"]) == 1
         # Same pair again: no new snapshot, no charge, no push.
         third = await indexsub.evaluate(
-            client, store, index, store.get_index_sub(reg["reg_id"])
+            client, store, index, store.get_index_sub(reg["reg_id"]),
+            now_epoch=3_000_000,
         )
         assert third["status"] == "no_new_snapshot"
         assert len(state["deliveries"]) == 1
@@ -151,10 +156,11 @@ async def test_evaluate_empty_diff_still_delivers_heartbeat(stores):
     reg = await _register(store)
     state = {"deliveries": []}
     async with _client(state) as client:
-        await indexsub.evaluate(client, store, index, reg)
+        await indexsub.evaluate(client, store, index, reg, now_epoch=2_000_000)
         index.save_snapshot([_row(RES, PAY_TO)], epoch=3_000_000)
         out = await indexsub.evaluate(
-            client, store, index, store.get_index_sub(reg["reg_id"])
+            client, store, index, store.get_index_sub(reg["reg_id"]),
+            now_epoch=3_000_000,
         )
         assert out["status"] == "delivered"
         assert out["diff"]["events"] == []
@@ -173,13 +179,14 @@ async def test_evaluate_filters_apply(stores):
     reg = await _register(store, pay_to=PAY_TO)
     state = {"deliveries": []}
     async with _client(state) as client:
-        await indexsub.evaluate(client, store, index, reg)
+        await indexsub.evaluate(client, store, index, reg, now_epoch=2_000_000)
         index.save_snapshot(
             [_row(RES, PAY_TO, amount="99000"), _row(RES2, OTHER, amount="99000")],
             epoch=3_000_000,
         )
         out = await indexsub.evaluate(
-            client, store, index, store.get_index_sub(reg["reg_id"])
+            client, store, index, store.get_index_sub(reg["reg_id"]),
+            now_epoch=3_000_000,
         )
         resources = {e["resource"] for e in out["diff"]["events"]}
         assert resources == {RES}  # RES2 pays OTHER — filtered out
@@ -195,10 +202,13 @@ async def test_evaluate_funding_failure_keeps_watermark(stores):
     reg = await _register(store)
     state = {"deliveries": []}
     async with _client(state) as client:
-        await indexsub.evaluate(client, store, index, reg)  # baseline
+        await indexsub.evaluate(
+            client, store, index, reg, now_epoch=2_000_000
+        )  # baseline
         index.save_snapshot([_row(RES, PAY_TO, amount="30000")], epoch=3_000_000)
         ok = await indexsub.evaluate(
-            client, store, index, store.get_index_sub(reg["reg_id"])
+            client, store, index, store.get_index_sub(reg["reg_id"]),
+            now_epoch=3_000_000,
         )
         assert ok["status"] == "delivered"
         # Drain remaining balance (5.00 - 0.10 = 4.90) below $0.10.
@@ -211,7 +221,8 @@ async def test_evaluate_funding_failure_keeps_watermark(stores):
         wm = store.get_index_sub(reg["reg_id"])["last_eval_snapshot_id"]
         index.save_snapshot([_row(RES, PAY_TO, amount="40000")], epoch=4_000_000)
         out = await indexsub.evaluate(
-            client, store, index, store.get_index_sub(reg["reg_id"])
+            client, store, index, store.get_index_sub(reg["reg_id"]),
+            now_epoch=4_000_000,
         )
         assert out["status"] == "funding_failed"
         assert store.get_index_sub(reg["reg_id"])["last_eval_snapshot_id"] == wm
@@ -226,3 +237,51 @@ async def test_evaluate_waits_for_two_snapshots(stores):
     async with _client(state) as client:
         out = await indexsub.evaluate(client, store, index, reg)
         assert out["status"] == "waiting_for_snapshots"
+
+
+@pytest.mark.asyncio
+async def test_evaluate_skips_a_stale_snapshot_then_delivers_fresh(stores):
+    """Regression (2026-10-27): a would-be delivery against a stale
+    newest snapshot must skip — no debit, no watermark advance, no
+    push — and the SAME registration must deliver once a fresh
+    snapshot lands. (Before this guard, evaluate() debited $0.10
+    and 'delivered' against arbitrarily old pairs.)"""
+    store, index = stores
+    index.save_snapshot([_row(RES, PAY_TO)], epoch=1_000_000)
+    index.save_snapshot([_row(RES, PAY_TO)], epoch=2_000_000)
+    reg = await _register(store)
+    state = {"deliveries": []}
+    async with _client(state) as client:
+        base = await indexsub.evaluate(
+            client, store, index, reg, now_epoch=2_000_000
+        )
+        assert base["status"] == "baseline"
+        wm = store.get_index_sub(reg["reg_id"])["last_eval_snapshot_id"]
+        bal = store.get_pass(reg["funding_id"])["balance_units"]
+        # New snapshot exists, but by evaluation time it is stale.
+        index.save_snapshot(
+            [_row(RES, PAY_TO, amount="25000")], epoch=3_000_000
+        )
+        out = await indexsub.evaluate(
+            client, store, index, store.get_index_sub(reg["reg_id"]),
+            now_epoch=3_000_000 + 25_201,
+        )
+        assert out["status"] == "skipped"
+        assert "stale" in out["reason"]
+        assert out["debited_units"] == 0
+        after = store.get_index_sub(reg["reg_id"])
+        assert after["last_eval_snapshot_id"] == wm
+        assert after["last_status"] == "skipped"
+        assert store.get_pass(reg["funding_id"])["balance_units"] == bal
+        assert state["deliveries"] == []
+        # A fresh snapshot lands: the skipped diff is delivered, not lost.
+        index.save_snapshot(
+            [_row(RES, PAY_TO, amount="26000")], epoch=3_100_000
+        )
+        out2 = await indexsub.evaluate(
+            client, store, index, store.get_index_sub(reg["reg_id"]),
+            now_epoch=3_100_000,
+        )
+        assert out2["status"] == "delivered"
+        assert out2["debited_units"] == 100_000
+        assert len(state["deliveries"]) == 1

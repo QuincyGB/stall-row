@@ -15,7 +15,10 @@ there is no honest diff to sell, so the route answers 502 — and an
 unsettled 502 charges nobody (fleet rule). While under two
 snapshots the ticker refreshes on a short bootstrap interval
 (STALLROW_INDEX_BOOTSTRAP_MIN_S, default 900s) so a cold start
-becomes sellable in about one tick, not one full window.
+becomes sellable in about one tick, not one full window. The
+mirror rule: if refreshes stop landing and the newest snapshot
+ages past the refresh window plus a grace hour, reads refuse
+(502, unsettled) rather than sell a stale pair as current.
 
 Diff scope, stated plainly: events are computed over the fields a
 buyer's risk actually turns on — amount, asset, network, payTo,
@@ -28,6 +31,7 @@ resources are the headline events.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import time
 
@@ -48,6 +52,34 @@ MAX_EVENT_LIMIT = 500
 INDEX_USER_AGENT = "verdict-row-index/1.0"
 PAGE_TIMEOUT_S = 60.0
 DEFAULT_BOOTSTRAP_INTERVAL_S = 900.0
+# Freshness: snapshots refresh on a ~6h window, checked on a 900s
+# tick, and a pull itself takes minutes — so the newest snapshot can
+# honestly be ~6h20m old just before a refresh lands. Past the
+# window + a 1h grace it is STALE: no diff (paid or subscription)
+# may be delivered against it, because the pair no longer describes
+# the current catalog. Env-overridable for tests and ops.
+DEFAULT_REFRESH_WINDOW_S = 21600.0
+DEFAULT_STALE_GRACE_S = 3600.0
+
+
+def stale_after_s() -> float:
+    raw = os.environ.get("STALLROW_INDEX_STALE_AFTER_S")
+    if raw:
+        try:
+            return float(raw)
+        except ValueError:
+            pass
+    return DEFAULT_REFRESH_WINDOW_S + DEFAULT_STALE_GRACE_S
+
+
+def snapshot_is_stale(
+    snapshot: dict,
+    now_epoch: float | None = None,
+    stale_after: float | None = None,
+) -> bool:
+    now = time.time() if now_epoch is None else now_epoch
+    limit = stale_after_s() if stale_after is None else stale_after
+    return (now - float(snapshot["captured_epoch"])) > limit
 
 TRACKED_FIELDS = ("amount", "asset", "network", "payTo", "description", "serviceName")
 
@@ -359,10 +391,18 @@ async def refresh_if_stale(
     return True
 
 
-def changes(store: IndexStore, **filters) -> dict:
+def changes(
+    store: IndexStore,
+    *,
+    now_epoch: float | None = None,
+    stale_after: float | None = None,
+    **filters,
+) -> dict:
     """The paid route's read: diff of the two newest snapshots.
     Raises UpstreamError until two snapshots exist — no baseline,
-    no diff, no charge."""
+    no diff, no charge. Also raises when the newest snapshot is
+    stale (ticker failing / catalog unreachable): a diff against
+    an old pair is not a current diff, so it is not sold."""
     pair = store.latest_two()
     if pair is None:
         raise UpstreamError(
@@ -370,6 +410,12 @@ def changes(store: IndexStore, **filters) -> dict:
             " snapshots stored, so there is no honest diff to sell yet."
         )
     before, after = pair
+    if snapshot_is_stale(after, now_epoch, stale_after):
+        raise UpstreamError(
+            "Verdict Index snapshot is stale: the newest catalog snapshot "
+            f"was captured at {after['captured_at']}, beyond the freshness "
+            "window, so there is no honest current diff to sell yet."
+        )
     result = diff_entries(store.entries(before["id"]), store.entries(after["id"]), **filters)
     return {
         "baseline_at": before["captured_at"],

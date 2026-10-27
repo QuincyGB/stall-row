@@ -74,13 +74,27 @@ def test_store_roundtrip_prune_and_changes_gate(tmp_path):
     with pytest.raises(UpstreamError):  # still only ONE snapshot
         indexfeed.changes(store)
     store.save_snapshot(_rows(_item("https://x/v1/a", amount="5")), epoch=2_000_000)
-    out = indexfeed.changes(store)
+    out = indexfeed.changes(store, now_epoch=2_000_000)
     assert out["summary"]["field_changes"] == 1
     assert out["baseline_at"] < out["current_at"]
     # Prune keeps only the newest KEEP_SNAPSHOTS.
     for i in range(5):
         store.save_snapshot(_rows(_item("https://x/v1/a")), epoch=3_000_000 + i)
     assert len(store.snapshots()) == indexfeed.KEEP_SNAPSHOTS
+
+
+def test_changes_refuses_a_stale_snapshot_pair(tmp_path):
+    """Regression (2026-10-27): the paid read must refuse when the
+    newest snapshot has aged past the freshness window — a stale
+    pair sold as current is a fabricated diff. The same pair reads
+    fine inside the window."""
+    store = indexfeed.IndexStore(str(tmp_path / "idx.db"))
+    store.save_snapshot(_rows(_item("https://x/v1/a")), epoch=1_000_000)
+    store.save_snapshot(_rows(_item("https://x/v1/a", amount="5")), epoch=2_000_000)
+    fresh = indexfeed.changes(store, now_epoch=2_000_000 + 21_600)
+    assert fresh["summary"]["field_changes"] == 1
+    with pytest.raises(UpstreamError, match="stale"):
+        indexfeed.changes(store, now_epoch=2_000_000 + 25_201)
 
 
 @pytest.mark.asyncio
