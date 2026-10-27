@@ -56,6 +56,7 @@ from .services import fetch as fetch_svc
 from .services import fleetpass as fleetpass_svc
 from .services import indexfeed as indexfeed_svc
 from .services import orchestrate as orchestrate_svc
+from .services import pretrade as pretrade_svc
 from .services import reads as reads_svc
 from .services import recheck as recheck_svc
 from .services import watch as watch_svc
@@ -384,6 +385,21 @@ class IndexChangesRequest(BaseModel):
     )
 
 
+class PreTradeGuardRequest(BaseModel):
+    pay_to: str = Field(description="The payTo address you are about to pay, 0x…")
+    amount: int | str | None = Field(
+        default=None,
+        description="Optional amount you are about to pay, in the asset's smallest units (e.g. 20000 for $0.02 USDC)",
+    )
+    network: str | None = Field(
+        default=None, description="Optional network id (default eip155:8453, Base)"
+    )
+    resource: str | None = Field(
+        default=None,
+        description="Optional resource URL of the listing you are about to pay",
+    )
+
+
 class OrchestrateRequest(BaseModel):
     address: str = Field(description="Token contract address for the Token Verdict leg")
     chain: str = Field(default="base", description="Chain for the Token Verdict leg")
@@ -586,6 +602,35 @@ async def index_changes(req: IndexChangesRequest):
             service_name=req.service_name,
             limit=req.limit or indexfeed_svc.DEFAULT_EVENT_LIMIT,
         )
+
+    return await _run(go)
+
+
+@app.post("/v1/pre-trade-guard")
+async def pre_trade_guard(req: PreTradeGuardRequest):
+    """Pre-Trade Guard: screen a payTo BEFORE paying it — Verdict
+    Index catalog history (first seen, payTo rotations), the OFAC
+    sanctions screen, and the wallet's Base age/activity, combined
+    into PROCEED / CAUTION / ABORT. Every leg is a local read or a
+    cheap chain read and degrades to "unknown" (capping the verdict
+    at CAUTION) rather than failing, so a valid request always
+    delivers a verdict — a first-seen payTo included."""
+    if not is_address(req.pay_to):
+        return JSONResponse({"error": "pay_to must be a 0x EVM address"}, status_code=422)
+
+    async def go():
+        client, rpc, scout = _clients()
+        async with client:
+            return await pretrade_svc.pre_trade_guard(
+                client,
+                rpc,
+                scout,
+                _index_store,
+                pay_to=req.pay_to.strip(),
+                amount=req.amount,
+                network=(req.network or "").strip() or None,
+                resource=(req.resource or "").strip() or None,
+            )
 
     return await _run(go)
 

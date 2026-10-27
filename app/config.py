@@ -45,6 +45,7 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/tx-decoder": 2_000,           # $0.002
     "/v1/gas-oracle": 1_000,           # $0.001
     "/v1/wallet-verdict": 20_000,      # $0.02
+    "/v1/pre-trade-guard": 5_000,      # $0.005 — Pre-Trade Guard: screen a payTo before paying it
     "/v1/tube-search": 10_000,         # $0.01
     "/v1/page-to-markdown": 10_000,    # $0.01
     "/v1/repo-vitals": 5_000,          # $0.005

@@ -302,6 +302,72 @@ ROUTES: dict[str, dict] = {
             "limits": "Sanctions matching is exact-address only against the bundled snapshot.",
         },
     },
+    "/v1/pre-trade-guard": {
+        "description": (
+            "Pre-Trade Guard — before you pay an x402 listing, screen the "
+            "payTo you are about to pay: its Verdict Index catalog history "
+            "(first seen, payTo rotations, listings added or removed across "
+            "the snapshots held), an OFAC SDN exact-match check, and the "
+            "wallet's Base age and activity, combined into PROCEED, CAUTION, "
+            "or ABORT with itemized reasons. Use this when an agent is about "
+            "to pay a payTo it has never paid before."
+        ),
+        "tags": ["x402", "security", "sanctions", "verdict", "payments", "agents"],
+        "input_schema": _obj(
+            {"pay_to": _S, "amount": {"type": ["integer", "string", "null"]}, "network": _N, "resource": _N},
+            ["pay_to"],
+        ),
+        "input_example": {
+            "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+            "resource": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+            "amount": 20000,
+        },
+        "output_schema": _obj(
+            {
+                "pay_to": _S,
+                "resource": _N,
+                "amount": {"type": ["integer", "string", "null"]},
+                "network": _S,
+                "verdict": {"type": "string", "enum": ["PROCEED", "CAUTION", "ABORT"]},
+                "risk_score": _I,
+                "unknown_legs": {"type": "array", "items": _S},
+                "sanctions": {"type": "object"},
+                "index": {"type": "object"},
+                "wallet": {"type": "object"},
+                "reasons": {
+                    "type": "array",
+                    "items": _obj({"name": _S, "points": _I, "detail": _S}, ["name", "points", "detail"]),
+                },
+                "not_checked": _S,
+                "limits": _S,
+            },
+            ["pay_to", "verdict", "risk_score", "sanctions", "index", "wallet", "reasons"],
+        ),
+        "output_example": {
+            "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+            "resource": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+            "amount": 20000,
+            "network": "eip155:8453",
+            "verdict": "PROCEED",
+            "risk_score": 0,
+            "unknown_legs": [],
+            "sanctions": {"status": "no_match", "matched": False, "snapshot_date": "2026-10-21"},
+            "index": {
+                "status": "ok",
+                "snapshots_held": 3,
+                "listed_now": 16,
+                "first_seen_at": "2026-10-26T18:00:00Z",
+                "rotations_in": [],
+                "rotations_out": [],
+            },
+            "wallet": {"status": "ok", "age_days": 352, "outgoing_tx_count_nonce": 137},
+            "reasons": [
+                {"name": "catalog track record", "points": 0, "detail": "PayTo appears in the snapshots held with no payTo rotations."}
+            ],
+            "not_checked": "Operator identity and delivery quality are not checked.",
+            "limits": "Listing history covers only the snapshots held.",
+        },
+    },
     "/v1/tube-search": {
         "description": (
             "YouTube search results as clean JSON: title, video id, URL, "

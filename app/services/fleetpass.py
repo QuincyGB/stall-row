@@ -40,6 +40,7 @@ FLEET_ROUTES: dict[tuple[str, str], int] = {
     ("stall-row", "/v1/tx-decoder"): 2_000,
     ("stall-row", "/v1/gas-oracle"): 1_000,
     ("stall-row", "/v1/wallet-verdict"): 20_000,
+    ("stall-row", "/v1/pre-trade-guard"): 5_000,
     ("stall-row", "/v1/tube-search"): 10_000,
     ("stall-row", "/v1/page-to-markdown"): 10_000,
     ("stall-row", "/v1/repo-vitals"): 5_000,

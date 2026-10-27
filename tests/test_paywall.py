@@ -21,6 +21,7 @@ BODIES = {
     "/v1/tx-decoder": {"tx_hash": "0x" + "ab" * 32},
     "/v1/gas-oracle": {},
     "/v1/wallet-verdict": {"address": OWNER},
+    "/v1/pre-trade-guard": {"pay_to": OWNER},
     "/v1/tube-search": {"query": "x402"},
     "/v1/page-to-markdown": {"url": "https://www.x402.org/"},
     "/v1/repo-vitals": {"repo": "QuincyGB/token-verdict"},
