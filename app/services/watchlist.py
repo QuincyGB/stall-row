@@ -16,7 +16,9 @@ payTo rotations and price changes. The diff is pushed to the
 buyer's webhook as JSON; no events, no push. The first evaluation
 is a free silent baseline (watermark only); a run that cannot be
 funded marks the registration funding_failed without advancing the
-watermark. top_n defaults to 100 and is capped at 500.
+watermark; an evaluation whose newest snapshot is STALE (past the
+Index freshness window) skips the same way — no debit, no advance.
+top_n defaults to 100 and is capped at 500.
 
 Cadence honesty: snapshots land about every 6 hours (~4/day), so a
 funded registration spends roughly $0.02/day while snapshots keep
@@ -35,6 +37,7 @@ import time
 import httpx
 
 from . import fetch as fetch_svc
+from . import indexfeed as indexfeed_svc
 from . import recheck as recheck_svc
 from .indexfeed import IndexStore
 
@@ -223,9 +226,13 @@ async def evaluate(
     store: recheck_svc.WatchStore,
     index_store: IndexStore,
     reg: dict,
+    now_epoch: float | None = None,
+    stale_after: float | None = None,
 ) -> dict:
     """One evaluation of one watchlist registration against the two
-    newest snapshots. Mirrors rotalerts.evaluate's funding contract."""
+    newest snapshots. Mirrors rotalerts.evaluate's funding contract,
+    including its freshness guard: a STALE newest snapshot returns
+    skipped — no debit, no watermark advance, no push."""
     pair = index_store.latest_two()
     if pair is None:
         return {
@@ -251,6 +258,21 @@ async def evaluate(
         return {
             "reg_id": reg["reg_id"],
             "status": "baseline",
+            "snapshot_id": after["id"],
+            "current_at": after["captured_at"],
+            "debited_units": 0,
+            "webhook_push_attempted": False,
+        }
+    if indexfeed_svc.snapshot_is_stale(after, now_epoch, stale_after):
+        store.update_watchlist_eval(reg["reg_id"], None, "skipped")
+        return {
+            "reg_id": reg["reg_id"],
+            "status": "skipped",
+            "reason": (
+                "latest index snapshot is stale (captured "
+                f"{after['captured_at']}, beyond the freshness window); "
+                "refusing to diff against stale data"
+            ),
             "snapshot_id": after["id"],
             "current_at": after["captured_at"],
             "debited_units": 0,

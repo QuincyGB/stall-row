@@ -135,7 +135,7 @@ async def test_evaluate_baseline_then_events(stores):
     reg = await _register(store)
     state = {"deliveries": []}
     async with httpx.AsyncClient(transport=_transport(state)) as client:
-        out = await watchlist.evaluate(client, store, index, reg)
+        out = await watchlist.evaluate(client, store, index, reg, now_epoch=2000000)
         assert out["status"] == "baseline"
         assert out["debited_units"] == 0
         assert state["deliveries"] == []
@@ -146,7 +146,7 @@ async def test_evaluate_baseline_then_events(stores):
             epoch=3_000_000,
         )
         reg = store.get_watchlist_reg(reg["reg_id"])
-        out = await watchlist.evaluate(client, store, index, reg)
+        out = await watchlist.evaluate(client, store, index, reg, now_epoch=3000000)
         assert out["status"] == "events"
         kinds = {(e["resource"], e["kind"]) for e in out["events"]}
         assert (R3, "entered") in kinds and (R2, "left") in kinds
@@ -166,7 +166,7 @@ async def test_evaluate_funding_failure_keeps_watermark(stores):
     reg = await _register(store, fleet_pass_id=tiny["pass_id"])
     state = {"deliveries": []}
     async with httpx.AsyncClient(transport=_transport(state)) as client:
-        out = await watchlist.evaluate(client, store, index, reg)
+        out = await watchlist.evaluate(client, store, index, reg, now_epoch=2000000)
         assert out["status"] == "baseline"
         store.debit_pass(tiny["pass_id"], "stall-row", "/v1/recheck", 5_000)
         index.save_snapshot(
@@ -175,8 +175,65 @@ async def test_evaluate_funding_failure_keeps_watermark(stores):
         )
         reg = store.get_watchlist_reg(reg["reg_id"])
         watermark = reg["last_eval_snapshot_id"]
-        out = await watchlist.evaluate(client, store, index, reg)
+        out = await watchlist.evaluate(client, store, index, reg, now_epoch=3000000)
     assert out["status"] == "funding_failed"
     reg = store.get_watchlist_reg(reg["reg_id"])
     assert reg["last_eval_snapshot_id"] == watermark
     assert state["deliveries"] == []
+
+
+@pytest.mark.asyncio
+async def test_evaluate_skips_a_stale_snapshot_then_delivers_fresh(stores):
+    """Regression (2026-10-27): a would-be evaluation against a
+    stale newest snapshot must skip — no debit, no watermark
+    advance, no push — and the SAME registration must evaluate once
+    a fresh snapshot lands. (Before this guard, evaluate() debited
+    $0.005 and diffed arbitrarily old pairs; the Verdict Index
+    carries the same guard.)"""
+    store, index = stores
+    base = [_row(R1, A, 100), _row(R2, B, 50), _row(R3, C, 10)]
+    index.save_snapshot(base, epoch=1_000_000)
+    index.save_snapshot(list(base), epoch=2_000_000)
+    reg = await _register(store)
+    fleet_pass_id = reg["funding_id"]
+    state = {"deliveries": []}
+    async with httpx.AsyncClient(transport=_transport(state)) as client:
+        base_out = await watchlist.evaluate(
+            client, store, index, reg, now_epoch=2_000_000
+        )
+        assert base_out["status"] == "baseline"
+        wm = store.get_watchlist_reg(reg["reg_id"])["last_eval_snapshot_id"]
+        bal = store.get_pass(fleet_pass_id)["balance_units"]
+        # New snapshot exists, but by evaluation time it is stale.
+        index.save_snapshot(
+            [_row(R1, A, 100), _row(R2, B, 5), _row(R3, C, 90)],
+            epoch=3_000_000,
+        )
+        reg = store.get_watchlist_reg(reg["reg_id"])
+        out = await watchlist.evaluate(
+            client, store, index, reg, now_epoch=3_000_000 + 25_201
+        )
+        assert out["status"] == "skipped"
+        assert "stale" in out["reason"]
+        assert out["debited_units"] == 0
+        after = store.get_watchlist_reg(reg["reg_id"])
+        assert after["last_eval_snapshot_id"] == wm
+        assert after["last_status"] == "skipped"
+        assert store.get_pass(fleet_pass_id)["balance_units"] == bal
+        assert state["deliveries"] == []
+        # A fresh snapshot lands: evaluation resumes and debits.
+        # (The store diffs the two newest, so this pair is the
+        # stale snapshot vs the fresh one: R2 surges back in.)
+        index.save_snapshot(
+            [_row(R1, A, 100), _row(R2, B, 95), _row(R3, C, 90)],
+            epoch=3_100_000,
+        )
+        reg = store.get_watchlist_reg(reg["reg_id"])
+        out2 = await watchlist.evaluate(
+            client, store, index, reg, now_epoch=3_100_000
+        )
+        assert out2["status"] == "events"
+        kinds = {(e["resource"], e["kind"]) for e in out2["events"]}
+        assert (R2, "entered") in kinds and (R3, "left") in kinds
+        assert out2["debited_units"] == 5_000
+        assert len(state["deliveries"]) == 1

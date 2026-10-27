@@ -20,6 +20,9 @@ cannot be funded marks the registration funding_failed and does NOT
 advance the watermark, so no snapshot's changes are silently
 skipped; the next funded evaluation still compares against the last
 evaluated snapshot pair the store diffs (the two newest held).
+And an evaluation whose newest snapshot is STALE (past the Index
+freshness window) skips instead: no debit, no watermark advance —
+the same guard the Index itself carries.
 
 Cadence honesty: snapshots land about every 6 hours (~4/day), so a
 funded registration spends roughly $0.02/day while snapshots keep
@@ -43,6 +46,7 @@ import httpx
 
 from ..rpc import is_address
 from . import fetch as fetch_svc
+from . import indexfeed as indexfeed_svc
 from . import recheck as recheck_svc
 from .indexfeed import IndexStore
 
@@ -241,10 +245,16 @@ async def evaluate(
     store: recheck_svc.WatchStore,
     index_store: IndexStore,
     reg: dict,
+    now_epoch: float | None = None,
+    stale_after: float | None = None,
 ) -> dict:
     """One evaluation of one registration against the two newest
     snapshots. Returns a status dict; funding refusals are returned
-    (not raised) as funding_failed, mirroring watch.run_watch."""
+    (not raised) as funding_failed, mirroring watch.run_watch. A
+    would-be evaluation against a STALE newest snapshot returns
+    skipped instead (the same guard as the Verdict Index): no
+    debit, no watermark advance, no push — events computed on an
+    old pair would describe a catalog that no longer exists."""
     pair = index_store.latest_two()
     if pair is None:
         return {
@@ -272,6 +282,21 @@ async def evaluate(
         return {
             "reg_id": reg["reg_id"],
             "status": "baseline",
+            "snapshot_id": after["id"],
+            "current_at": after["captured_at"],
+            "debited_units": 0,
+            "webhook_push_attempted": False,
+        }
+    if indexfeed_svc.snapshot_is_stale(after, now_epoch, stale_after):
+        store.update_rotation_eval(reg["reg_id"], None, "skipped")
+        return {
+            "reg_id": reg["reg_id"],
+            "status": "skipped",
+            "reason": (
+                "latest index snapshot is stale (captured "
+                f"{after['captured_at']}, beyond the freshness window); "
+                "refusing to diff against stale data"
+            ),
             "snapshot_id": after["id"],
             "current_at": after["captured_at"],
             "debited_units": 0,

@@ -142,7 +142,7 @@ async def test_evaluate_baseline_then_events_then_no_new(stores):
     fleet_pass_id = reg["funding_id"]
     state = {"deliveries": []}
     async with httpx.AsyncClient(transport=_transport(state)) as client:
-        out = await rotalerts.evaluate(client, store, index, reg)
+        out = await rotalerts.evaluate(client, store, index, reg, now_epoch=2000000)
         assert out["status"] == "baseline"
         assert out["debited_units"] == 0
         # Baseline is silent and free.
@@ -150,13 +150,13 @@ async def test_evaluate_baseline_then_events_then_no_new(stores):
         assert store.get_pass(fleet_pass_id)["balance_units"] == 5_000_000
 
         reg = store.get_rotation_reg(reg["reg_id"])
-        out = await rotalerts.evaluate(client, store, index, reg)
+        out = await rotalerts.evaluate(client, store, index, reg, now_epoch=2000000)
         assert out["status"] == "no_new_snapshot"
 
         # A new snapshot lands with a rotation away from the payTo.
         index.save_snapshot([_row(RES, OTHER)], epoch=3_000_000)
         reg = store.get_rotation_reg(reg["reg_id"])
-        out = await rotalerts.evaluate(client, store, index, reg)
+        out = await rotalerts.evaluate(client, store, index, reg, now_epoch=3000000)
         assert out["status"] == "events"
         assert [e["kind"] for e in out["events"]] == ["payto_rotated"]
         assert out["debited_units"] == 5_000
@@ -175,10 +175,10 @@ async def test_evaluate_no_change_debits_but_pushes_nothing(stores):
     reg = await _register(store)
     state = {"deliveries": []}
     async with httpx.AsyncClient(transport=_transport(state)) as client:
-        await rotalerts.evaluate(client, store, index, reg)  # baseline
+        await rotalerts.evaluate(client, store, index, reg, now_epoch=2000000)  # baseline
         index.save_snapshot([_row(RES, PAY_TO)], epoch=3_000_000)
         reg = store.get_rotation_reg(reg["reg_id"])
-        out = await rotalerts.evaluate(client, store, index, reg)
+        out = await rotalerts.evaluate(client, store, index, reg, now_epoch=3000000)
     assert out["status"] == "no_change"
     assert out["events"] == []
     assert state["deliveries"] == []
@@ -194,14 +194,14 @@ async def test_evaluate_funding_failure_keeps_watermark(stores):
     reg = await _register(store, fleet_pass_id=tiny["pass_id"])
     state = {"deliveries": []}
     async with httpx.AsyncClient(transport=_transport(state)) as client:
-        out = await rotalerts.evaluate(client, store, index, reg)
+        out = await rotalerts.evaluate(client, store, index, reg, now_epoch=2000000)
         assert out["status"] == "baseline"  # free even on a tiny pass
         # Drain the pass elsewhere, then land a new snapshot.
         store.debit_pass(tiny["pass_id"], "stall-row", "/v1/recheck", 5_000)
         index.save_snapshot([_row(RES, OTHER)], epoch=3_000_000)
         reg = store.get_rotation_reg(reg["reg_id"])
         watermark = reg["last_eval_snapshot_id"]
-        out = await rotalerts.evaluate(client, store, index, reg)
+        out = await rotalerts.evaluate(client, store, index, reg, now_epoch=3000000)
     assert out["status"] == "funding_failed"
     reg = store.get_rotation_reg(reg["reg_id"])
     assert reg["last_eval_snapshot_id"] == watermark  # not advanced
@@ -217,3 +217,50 @@ async def test_evaluate_waits_for_two_snapshots(stores):
     async with httpx.AsyncClient(transport=_transport({"deliveries": []})) as client:
         out = await rotalerts.evaluate(client, store, index, reg)
     assert out["status"] == "waiting_for_snapshots"
+
+
+@pytest.mark.asyncio
+async def test_evaluate_skips_a_stale_snapshot_then_delivers_fresh(stores):
+    """Regression (2026-10-27): a would-be evaluation against a
+    stale newest snapshot must skip — no debit, no watermark
+    advance, no push — and the SAME registration must evaluate once
+    a fresh snapshot lands. (Before this guard, evaluate() debited
+    $0.005 and computed events against arbitrarily old pairs; the
+    Verdict Index carries the same guard.)"""
+    store, index = stores
+    index.save_snapshot([_row(RES, PAY_TO)], epoch=1_000_000)
+    index.save_snapshot([_row(RES, PAY_TO)], epoch=2_000_000)
+    reg = await _register(store)
+    fleet_pass_id = reg["funding_id"]
+    state = {"deliveries": []}
+    async with httpx.AsyncClient(transport=_transport(state)) as client:
+        base = await rotalerts.evaluate(
+            client, store, index, reg, now_epoch=2_000_000
+        )
+        assert base["status"] == "baseline"
+        wm = store.get_rotation_reg(reg["reg_id"])["last_eval_snapshot_id"]
+        bal = store.get_pass(fleet_pass_id)["balance_units"]
+        # New snapshot exists, but by evaluation time it is stale.
+        index.save_snapshot([_row(RES, OTHER)], epoch=3_000_000)
+        reg = store.get_rotation_reg(reg["reg_id"])
+        out = await rotalerts.evaluate(
+            client, store, index, reg, now_epoch=3_000_000 + 25_201
+        )
+        assert out["status"] == "skipped"
+        assert "stale" in out["reason"]
+        assert out["debited_units"] == 0
+        after = store.get_rotation_reg(reg["reg_id"])
+        assert after["last_eval_snapshot_id"] == wm
+        assert after["last_status"] == "skipped"
+        assert store.get_pass(fleet_pass_id)["balance_units"] == bal
+        assert state["deliveries"] == []
+        # A fresh snapshot lands: evaluation resumes and debits.
+        index.save_snapshot([_row(RES, PAY_TO)], epoch=3_100_000)
+        reg = store.get_rotation_reg(reg["reg_id"])
+        out2 = await rotalerts.evaluate(
+            client, store, index, reg, now_epoch=3_100_000
+        )
+        assert out2["status"] == "events"
+        assert [e["kind"] for e in out2["events"]] == ["payto_rotated"]
+        assert out2["debited_units"] == 5_000
+        assert len(state["deliveries"]) == 1
