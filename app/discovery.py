@@ -11,6 +11,7 @@ accepts mirror the live 402 challenges exactly.
 from __future__ import annotations
 
 from .config import PRICE_UNITS, Settings, units_to_price
+from .services.nudge import nudge_extension
 
 USDC_ASSET = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 
@@ -1586,6 +1587,11 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
         "network": settings.network,
         "payTo": settings.pay_to,
         "ownershipProofs": OWNERSHIP_PROOFS,
+        # The nudge inbox: this stall accepts signed fleet-health
+        # nudges (app/services/nudge.py; spec in x402-loop-kits).
+        # A top-level extension, NOT a resource — inbound mail is
+        # free and the priced route count does not move.
+        "extensions": {"nudge": nudge_extension(base_url)},
         "resources": resources,
     }
 

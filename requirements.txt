@@ -10,6 +10,8 @@ cdp-sdk>=1.0
 httpx>=0.27,<0.29
 # Function selectors for the ERC-8004 registry reads (agent-card verifier).
 eth-hash>=0.5
+# EIP-191 signature verification for the nudge inbox (app/services/nudge.py).
+eth-account>=0.13
 # Main-content extraction for /v1/page-to-markdown.
 trafilatura>=1.12
 

@@ -7,6 +7,8 @@ route independently priced, listed, and settled.
 Paid:   POST /v1/* routes (see app/discovery.py ROUTES)
 Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt
         POST /v1/recheck/pack-balance (pack id is the credential)
+        POST /v1/nudge (signed fleet-health mail — see services/nudge.py)
+        POST /v1/internal/nudges (owner read, fleet-internal secret)
 
 Recheck packs: POST /v1/recheck presenting a pack id (body field
 `pack_id` or X-Recheck-Pack header) spends a prepaid credit instead
@@ -38,6 +40,7 @@ for _var in ("no_proxy", "NO_PROXY"):
 import httpx
 import asyncio
 import hashlib
+import hmac
 import json
 
 from fastapi import FastAPI, Request
@@ -64,6 +67,7 @@ from .services import watchlist as watchlist_svc
 from .services import fleetpass as fleetpass_svc
 from .services import indexfeed as indexfeed_svc
 from .services import indexsub as indexsub_svc
+from .services import nudge as nudge_svc
 from .services import orchestrate as orchestrate_svc
 from .services import pretrade as pretrade_svc
 from .services import reads as reads_svc
@@ -1521,6 +1525,121 @@ async def fleet_check_status(req: FleetCheckPackIdRequest):
     )
     pack["deliveries"] = _recheck_store.deliveries_for(req.pack_id.strip())
     return pack
+
+
+# --- Nudge inbox ------------------------------------------------------------------
+# The two-way leg of Fleet Check (app/services/nudge.py; spec:
+# x402-loop-kits/nudge-inbox.md). POST /v1/nudge is FREE — inbound
+# mail is not a product, and it is absent from PRICE_UNITS and every
+# paid surface, so the priced route count does not move. Every
+# message is EIP-191-signed; unsigned or wrongly-signed mail is a
+# clean 4xx, never a 5xx. The owner reads the inbox through the
+# fleet-internal gate, same discipline as the siblings' internal
+# routes: secret unset = 404, wrong secret = 403.
+
+class NudgeInboxReadRequest(BaseModel):
+    limit: int = Field(default=50, ge=1, le=500)
+
+
+async def _stall_pay_to(stall: str) -> str | None:
+    """The payTo a stall's own discovery doc publishes — the
+    opt-out verifier's ground truth for who controls that stall.
+    Fetched under the recheck prober's SSRF discipline."""
+    try:
+        status, _headers, body = await recheck_svc._get_once(
+            _fetch_client(), f"{stall.rstrip('/')}/.well-known/x402", "GET"
+        )
+    except Exception:  # noqa: BLE001 — an unreadable doc proves nothing
+        return None
+    if status != 200 or not body:
+        return None
+    try:
+        doc = json.loads(body)
+    except ValueError:
+        return None
+    pay_to = doc.get("payTo") if isinstance(doc, dict) else None
+    return pay_to if isinstance(pay_to, str) else None
+
+
+@app.post("/v1/nudge")
+async def nudge_inbox(request: Request):
+    """Receive one fleet-health nudge (or opt-out). The message is
+    validated structurally, then its signature must recover to the
+    claimed sender wallet, then — for nudges — the per-sender rate
+    limit applies. Verified nudges are stored deduped; opt-outs
+    must be signed by the payTo the named stall's own discovery
+    doc publishes, and are recorded for the sender engine."""
+    try:
+        raw = await request.body()
+        message = json.loads(raw) if raw else None
+    except ValueError:
+        return JSONResponse(
+            {"error": "body must be a JSON object"}, status_code=400
+        )
+    try:
+        nudge_svc.validate_message(message)
+        nudge_svc.verify_sender(message)
+    except nudge_svc.NudgeError as e:
+        return JSONResponse({"error": str(e)}, status_code=e.http_status)
+    if message["kind"] == nudge_svc.KIND_OPT_OUT:
+        pay_to = await _stall_pay_to(message["stall"])
+        if pay_to is None:
+            return JSONResponse(
+                {
+                    "error": "could not read the stall's discovery "
+                    "doc to verify payTo control"
+                },
+                status_code=422,
+            )
+        if pay_to.lower() != message["sender"].lower():
+            return JSONResponse(
+                {
+                    "error": "opt-out must be signed by the stall's "
+                    "published payTo wallet"
+                },
+                status_code=403,
+            )
+        _recheck_store.record_optout(message["stall"], message["sender"])
+        return {
+            "ok": True,
+            "kind": message["kind"],
+            "opted_out": message["stall"].rstrip("/"),
+        }
+    if not nudge_svc.RATE_LIMITER.allow(
+        message["sender"], nudge_svc.rate_limit_per_hour()
+    ):
+        return JSONResponse(
+            {"error": "rate limit: too many nudges from this sender"},
+            status_code=429,
+        )
+    stored = _recheck_store.store_nudge(message, nudge_svc.dedupe_key(message))
+    return {
+        "ok": True,
+        "kind": message["kind"],
+        "stored": stored,
+        "duplicate": not stored,
+    }
+
+
+@app.post("/v1/internal/nudges")
+async def nudge_inbox_read(
+    req: NudgeInboxReadRequest | None = None, request: Request = None
+):
+    """Owner read of the nudge inbox: stored nudges (newest first)
+    plus the opt-out registry. Fleet-internal secret gate, mirroring
+    the siblings' /v1/internal/* routes exactly."""
+    secret = os.environ.get("FLEET_INTERNAL_SECRET", "")
+    if not secret:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    presented = request.headers.get("x-fleet-internal-secret", "")
+    if not hmac.compare_digest(presented, secret):
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    limit = req.limit if req is not None else 50
+    return {
+        "count": _recheck_store.nudge_count(),
+        "nudges": _recheck_store.list_nudges(limit),
+        "optouts": _recheck_store.list_optouts(),
+    }
 
 
 # --- free routes -----------------------------------------------------------------
