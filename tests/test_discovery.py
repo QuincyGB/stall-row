@@ -43,7 +43,7 @@ def _settings(**env):
                 os.environ[k] = v
 
 
-def test_twentythree_routes_priced_as_specified():
+def test_twentyfive_routes_priced_as_specified():
     assert PRICE_UNITS == {
         "/v1/wallet-snapshot": 5000,
         "/v1/allowance-audit": 5000,
@@ -66,10 +66,12 @@ def test_twentythree_routes_priced_as_specified():
         "/v1/flagged-paytos": 5000,
         "/v1/agent-card-verify": 5000,
         "/v1/recheck/pack": 1_000_000,
+        "/v1/fleet-check": 100_000,
+        "/v1/fleet-check/pack": 5_000_000,
         "/v1/fleet-pass": 5_000_000,
         "/v1/fleet-pass-20": 20_000_000,
     }
-    assert sum(PRICE_UNITS.values()) == 28_135_000  # $28.135 to catalog the row
+    assert sum(PRICE_UNITS.values()) == 33_235_000  # $33.235 to catalog the row
     assert set(ROUTES) == set(PRICE_UNITS)
 
 
@@ -129,10 +131,10 @@ def test_output_schema_types_real_fields(path):
         assert "type" in sub, f"{path}.{name} untyped"
 
 
-def test_manifest_lists_all_twentythree_with_matching_accepts():
+def test_manifest_lists_all_twentyfive_with_matching_accepts():
     manifest = x402_manifest(main.settings, "https://stall-row.example.com")
     paid = [r for r in manifest["resources"] if r["method"] == "POST"]
-    assert len(paid) == 23
+    assert len(paid) == 25
     for r in paid:
         path = r["resource"].removeprefix("https://stall-row.example.com")
         a = r["accepts"][0]
@@ -148,7 +150,7 @@ def test_live_manifest_endpoint_matches():
     client = TestClient(main.app, raise_server_exceptions=False)
     body = client.get("/.well-known/x402").json()
     assert body["service"] == "stall-row"
-    assert len([r for r in body["resources"] if r["method"] == "POST"]) == 23
+    assert len([r for r in body["resources"] if r["method"] == "POST"]) == 25
 
 
 def test_pack_output_example_fits_settled_sample_cap():
@@ -158,4 +160,16 @@ def test_pack_output_example_fits_settled_sample_cap():
     import json as _json
 
     example = ROUTES["/v1/recheck/pack"]["output_example"]
+    assert len(_json.dumps(example).encode()) <= 1450
+
+
+@pytest.mark.parametrize(
+    "path", ["/v1/fleet-check", "/v1/fleet-check/pack"]
+)
+def test_fleet_check_output_examples_fit_settled_sample_cap(path):
+    """Same Settled sample cap for the Fleet Check routes: their
+    examples are generated from real local runs and stay under it."""
+    import json as _json
+
+    example = ROUTES[path]["output_example"]
     assert len(_json.dumps(example).encode()) <= 1450

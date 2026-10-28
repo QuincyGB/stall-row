@@ -129,7 +129,7 @@ def test_health_reports_ephemeral_by_default():
     client = TestClient(main.app, raise_server_exceptions=False)
     health = client.get("/health").json()
     assert health["ok"] is True
-    assert health["routes"] == 23
+    assert health["routes"] == 25
     # This environment has no volume and no env override, so the
     # measured mode must be the honest one.
     assert health["storage"]["recheck_store"] == "ephemeral"

@@ -1164,6 +1164,222 @@ ROUTES: dict[str, dict] = {
             "note": "Spend credits with POST /v1/recheck: send this pack_id in the body or the X-Recheck-Pack header. Read the balance free at POST /v1/recheck/pack-balance.",
         },
     },
+    "/v1/fleet-check": {
+        "description": (
+            "Fleet Check — one health sweep of your whole x402 fleet: "
+            "name resource URLs and/or origins (expanded from their "
+            "own /.well-known/x402) and get a per-route table — alive, "
+            "status, whether the 402 challenge decodes, each accept's "
+            "network/asset/payTo/amount, an OK / DEGRADED / DOWN "
+            "verdict naming the defect, and a grade per origin. "
+            "Probes are unpaid only — this route never pays any route "
+            "it checks. Use this when you run more than one x402 "
+            "stall and want one honest answer about all of them."
+        ),
+        "tags": ["x402", "monitoring", "health-check", "sellers", "agents"],
+        "input_schema": _obj(
+            {
+                "resources": {"type": "array", "items": _S},
+                "origins": {"type": "array", "items": _S},
+            },
+            [],
+        ),
+        "input_example": {
+            "origins": ["https://stall-row-production.up.railway.app"],
+        },
+        "output_schema": _obj(
+            {
+                "checked_at": _S,
+                "resources": {
+                    "type": "array",
+                    "items": _obj(
+                        {
+                            "url": _S,
+                            "origin": _S,
+                            "alive": _B,
+                            "http_status": {"type": ["integer", "null"]},
+                            "challenge_ok": _B,
+                            "accepts": {
+                                "type": "array",
+                                "items": _obj(
+                                    {
+                                        "scheme": _N,
+                                        "network": _N,
+                                        "asset": _N,
+                                        "payTo": _N,
+                                        "amount": _N,
+                                    },
+                                    [],
+                                ),
+                            },
+                            "verdict": _S,
+                            "defects": {
+                                "type": "array",
+                                "items": _obj(
+                                    {"code": _S, "detail": _S},
+                                    ["code", "detail"],
+                                ),
+                            },
+                        },
+                        ["url", "origin", "alive", "verdict"],
+                    ),
+                },
+                "origins": {
+                    "type": "array",
+                    "items": _obj(
+                        {
+                            "origin": _S,
+                            "resources": _I,
+                            "ok": _I,
+                            "degraded": _I,
+                            "down": _I,
+                            "score": {"type": ["integer", "null"]},
+                            "verdict": _S,
+                        },
+                        ["origin", "resources", "verdict"],
+                    ),
+                },
+                "summary": _obj(
+                    {
+                        "resources": _I,
+                        "ok": _I,
+                        "degraded": _I,
+                        "down": _I,
+                        "origins": _I,
+                        "truncated": _I,
+                    },
+                    ["resources", "ok", "degraded", "down"],
+                ),
+                "limits": _S,
+            },
+            ["checked_at", "resources", "origins", "summary"],
+        ),
+        # Generated from a real local run of the sweep (MockTransport
+        # playing a one-route fixture fleet) — pinned ≤1,450 bytes
+        # serialized by test_discovery.py (Settled sample-size cap).
+        "output_example": {
+            "checked_at": "2026-10-28T01:37:53Z",
+            "resources": [
+                {
+                    "url": "https://93.184.216.34/v1/verdict",
+                    "origin": "https://93.184.216.34",
+                    "alive": True,
+                    "http_status": 402,
+                    "challenge_ok": True,
+                    "accepts": [
+                        {
+                            "scheme": "exact",
+                            "network": "eip155:8453",
+                            "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+                            "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+                            "amount": "20000",
+                        }
+                    ],
+                    "verdict": "OK",
+                    "defects": [],
+                }
+            ],
+            "origins": [
+                {
+                    "origin": "https://93.184.216.34",
+                    "resources": 1,
+                    "ok": 1,
+                    "degraded": 0,
+                    "down": 0,
+                    "score": 100,
+                    "verdict": "TRUSTED",
+                }
+            ],
+            "summary": {
+                "resources": 1,
+                "ok": 1,
+                "degraded": 0,
+                "down": 0,
+                "origins": 1,
+                "truncated": 0,
+            },
+            "limits": "Unpaid probes at sweep time: liveness, HTTP status, and the 402 challenge a buyer would meet. Declared-vs-live comparisons use the origin's own /.well-known/x402 when it publishes one; an origin that publishes none is checked live-only, never guessed about. This checker never pays, signs, or settles any route it probes.",
+        },
+    },
+    "/v1/fleet-check/pack": {
+        "description": (
+            "Fleet Check pack — the standing form of Fleet Check: one "
+            "$5.00 payment buys 100 sweep credits for ONE fixed fleet "
+            "definition (resources and/or origins), good for 90 days. "
+            "Sweeps run on your interval or on demand via POST "
+            "/v1/fleet-check/run — one credit per sweep, never per "
+            "route — diff against the last sweep, and POST failures "
+            "and recoveries to your webhook (heartbeats optional); "
+            "the latest table is free at POST /v1/fleet-check/status. "
+            "Use this when your stalls should be watched continuously."
+        ),
+        "tags": ["x402", "monitoring", "prepaid", "health-check", "agents"],
+        "input_schema": _obj(
+            {
+                "resources": {"type": "array", "items": _S},
+                "origins": {"type": "array", "items": _S},
+                "webhook_url": _N,
+                "email": _N,
+                "heartbeat": _B,
+                "interval_s": _I,
+            },
+            [],
+        ),
+        "input_example": {
+            "origins": ["https://stall-row-production.up.railway.app"],
+            "interval_s": 3600,
+        },
+        # Generated from a real local run of the buy handler (payment
+        # identity stubbed with a fixed authorization nonce, the way
+        # tests/test_fleetcheck.py drives it) — pinned ≤1,450 bytes
+        # serialized by test_discovery.py (Settled sample-size cap).
+        "output_schema": _obj(
+            {
+                "pack_id": _S,
+                "definition": _obj(
+                    {
+                        "resources": {"type": "array", "items": _S},
+                        "origins": {"type": "array", "items": _S},
+                    },
+                    ["resources", "origins"],
+                ),
+                "webhook_url": _N,
+                "email": _N,
+                "heartbeat": _B,
+                "interval_s": _I,
+                "credits_total": _I,
+                "credits_remaining": _I,
+                "created_at": _S,
+                "expires_at": _S,
+                "expired": _B,
+                "last_run_at": _N,
+                "expiry_days": _I,
+                "price_units": _I,
+                "note": _S,
+            },
+            ["pack_id", "definition", "credits_total", "credits_remaining", "expires_at"],
+        ),
+        "output_example": {
+            "pack_id": "fcpack_6029769f56d21efaf8dab279c312d625",
+            "definition": {
+                "resources": [],
+                "origins": ["https://stall-row-production.up.railway.app"],
+            },
+            "webhook_url": None,
+            "email": None,
+            "heartbeat": False,
+            "interval_s": 3600,
+            "credits_total": 100,
+            "credits_remaining": 100,
+            "created_at": "2026-10-28T01:38:32Z",
+            "expires_at": "2027-01-26T01:38:32Z",
+            "expired": False,
+            "last_run_at": None,
+            "expiry_days": 90,
+            "price_units": 5000000,
+            "note": "Sweeps of this fixed fleet definition run automatically on the pack interval and on demand via POST /v1/fleet-check/run — one credit per sweep, never per route. Read the latest table free at POST /v1/fleet-check/status.",
+        },
+    },
     "/v1/fleet-pass": {
         "description": (
             "Fleet Pass — one prepaid balance for the whole fleet: one "
@@ -1437,6 +1653,19 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "/v1/index/subscription/status. A $20 Fleet Pass v2 (POST "
         "/v1/fleet-pass-20, same ledger and 90-day expiry, debits at "
         "listed prices) funds longer subscriptions.",
+        "",
+        "Fleet Check: POST /v1/fleet-check ($0.10) sweeps YOUR whole "
+        "fleet in one call — name resource URLs and/or origins "
+        "(expanded from their /.well-known/x402) and get a per-route "
+        "health table (alive, challenge decodes, accept summary, "
+        "OK / DEGRADED / DOWN with the defect named) plus a grade "
+        "per origin. Probes are unpaid only; the checker never pays "
+        "a route it checks. The standing form is the pack: POST "
+        "/v1/fleet-check/pack ($5.00 = 100 sweeps of one fixed fleet "
+        "definition, 90 days) — sweeps run on your interval or via "
+        "POST /v1/fleet-check/run, diff against the last sweep, and "
+        "push failures/recoveries to your webhook; read the latest "
+        "table via POST /v1/fleet-check/status.",
         "",
         "## Paid endpoints",
         "",

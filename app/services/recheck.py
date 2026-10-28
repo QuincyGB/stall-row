@@ -89,6 +89,22 @@ PACK_PRICE_UNITS = 1_000_000  # $1.00 — mirrors config.PRICE_UNITS
 PACK_TTL_DAYS = 90
 _PACK_ID_PREFIX = "pack_"
 
+# --- fleet check packs -----------------------------------------------------------
+#
+# The standing form of Fleet Check (services/fleetcheck.py): one
+# $5.00 payment buys FLEET_CHECK_PACK_CREDITS sweep credits bound to
+# ONE FIXED fleet definition (the buyer's resource/origin list),
+# stored in the same sqlite file as everything else here. A sweep
+# credit buys a whole sweep of the definition — never one route —
+# so a 40-route fleet and a 2-route fleet spend identically per run.
+# The constants live in this module (like PACK_* above) because the
+# store enforces them; fleetcheck.py aliases them for its callers.
+
+FLEET_CHECK_PACK_CREDITS = 100
+FLEET_CHECK_PACK_PRICE_UNITS = 5_000_000  # $5.00 — mirrors config.PRICE_UNITS
+FLEET_CHECK_PACK_TTL_DAYS = 90
+_FC_PACK_ID_PREFIX = "fcpack_"
+
 
 def new_pack_id() -> str:
     """128 bits of CSPRNG entropy, hex-encoded behind a readable
@@ -295,6 +311,35 @@ class WatchStore:
                 )
                 """
             )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS fleet_check_packs (
+                    pack_id TEXT PRIMARY KEY,
+                    definition_json TEXT NOT NULL,
+                    webhook_url TEXT,
+                    email TEXT,
+                    heartbeat INTEGER NOT NULL DEFAULT 0,
+                    interval_s INTEGER NOT NULL,
+                    credits_total INTEGER NOT NULL,
+                    credits_remaining INTEGER NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    expires_epoch REAL NOT NULL,
+                    last_run_epoch REAL,
+                    payment_key TEXT NOT NULL UNIQUE
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS fleet_check_runs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    pack_id TEXT NOT NULL,
+                    ran_epoch REAL NOT NULL,
+                    result_json TEXT NOT NULL,
+                    diff_json TEXT NOT NULL
+                )
+                """
+            )
             self._conn.commit()
 
     @property
@@ -477,6 +522,254 @@ class WatchStore:
                 (pack_id,),
             )
             self._conn.commit()
+
+    # --- fleet check packs ----------------------------------------------
+    # Same discipline as watch packs — CSPRNG id as the only
+    # credential, idempotent mint on the payment identity, atomic
+    # reserve under the lock, refund when our side fails — but the
+    # credit buys a SWEEP of a fixed fleet definition, not a check
+    # of one endpoint, so there is no URL binding to validate: the
+    # definition inside the pack IS the binding. Runs are stored so
+    # /status can serve the latest table and the next run can diff
+    # against it. Webhook deliveries reuse watch_deliveries, keyed
+    # by pack_id.
+
+    _FC_PACK_COLS = (
+        "pack_id, definition_json, webhook_url, email, heartbeat, "
+        "interval_s, credits_total, credits_remaining, created_epoch, "
+        "expires_epoch, last_run_epoch, payment_key"
+    )
+
+    def _fc_pack_row(self, where: str, params: tuple) -> dict | None:
+        row = self._conn.execute(
+            f"SELECT {self._FC_PACK_COLS} FROM fleet_check_packs "
+            f"WHERE {where}",
+            params,
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "pack_id": row[0],
+            "definition_json": row[1],
+            "webhook_url": row[2],
+            "email": row[3],
+            "heartbeat": row[4],
+            "interval_s": row[5],
+            "credits_total": row[6],
+            "credits_remaining": row[7],
+            "created_epoch": row[8],
+            "expires_epoch": row[9],
+            "last_run_epoch": row[10],
+            "payment_key": row[11],
+        }
+
+    @staticmethod
+    def _fc_pack_view(row: dict, now_epoch: float | None = None) -> dict:
+        now = time.time() if now_epoch is None else now_epoch
+        return {
+            "pack_id": row["pack_id"],
+            "definition": json.loads(row["definition_json"]),
+            "webhook_url": row["webhook_url"],
+            "email": row["email"],
+            "heartbeat": bool(row["heartbeat"]),
+            "interval_s": row["interval_s"],
+            "credits_total": row["credits_total"],
+            "credits_remaining": row["credits_remaining"],
+            "created_at": _iso_of(row["created_epoch"]),
+            "expires_at": _iso_of(row["expires_epoch"]),
+            "expired": now >= row["expires_epoch"],
+            "last_run_at": (
+                _iso_of(row["last_run_epoch"]) if row["last_run_epoch"] else None
+            ),
+        }
+
+    def mint_fleet_check_pack(
+        self,
+        payment_key: str,
+        definition: dict,
+        webhook_url: str | None,
+        email: str | None,
+        heartbeat: bool,
+        interval_s: int,
+        credits_total: int = FLEET_CHECK_PACK_CREDITS,
+        ttl_days: int = FLEET_CHECK_PACK_TTL_DAYS,
+        now_epoch: float | None = None,
+    ) -> tuple[dict, bool]:
+        """Create a Fleet Check pack for one settled payment.
+        Idempotent on payment_key, exactly like mint_pack: a
+        re-presented payment returns the pack it already minted
+        (created=False). Returns (pack_view, created)."""
+        now = time.time() if now_epoch is None else now_epoch
+        definition_json = json.dumps(definition, sort_keys=True)
+        with self._lock:
+            for _attempt in range(3):
+                pack_id = _FC_PACK_ID_PREFIX + secrets.token_hex(16)
+                cur = self._conn.execute(
+                    "INSERT OR IGNORE INTO fleet_check_packs "
+                    "(pack_id, definition_json, webhook_url, email, "
+                    "heartbeat, interval_s, credits_total, "
+                    "credits_remaining, created_epoch, expires_epoch, "
+                    "payment_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        pack_id,
+                        definition_json,
+                        webhook_url,
+                        email,
+                        1 if heartbeat else 0,
+                        interval_s,
+                        credits_total,
+                        credits_total,
+                        now,
+                        now + ttl_days * 86_400,
+                        payment_key,
+                    ),
+                )
+                self._conn.commit()
+                if cur.rowcount == 1:
+                    row = self._fc_pack_row("pack_id = ?", (pack_id,))
+                    assert row is not None
+                    return self._fc_pack_view(row, now), True
+                existing = self._fc_pack_row("payment_key = ?", (payment_key,))
+                if existing is not None:
+                    return self._fc_pack_view(existing, now), False
+            raise RuntimeError("could not mint a unique fleet check pack id")
+
+    def get_fleet_check_pack(self, pack_id: str) -> dict | None:
+        with self._lock:
+            row = self._fc_pack_row("pack_id = ?", (pack_id,))
+        return self._fc_pack_view(row) if row is not None else None
+
+    def fleet_check_pack_count(self) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM fleet_check_packs"
+            ).fetchone()
+        return int(row[0]) if row else 0
+
+    def reserve_fleet_check_credit(
+        self, pack_id: str, now_epoch: float | None = None
+    ) -> dict:
+        """Atomically take one sweep credit for a sweep about to
+        run. Raises PackError (unknown / expired / exhausted)
+        without decrementing anything."""
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            row = self._fc_pack_row("pack_id = ?", (pack_id,))
+            if row is None:
+                raise PackError("unknown_pack", "unknown pack_id", 404)
+            if now >= row["expires_epoch"]:
+                raise PackError(
+                    "pack_expired",
+                    "this pack has expired; buy a new pack or pay per sweep",
+                    410,
+                )
+            if row["credits_remaining"] <= 0:
+                raise PackError(
+                    "pack_exhausted",
+                    "this pack has no sweep credits left; buy a new pack "
+                    "or pay per sweep",
+                    402,
+                )
+            cur = self._conn.execute(
+                "UPDATE fleet_check_packs SET credits_remaining = "
+                "credits_remaining - 1 WHERE pack_id = ? AND "
+                "credits_remaining > 0",
+                (pack_id,),
+            )
+            self._conn.commit()
+            if cur.rowcount != 1:  # pragma: no cover — lock makes this unreachable
+                raise PackError(
+                    "pack_exhausted",
+                    "this pack has no sweep credits left; buy a new pack "
+                    "or pay per sweep",
+                    402,
+                )
+            row = self._fc_pack_row("pack_id = ?", (pack_id,))
+            assert row is not None
+            return self._fc_pack_view(row, now)
+
+    def refund_fleet_check_credit(self, pack_id: str) -> None:
+        """Return a reserved sweep credit after OUR side failed to
+        deliver the sweep. Capped at credits_total."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE fleet_check_packs SET credits_remaining = "
+                "MIN(credits_remaining + 1, credits_total) WHERE pack_id = ?",
+                (pack_id,),
+            )
+            self._conn.commit()
+
+    def save_fleet_check_run(
+        self,
+        pack_id: str,
+        result: dict,
+        diff: dict,
+        now_epoch: float | None = None,
+    ) -> None:
+        """Store one completed sweep (the table + its diff) and mark
+        the pack's last-run time — the ticker's due math and the
+        next run's diff baseline both read from here."""
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO fleet_check_runs "
+                "(pack_id, ran_epoch, result_json, diff_json) "
+                "VALUES (?, ?, ?, ?)",
+                (
+                    pack_id,
+                    now,
+                    json.dumps(result, sort_keys=True),
+                    json.dumps(diff, sort_keys=True),
+                ),
+            )
+            self._conn.execute(
+                "UPDATE fleet_check_packs SET last_run_epoch = ? "
+                "WHERE pack_id = ?",
+                (now, pack_id),
+            )
+            self._conn.commit()
+
+    def latest_fleet_check_run(self, pack_id: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT ran_epoch, result_json, diff_json FROM "
+                "fleet_check_runs WHERE pack_id = ? ORDER BY id DESC "
+                "LIMIT 1",
+                (pack_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        result = json.loads(row[1])
+        return {
+            "ran_at": _iso_of(row[0]),
+            "checked_at": result.get("checked_at"),
+            "summary": result.get("summary"),
+            "resources": result.get("resources"),
+            "origins": result.get("origins"),
+            "diff": json.loads(row[2]),
+        }
+
+    def due_fleet_check_packs(
+        self, now_epoch: float | None = None
+    ) -> list[dict]:
+        """Packs whose next automatic sweep is due: funded (credits
+        left), unexpired, and never run or past their interval. An
+        unfundable pack is simply never due — the ticker must not
+        deliver free silent runs."""
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT pack_id FROM fleet_check_packs WHERE "
+                "credits_remaining > 0 AND expires_epoch > ? AND "
+                "(last_run_epoch IS NULL OR "
+                "last_run_epoch + interval_s <= ?)",
+                (now, now),
+            ).fetchall()
+        return [
+            pack
+            for r in rows
+            if (pack := self.get_fleet_check_pack(r[0])) is not None
+        ]
 
     # --- fleet passes --------------------------------------------------
     # A Fleet Pass is a USD-denominated prepaid balance (micro-units)

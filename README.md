@@ -27,12 +27,26 @@ authentication** (x402 v2, exact scheme, USDC on Base).
 | `POST /v1/job-scout` | $0.05 | Digest of open agent jobs from our own marketplace sweeps |
 | `POST /v1/recheck` | $0.005 | Scheduled change detection: BASELINE / UNCHANGED / CHANGED diff for one x402 resource or web page, probed unpaid |
 | `POST /v1/recheck/pack` | $1.00 | Prepaid recheck pack: 250 change-checks on ONE endpoint URL, 90-day expiry — spend via `pack_id` on `/v1/recheck` ($0.004/check) |
+| `POST /v1/fleet-check` | $0.10 | One health sweep of YOUR whole fleet: per-route OK / DEGRADED / DOWN verdicts with the defect named, plus a grade per origin — unpaid probes only, never pays a route it checks |
+| `POST /v1/fleet-check/pack` | $5.00 | Prepaid Fleet Check pack: 100 sweeps of ONE fixed fleet definition, 90-day expiry — run via `POST /v1/fleet-check/run`, read via `POST /v1/fleet-check/status` ($0.05/sweep) |
 
 **Per-call or pack?** One-off check → pay $0.005 per call. Anything on
 a schedule — a monitoring loop, a buyer's drift check, a daily
 re-screen — → buy the $1 pack once (250 checks, one endpoint, 90
 days) and spend credits. At 3+ checks a week the pack is cheaper
 *and* removes 249 settlements from your loop.
+
+**Fleet Check** is the whole-fleet form: one $0.10 sweep covers up
+to 40 of your resources (named directly, or expanded from your
+origins' `/.well-known/x402`), classifying each OK / DEGRADED /
+DOWN with the specific defect — unreachable, 5xx, no 402,
+undecodable challenge, or a live amount/payTo that disagrees with
+your own discovery doc — and grading each origin. The pack form
+($5.00 = 100 sweeps of one fixed fleet definition, 90 days) runs
+on your interval, diffs against the previous sweep, and POSTs new
+failures and recoveries to your webhook (heartbeats optional). One
+credit buys a whole sweep, never one route. Every probe is unpaid:
+the checker never pays, signs, or settles any route it checks.
 
 Free: `GET /`, `/health`, `/quote`, `/.well-known/x402`, `/skill.md`,
 `/llms.txt`, and `POST /v1/recheck/pack-balance` (credits + expiry for

@@ -1,4 +1,4 @@
-"""Settings for the stall-row x402 service (one deployment, 13 paid routes)."""
+"""Settings for the stall-row x402 service (one deployment, 25 paid routes)."""
 
 from __future__ import annotations
 
@@ -61,6 +61,8 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/flagged-paytos": 5_000,       # $0.005 — the bad-payTo registry feed (probe tier)
     "/v1/agent-card-verify": 5_000,    # $0.005 — one ERC-8004 agent-card verification (probe tier)
     "/v1/recheck/pack": 1_000_000,     # $1.00 — 250 prepaid rechecks on one endpoint
+    "/v1/fleet-check": 100_000,        # $0.10 — one whole-fleet health sweep (unpaid probes)
+    "/v1/fleet-check/pack": 5_000_000,  # $5.00 — 100 prepaid fleet sweeps of one fixed fleet definition
     "/v1/fleet-pass": 5_000_000,       # $5.00 — prepaid USD balance for all fleet routes
     "/v1/fleet-pass-20": 20_000_000,   # $20.00 — Fleet Pass v2: framework working pass, same ledger/TTL
 }

@@ -1,10 +1,10 @@
-"""StallRow — one x402 service hosting a row of 13 paid micro-services.
+"""StallRow — one x402 service hosting a row of paid micro-services.
 
 Owner's portfolio strategy (2026-10-21): many real stalls, expect one
 or two to hit. One deployment, one facilitator configuration, every
 route independently priced, listed, and settled.
 
-Paid:   13 POST /v1/* routes (see app/discovery.py ROUTES)
+Paid:   POST /v1/* routes (see app/discovery.py ROUTES)
 Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt
         POST /v1/recheck/pack-balance (pack id is the credential)
 
@@ -56,6 +56,7 @@ from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import agentcard as agentcard_svc
 from .services import counterparty as counterparty_svc
 from .services import fetch as fetch_svc
+from .services import fleetcheck as fleetcheck_svc
 from .services import gradestall as gradestall_svc
 from .services import receipts as receipts_svc
 from .services import registry as registry_svc
@@ -167,7 +168,12 @@ async def _request_pack_id(request: Request) -> str:
 
 
 PASS_HEADER = fleetpass_svc.PASS_HEADER
-_PASS_EXEMPT = {"/v1/recheck/pack", "/v1/fleet-pass", "/v1/fleet-pass-20"}
+_PASS_EXEMPT = {
+    "/v1/recheck/pack",
+    "/v1/fleet-check/pack",
+    "/v1/fleet-pass",
+    "/v1/fleet-pass-20",
+}
 
 
 @app.middleware("http")
@@ -1106,6 +1112,25 @@ async def _run_rotation_alerts() -> None:
             log.exception("index subscription evaluation failed for %s", reg["reg_id"])
 
 
+async def _run_fleet_check_packs() -> None:
+    """Run every Fleet Check pack whose interval has come due (the
+    same reserve-then-run sweep POST /v1/fleet-check/run performs).
+    An unfundable pack is never due, so a sweep here always has its
+    credit; a PackError can only be a race with expiry — logged and
+    skipped, never retried in a loop."""
+    for pack in _recheck_store.due_fleet_check_packs():
+        try:
+            await fleetcheck_svc.run_pack_sweep(
+                _fetch_client(), _recheck_store, pack
+            )
+        except recheck_svc.PackError as e:
+            log.info(
+                "fleet check sweep refused for %s: %s", pack["pack_id"], e.code
+            )
+        except Exception:  # noqa: BLE001 — one pack must not kill the loop
+            log.exception("fleet check sweep failed for %s", pack["pack_id"])
+
+
 async def _watch_ticker() -> None:
     """Periodic funded checks for due registrations. Sequential by
     design; a failing watch never stops the ticker."""
@@ -1122,6 +1147,10 @@ async def _watch_ticker() -> None:
                     log.exception("watch run failed for %s", reg["watch_reg_id"])
         except Exception:  # noqa: BLE001
             log.exception("watch ticker pass failed")
+        try:
+            await _run_fleet_check_packs()
+        except Exception:  # noqa: BLE001
+            log.exception("fleet check pack pass failed")
         try:
             await _run_rotation_alerts()
         except Exception:  # noqa: BLE001
@@ -1347,6 +1376,151 @@ async def fleet_pass_20_buy(request: Request):
             + ("" if created else " This payment already minted this pass; returning it.")
         ),
     }
+
+
+# --- Fleet Check ------------------------------------------------------------------
+# Whole-fleet health sweeps for stall owners: the one-shot is a paid
+# route; the pack is the standing form (paid mint, free run/status,
+# pack id as the credential) mirroring the recheck pack. Sweeps probe
+# the buyer's routes UNPAID — the checker never pays a route it
+# checks. Automatic sweeps ride the watch ticker below.
+
+class FleetCheckRequest(BaseModel):
+    resources: list[str] | None = Field(
+        default=None,
+        description="Resource URLs to probe (max 40 across the whole sweep)",
+    )
+    origins: list[str] | None = Field(
+        default=None,
+        description="Origins whose /.well-known/x402 priced resources join the sweep (max 10)",
+    )
+
+
+class FleetCheckPackBuyRequest(BaseModel):
+    resources: list[str] | None = Field(
+        default=None,
+        description="Resource URLs in this pack's FIXED fleet definition (max 40)",
+    )
+    origins: list[str] | None = Field(
+        default=None,
+        description="Origins in this pack's FIXED fleet definition (max 10)",
+    )
+    webhook_url: str | None = Field(
+        default=None,
+        description="Public http(s) URL that receives new-failure / recovery pushes",
+    )
+    email: str | None = Field(
+        default=None,
+        description="Optional contact email (stored; webhook is the live channel)",
+    )
+    heartbeat: bool = Field(
+        default=False,
+        description="Also POST a heartbeat to the webhook on sweeps with no changes",
+    )
+    interval_s: int | None = Field(
+        default=None, ge=300, le=86400,
+        description="Seconds between automatic sweeps (300–86400, default 3600)",
+    )
+
+
+class FleetCheckPackIdRequest(BaseModel):
+    pack_id: str = Field(description="Pack id returned by POST /v1/fleet-check/pack")
+
+
+@app.post("/v1/fleet-check")
+async def fleet_check(req: FleetCheckRequest):
+    """One paid sweep of the buyer's fleet. Invalid definitions
+    (empty, oversized, non-public targets) are refused 422 before
+    anything is probed — and a refusal never settles. A sweep whose
+    table is full of DOWN rows still delivered: the table is the
+    product."""
+
+    async def go():
+        definition = await fleetcheck_svc.validate_definition(
+            req.resources, req.origins
+        )
+        return await fleetcheck_svc.sweep(_fetch_client(), definition)
+
+    return await _run(go)
+
+
+@app.post("/v1/fleet-check/pack")
+async def fleet_check_pack_buy(
+    req: FleetCheckPackBuyRequest, request: Request
+):
+    """Mint a Fleet Check pack. Runs only after the x402 middleware
+    has verified the $5.00 payment; minting is idempotent on the
+    payment's identity, like every prepaid product on the row. The
+    fleet definition is validated (SSRF included) BEFORE minting —
+    a refused definition mints nothing."""
+    try:
+        definition = await fleetcheck_svc.validate_definition(
+            req.resources, req.origins, req.webhook_url
+        )
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    payment_key = _payment_key(request)
+    if payment_key is None:
+        return JSONResponse(
+            {"error": "payment identity unavailable; pack cannot be minted safely"},
+            status_code=502,
+        )
+    pack, created = _recheck_store.mint_fleet_check_pack(
+        payment_key,
+        definition,
+        req.webhook_url.strip() if req.webhook_url else None,
+        req.email.strip() if req.email else None,
+        bool(req.heartbeat),
+        req.interval_s or fleetcheck_svc.DEFAULT_INTERVAL_S,
+    )
+    return {
+        **pack,
+        "expiry_days": fleetcheck_svc.PACK_TTL_DAYS,
+        "price_units": fleetcheck_svc.PACK_PRICE_UNITS,
+        "note": (
+            "Sweeps of this fixed fleet definition run automatically "
+            "on the pack interval and on demand via POST "
+            "/v1/fleet-check/run — one credit per sweep, never per "
+            "route. Read the latest table free at POST "
+            "/v1/fleet-check/status."
+            + ("" if created else " This payment already minted this pack; returning it.")
+        ),
+    }
+
+
+@app.post("/v1/fleet-check/run")
+async def fleet_check_run(req: FleetCheckPackIdRequest):
+    """Run one sweep for a pack right now, spending one sweep
+    credit (the watch ticker runs the same code when a pack comes
+    due). Funding refusals are the pack refusal matrix: unknown
+    404, expired 410, exhausted 402."""
+    pack = _recheck_store.get_fleet_check_pack(req.pack_id.strip())
+    if pack is None:
+        return JSONResponse({"error": "unknown pack_id"}, status_code=404)
+    try:
+        return await fleetcheck_svc.run_pack_sweep(
+            _fetch_client(), _recheck_store, pack
+        )
+    except recheck_svc.PackError as e:
+        return JSONResponse(
+            {"error": e.message, "code": e.code, "pack_id": pack["pack_id"]},
+            status_code=e.http_status,
+        )
+
+
+@app.post("/v1/fleet-check/status")
+async def fleet_check_status(req: FleetCheckPackIdRequest):
+    """Free read: the pack (definition, credits, expiry) plus its
+    latest sweep table, that sweep's diff, and any webhook delivery
+    record. Spends nothing."""
+    pack = _recheck_store.get_fleet_check_pack(req.pack_id.strip())
+    if pack is None:
+        return JSONResponse({"error": "unknown pack_id"}, status_code=404)
+    pack["latest_run"] = _recheck_store.latest_fleet_check_run(
+        req.pack_id.strip()
+    )
+    pack["deliveries"] = _recheck_store.deliveries_for(req.pack_id.strip())
+    return pack
 
 
 # --- free routes -----------------------------------------------------------------

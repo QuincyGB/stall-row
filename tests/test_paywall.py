@@ -37,6 +37,8 @@ BODIES = {
     "/v1/flagged-paytos": {},
     "/v1/agent-card-verify": {"agent_id": 97809},
     "/v1/recheck/pack": {"url": "https://www.x402.org/"},
+    "/v1/fleet-check": {"origins": ["https://www.x402.org"]},
+    "/v1/fleet-check/pack": {"origins": ["https://www.x402.org"]},
     "/v1/fleet-pass": {},
     "/v1/fleet-pass-20": {},
 }
