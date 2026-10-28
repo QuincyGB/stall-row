@@ -1478,18 +1478,73 @@ class WatchStore:
 
 
 # --- probing -------------------------------------------------------------------
+#
+# Probe budget (2026-10-28): the check a recheck call — or a watch-pack
+# credit — buys runs under a hard budget. Before this, a probe inherited
+# the shared fetch client's 15s timeout PER REQUEST across 3 attempts
+# (plus backoff, plus up to 6 redirect hops per attempt): measured
+# against local targets, a slow-but-retryable target (2s delay + 503)
+# took 8.1s to fail and a hanging target 47s. That is the signature
+# Settled's catalogue probe recorded against the pack — ~8s latency and
+# an intermittent hard failure — while the service itself was healthy.
+# The bounded path below caps one probe at _PROBE_BUDGET_S total with a
+# per-request timeout of _PROBE_REQUEST_TIMEOUT_S; retries still happen
+# inside the budget, and the failure contract is unchanged (a failed
+# probe raises UpstreamError — 502 per-call, credit refunded for pack
+# spends — it just fails in bounded time). Callers that probe on their
+# own contracts (grade-my-stall, agent-card) keep the legacy unbounded
+# path by not passing a deadline.
+
+_PROBE_REQUEST_TIMEOUT_S = 1.5
+_PROBE_BUDGET_S = 2.8
+_PROBE_MIN_ATTEMPT_S = 0.5  # never start (or sleep toward) an attempt with less left
+
+
+def _remaining(deadline: float) -> float:
+    return deadline - time.monotonic()
+
+
+async def _ssrf_checked(url: str, deadline: float | None) -> None:
+    """The probe's SSRF guard (blocking DNS — always off the loop).
+    Under a deadline the wait is bounded too; a ValueError refusal
+    propagates exactly as before."""
+    if deadline is None:
+        await asyncio.to_thread(fetch_svc.ssrf_check, url)
+        return
+    remaining = _remaining(deadline)
+    if remaining <= 0:
+        raise UpstreamError("target probe timed out before it started")
+    try:
+        await asyncio.wait_for(
+            asyncio.to_thread(fetch_svc.ssrf_check, url), timeout=remaining
+        )
+    except (asyncio.TimeoutError, TimeoutError):
+        raise UpstreamError("target probe timed out during the SSRF check")
+
 
 async def _get_once(
-    client: httpx.AsyncClient, url: str, method: str
+    client: httpx.AsyncClient,
+    url: str,
+    method: str,
+    deadline: float | None = None,
 ) -> tuple[int, httpx.Headers, bytes | None]:
     """One probe with manual redirect following — every hop is
     SSRF-checked BEFORE it is fetched, exactly like the page fetcher.
     The body is read (size-capped) only on 200/402, the statuses whose
-    content the fingerprint needs."""
+    content the fingerprint needs. With a deadline, each request gets
+    min(_PROBE_REQUEST_TIMEOUT_S, remaining) as its timeout."""
     current = url
     for hop in range(fetch_svc._MAX_REDIRECTS + 1):
+        kwargs: dict = {}
+        if deadline is not None:
+            remaining = _remaining(deadline)
+            if remaining <= 0:
+                raise UpstreamError("target probe timed out")
+            kwargs["timeout"] = httpx.Timeout(
+                min(_PROBE_REQUEST_TIMEOUT_S, remaining)
+            )
         async with client.stream(
-            method, current, headers=fetch_svc._UA, follow_redirects=False
+            method, current, headers=fetch_svc._UA, follow_redirects=False, **kwargs
         ) as resp:
             if resp.status_code in (301, 302, 303, 307, 308):
                 location = resp.headers.get("location")
@@ -1501,7 +1556,10 @@ async def _get_once(
                 if hop == fetch_svc._MAX_REDIRECTS:
                     raise UpstreamError("target redirected too many times")
                 target = urljoin(current, location)
-                await asyncio.to_thread(fetch_svc.ssrf_check, target)
+                if deadline is None:
+                    await asyncio.to_thread(fetch_svc.ssrf_check, target)
+                else:
+                    await _ssrf_checked(target, deadline)
                 current = target
                 if resp.status_code == 303:
                     method = "GET"
@@ -1515,26 +1573,45 @@ async def _get_once(
     raise UpstreamError("target redirected too many times")  # pragma: no cover
 
 
-async def _attempt(client: httpx.AsyncClient, url: str):
+async def _attempt(
+    client: httpx.AsyncClient, url: str, deadline: float | None = None
+):
     """One probe attempt. x402 resources live behind POST; some web
-    servers refuse POST outright, so a 405/501 falls back to GET."""
-    status, headers, body = await _get_once(client, url, "POST")
-    if status in (405, 501):
-        status, headers, body = await _get_once(client, url, "GET")
+    servers refuse POST outright, so a 405/501 falls back to GET —
+    under a deadline only when a real attempt's worth of budget is
+    still left."""
+    status, headers, body = await _get_once(client, url, "POST", deadline)
+    if status in (405, 501) and (
+        deadline is None or _remaining(deadline) >= _PROBE_MIN_ATTEMPT_S
+    ):
+        status, headers, body = await _get_once(client, url, "GET", deadline)
     return status, headers, body
 
 
-async def _probe(client: httpx.AsyncClient, url: str):
+async def _probe(
+    client: httpx.AsyncClient, url: str, deadline: float | None = None
+):
     """Probe with the fetcher's retry discipline. Returns
     (status, headers, body) for a 200 or 402; anything else that
-    survives the retries raises UpstreamError."""
-    await asyncio.to_thread(fetch_svc.ssrf_check, url)  # blocking DNS — off the loop
+    survives the retries raises UpstreamError. With a deadline, the
+    retries share the one budget: an attempt only starts while at
+    least _PROBE_MIN_ATTEMPT_S remains, and backoff sleeps are capped
+    so the next attempt still gets its minimum."""
+    await _ssrf_checked(url, deadline)
     last_error = "target probe failed"
     for attempt in range(_ATTEMPTS):
         if attempt:
-            await asyncio.sleep(_BACKOFF_S[attempt - 1])
+            backoff = _BACKOFF_S[attempt - 1]
+            if deadline is not None:
+                room = _remaining(deadline) - _PROBE_MIN_ATTEMPT_S
+                if room <= 0:
+                    break
+                backoff = min(backoff, room)
+            await asyncio.sleep(backoff)
+            if deadline is not None and _remaining(deadline) < _PROBE_MIN_ATTEMPT_S:
+                break
         try:
-            status, headers, body = await _attempt(client, url)
+            status, headers, body = await _attempt(client, url, deadline)
         except httpx.HTTPError as e:
             last_error = f"target fetch failed: {e}"
             continue
@@ -1602,7 +1679,10 @@ def _web_fingerprint(status: int, headers: httpx.Headers, body: bytes | None) ->
 async def _probe_fingerprint(
     client: httpx.AsyncClient, url: str
 ) -> tuple[str, dict]:
-    status, headers, body = await _probe(client, url)
+    # The recheck execution path — per-call checks and pack spends —
+    # always probes under the hard budget (see the probing section).
+    deadline = time.monotonic() + _PROBE_BUDGET_S
+    status, headers, body = await _probe(client, url, deadline=deadline)
     if status == 402:
         challenge = _parse_challenge(headers, body)
         if challenge is not None:

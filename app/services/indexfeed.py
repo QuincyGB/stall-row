@@ -30,6 +30,7 @@ resources are the headline events.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import sqlite3
@@ -165,6 +166,12 @@ class IndexStore:
     def __init__(self, path: str):
         self._conn = sqlite3.connect(path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        # The snapshot save runs on a worker thread (see
+        # refresh_if_stale) while route reads use this connection
+        # from the event loop, and the watch store holds a second
+        # connection to the same file — wait out brief lock
+        # contention instead of failing with "database is locked".
+        self._conn.execute("PRAGMA busy_timeout = 5000")
         self._conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS index_snapshots (
@@ -387,7 +394,12 @@ async def refresh_if_stale(
     if snaps and (time.time() - snaps[-1]["captured_epoch"]) < window:
         return False
     rows = await fetch_catalogue(client)
-    store.save_snapshot(rows)
+    # save_snapshot is a whole-catalog executemany plus prune deletes
+    # executed synchronously — on the event loop it stalled every
+    # route sharing this process for seconds per refresh (bootstrap
+    # runs it twice shortly after each deploy). Keep the write off
+    # the loop; the fetch above stays async as before.
+    await asyncio.to_thread(store.save_snapshot, rows)
     return True
 
 
