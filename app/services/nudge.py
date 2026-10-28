@@ -167,15 +167,20 @@ def verify_sender(message: dict) -> None:
 
 def dedupe_key(message: dict) -> str:
     """One knock per (sender, route, defect, first_seen): a re-sent
-    identical nudge is a duplicate, not a second inbox entry."""
-    raw = "|".join(
-        [
-            str(message["sender"]).lower(),
-            str(message.get("route", "")),
-            str((message.get("defect") or {}).get("code", "")),
-            str(message.get("first_seen", "")),
-        ]
-    )
+    identical nudge is a duplicate, not a second inbox entry. An
+    escalation knock (spec §6) carries `escalation: "final"` and IS
+    a distinct message from knock 1 despite sharing those four
+    fields, so the marker joins the key when present — and only
+    then, keeping pre-escalation keys byte-identical."""
+    parts = [
+        str(message["sender"]).lower(),
+        str(message.get("route", "")),
+        str((message.get("defect") or {}).get("code", "")),
+        str(message.get("first_seen", "")),
+    ]
+    if message.get("escalation"):
+        parts.append(str(message["escalation"]))
+    raw = "|".join(parts)
     return hashlib.sha256(raw.encode()).hexdigest()
 
 

@@ -37,7 +37,8 @@ SENDER_KEY = "0x" + "22" * 32
 SENDER = Account.from_key(SENDER_KEY)
 OTHER_KEY = "0x" + "33" * 32
 
-# Cross-implementation vector, generated 2026-10-27 with the
+# Cross-implementation vector, regenerated 2026-10-28 for the
+# wake-up upgrade (severity + impact + action fields) with the
 # throwaway key "0x" + "11" * 32: the sender engine's test suite
 # (fleet-checker/test_nudge.py) pins the same message, canonical
 # text, and signature, so the two implementations cannot drift.
@@ -48,6 +49,15 @@ VECTOR_MESSAGE = {
     "stall": "https://stall.example.com",
     "route": "https://stall.example.com/v1/check",
     "defect": {"code": "amount_mismatch", "expected": "50000", "observed": "70000"},
+    "severity": "warning",
+    "impact": "Your route charges 70000 but advertises 50000 (amounts in the asset's smallest units) — routers that verify declared prices will skip or flag it.",
+    "action": {
+        "summary": "Run the full Fleet Check diagnosis on this route now",
+        "method": "POST",
+        "url": "https://stall-row-production.up.railway.app/v1/fleet-check",
+        "body": {"resources": ["https://stall.example.com/v1/check"]},
+        "spec": "https://github.com/QuincyGB/x402-loop-kits/blob/main/nudge-inbox.md",
+    },
     "evidence": {
         "probes": [
             {
@@ -61,7 +71,7 @@ VECTOR_MESSAGE = {
     "first_seen": "2026-10-27T22:40:00Z",
     "check_url": "https://stall-row-production.up.railway.app/v1/fleet-check",
     "sender": "0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A",
-    "signature": "0x8c508f6c1049bd01c50914549b146dff3f87975d4a0c9a046c777145a5e8f0863fde40170075939cb8678f78be02f4834be2fb3ae795441eb3e5b2c2e1aeb8cf1b",
+    "signature": "0x172075899b7ec09b546e6a51bad774b5b896cdec8fb5138d2934a127455f04c278fe7f7d4b0b36f6594727bad81dadc88927721bffd599148b5b52d6fbae3bbf1b",
 }
 
 
@@ -160,6 +170,36 @@ def test_duplicate_nudge_is_not_stored_twice(client):
     assert again.json()["stored"] is False
     assert again.json()["duplicate"] is True
     assert main._recheck_store.nudge_count() == 1
+
+
+def test_escalation_knock_is_stored_as_its_own_entry(client):
+    """The wake-up ladder (spec §6): an escalation shares knock 1's
+    (sender, route, defect, first_seen) but carries
+    escalation="final" — it must store as a second entry, while a
+    re-send of the escalation itself still dedupes. New fields
+    (severity, impact, action) ride along verbatim in storage."""
+    knock1 = _nudge(severity="warning", impact="i1", action={"method": "POST"})
+    assert client.post("/v1/nudge", json=knock1).json()["stored"] is True
+    escalation = _nudge(
+        severity="warning",
+        impact="still broken",
+        action={"method": "POST"},
+        escalation="final",
+        first_knock_at="2026-10-27T22:40:00Z",
+    )
+    resp = client.post("/v1/nudge", json=escalation)
+    assert resp.status_code == 200
+    assert resp.json()["stored"] is True
+    assert resp.json()["duplicate"] is False
+    assert main._recheck_store.nudge_count() == 2
+    again = client.post("/v1/nudge", json=escalation)
+    assert again.json()["duplicate"] is True
+    assert main._recheck_store.nudge_count() == 2
+    stored = main._recheck_store.list_nudges(2)
+    by_escalation = {bool(n["message"].get("escalation")): n["message"] for n in stored}
+    assert by_escalation[True]["impact"] == "still broken"
+    assert by_escalation[False]["impact"] == "i1"
+    assert by_escalation[True]["action"] == {"method": "POST"}
 
 
 def test_unsigned_and_malformed_are_clean_400s(client):
