@@ -55,10 +55,12 @@ from pydantic import BaseModel, Field
 from x402.http import FacilitatorConfig, HTTPFacilitatorClient, PaymentOption, RouteConfig
 from x402.http.middleware import fastapi_payment_middleware
 from x402.mechanisms.evm.exact.server import ExactEvmScheme
+from x402.mechanisms.svm.exact.server import ExactSvmScheme as ExactSvmServerScheme
 from x402.server import x402ResourceServer
 
 from .blockscout import Blockscout
-from .config import PRICE_UNITS, load_settings
+from .config import PRICE_UNITS, SOLANA_ACCEPT_PATHS, load_settings
+from .solana_rail import SvmReplayGuard, make_after_settle_hook, make_before_verify_hook
 from .discovery import OWNERSHIP_PROOFS, ROUTES, llms_txt, route_extension, skill_md, x402_manifest
 from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import agentcard as agentcard_svc
@@ -110,16 +112,69 @@ else:
 resource_server = x402ResourceServer(facilitator)
 resource_server.register(settings.network, ExactEvmScheme())
 
-routes = {
-    f"POST {path}": RouteConfig(
-        accepts=[
+# --- Solana rail (Fleet Check routes only; mirrors Token Verdict) ------------
+# Same facilitator: the configured facilitator supports x402 v2 exact on
+# solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp alongside eip155:8453, so the one
+# facilitator client verifies and settles both networks. The SVM scheme is
+# registered on the shared resource server (exactly as Token Verdict does),
+# but only the Fleet Check routes in SOLANA_ACCEPT_PATHS carry a Solana
+# PaymentOption below — every other route's challenge is unchanged. The
+# local pre-verify + replay hooks are network-scoped inside
+# app/solana_rail.py: Base payloads pass through untouched, and a Solana
+# payment is locally validated (mint / fee payer / destination ATA /
+# amount / replay) BEFORE the facilitator verify, and only settles —
+# releasing the sweep or the pack — through that same verify → settle
+# flow. No Solana payment, no delivery: there is no challenge-only path.
+resource_server.register(
+    settings.solana_network,
+    ExactSvmServerScheme(rpc_url=settings.solana_rpc_url),
+)
+_svm_replay_guard = SvmReplayGuard()
+resource_server.on_before_verify(
+    make_before_verify_hook(
+        _svm_replay_guard,
+        solana_network=settings.solana_network,
+        usdc_mint=settings.solana_usdc_mint,
+    )
+)
+resource_server.on_after_settle(
+    make_after_settle_hook(_svm_replay_guard, solana_network=settings.solana_network)
+)
+log.info(
+    "solana rail enabled for %s: %s payTo %s",
+    sorted(SOLANA_ACCEPT_PATHS),
+    settings.solana_network,
+    settings.solana_pay_to,
+)
+
+
+def _accepts_for(path: str) -> list[PaymentOption]:
+    """Payment rails for one route: Base always (the original accept,
+    built exactly as before); Solana too for the Fleet Check routes —
+    same USD price, paid in Solana USDC to the Phantom payTo."""
+    options = [
+        PaymentOption(
+            scheme="exact",
+            pay_to=settings.pay_to,
+            price=settings.prices[path],
+            network=settings.network,
+        )
+    ]
+    if path in SOLANA_ACCEPT_PATHS:
+        options.append(
             PaymentOption(
                 scheme="exact",
-                pay_to=settings.pay_to,
+                pay_to=settings.solana_pay_to,
                 price=settings.prices[path],
-                network=settings.network,
+                network=settings.solana_network,
             )
-        ],
+        )
+    return options
+
+
+routes = {
+    f"POST {path}": RouteConfig(
+        accepts=_accepts_for(path),
         description=r["description"],
         mime_type="application/json",
         service_name=settings.service_name,  # ≤32 chars, forwarded to Bazaar
@@ -324,6 +379,14 @@ def _payment_key(request: Request) -> str | None:
         signature = dig(payload, "payload", "signature")
         if isinstance(signature, str) and signature:
             return "evm3009-sig:" + hashlib.sha256(signature.encode()).hexdigest()
+    # Solana (SVM) exact payloads carry a partially-signed transaction
+    # instead of an EIP-3009 authorization; the client-presented
+    # transaction bytes are the payment's identity for a re-presented
+    # retry (the replay guard in app/solana_rail.py handles the
+    # settled-transaction replay case by message hash).
+    transaction = dig(payload, "payload", "transaction")
+    if isinstance(transaction, str) and transaction:
+        return "svm-tx:" + hashlib.sha256(transaction.encode()).hexdigest()
     for header in ("payment-signature", "x-payment"):
         raw = request.headers.get(header)
         if raw:

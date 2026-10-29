@@ -9,11 +9,25 @@ from dataclasses import dataclass, field
 log = logging.getLogger("stall-row.config")
 
 BASE_MAINNET = "eip155:8453"
+SOLANA_MAINNET = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
 
 # His payout wallet on Base (EVM) — the same payTo Token Verdict,
 # RouteVerdict and ListSmith use. Overridable via X402_PAY_TO.
 OWNER_WALLET = "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
 PLACEHOLDER_WALLETS = {"0x0000000000000000000000000000000000000000"}
+
+# His Solana wallet (Phantom; receiving only — the service never holds a
+# Solana key and never signs; the facilitator settles SPL transfers to
+# this address). This is the same Solana payTo Token Verdict's live rail
+# advertises. Overridable via X402_SOLANA_PAY_TO.
+SOLANA_OWNER_WALLET = "FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ"
+# USDC mint on Solana mainnet (Circle SPL USDC, 6 decimals).
+SOLANA_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+
+# The only routes on the row that also accept Solana USDC: the two
+# Fleet Check routes. They gain a second accept, not a sibling route —
+# the priced route count does not move.
+SOLANA_ACCEPT_PATHS = frozenset({"/v1/fleet-check", "/v1/fleet-check/pack"})
 
 # ultravioletadao public x402 facilitator (no keys). Verified via /supported:
 # serves eip155:8453 (Base) with the exact scheme.
@@ -150,6 +164,15 @@ class Settings:
     # MEASURED durability of the resolved path, reported in /health.
     recheck_db_path: str = "recheck.db"
     recheck_db_persistent: bool = False
+    # Solana rail (second x402 payment network for the Fleet Check
+    # routes in SOLANA_ACCEPT_PATHS; see app/solana_rail.py). Unlike
+    # Token Verdict's fleet-wide rail this one is NOT env-gated off:
+    # the Fleet Check dual-accept ships live, with the payTo / network
+    # / mint still env-overridable exactly as on Token Verdict.
+    solana_pay_to: str = SOLANA_OWNER_WALLET
+    solana_network: str = SOLANA_MAINNET
+    solana_usdc_mint: str = SOLANA_USDC_MINT
+    solana_rpc_url: str | None = None  # optional: adds blockhash hints to 402s
 
     @property
     def use_cdp(self) -> bool:
@@ -191,6 +214,12 @@ def load_settings() -> Settings:
 
     recheck_db = resolve_recheck_db()
 
+    solana_pay_to = os.environ.get("X402_SOLANA_PAY_TO", SOLANA_OWNER_WALLET).strip()
+    from x402.mechanisms.svm.utils import validate_svm_address
+
+    if not validate_svm_address(solana_pay_to):
+        raise RuntimeError(f"X402_SOLANA_PAY_TO is not a valid Solana address: {solana_pay_to!r}")
+
     return Settings(
         pay_to=pay_to,
         network=os.environ.get("X402_NETWORK", BASE_MAINNET).strip(),
@@ -205,6 +234,10 @@ def load_settings() -> Settings:
         github_token=(os.environ.get("GITHUB_TOKEN", "").strip() or None),
         recheck_db_path=recheck_db[0],
         recheck_db_persistent=recheck_db[1],
+        solana_pay_to=solana_pay_to,
+        solana_network=os.environ.get("X402_SOLANA_NETWORK", SOLANA_MAINNET).strip(),
+        solana_usdc_mint=os.environ.get("X402_SOLANA_USDC_MINT", SOLANA_USDC_MINT).strip(),
+        solana_rpc_url=os.environ.get("SOLANA_RPC_URL", "").strip() or None,
         prices=prices,
         **{k.lower(): v for k, v in cdp.items() if v is not None},
     )

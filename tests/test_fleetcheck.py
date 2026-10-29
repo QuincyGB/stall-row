@@ -424,17 +424,34 @@ def test_prices_and_pass_table():
 
 # --- HTTP surface ---------------------------------------------------------------------
 
-def test_unpaid_challenges_are_exact():
-    client = TestClient(main.app, raise_server_exceptions=False)
-    r = client.post("/v1/fleet-check", json={"origins": [ORIGIN]})
-    assert r.status_code == 402
-    accept = json.loads(base64.b64decode(r.headers["payment-required"]))["accepts"][0]
-    assert accept["amount"] == "100000" and accept["payTo"] == OWNER
+SOLANA_NETWORK = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+SOLANA_USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+SOLANA_PAY_TO = "FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ"
 
-    r = client.post("/v1/fleet-check/pack", json={"origins": [ORIGIN]})
-    assert r.status_code == 402
-    accept = json.loads(base64.b64decode(r.headers["payment-required"]))["accepts"][0]
-    assert accept["amount"] == "5000000" and accept["payTo"] == OWNER
+
+def test_unpaid_challenges_are_exact():
+    # Both Fleet Check challenges carry exactly two accepts: the Base
+    # accept unchanged (first, byte-for-byte the old requirements) and
+    # a Solana accept at the same USD price in Solana USDC smallest
+    # units (6 decimals) to the Phantom payTo. Full dual-rail coverage
+    # lives in tests/test_fleetcheck_solana.py.
+    client = TestClient(main.app, raise_server_exceptions=False)
+    for path, amount in (
+        ("/v1/fleet-check", "100000"),
+        ("/v1/fleet-check/pack", "5000000"),
+    ):
+        r = client.post(path, json={"origins": [ORIGIN]})
+        assert r.status_code == 402
+        accepts = json.loads(base64.b64decode(r.headers["payment-required"]))["accepts"]
+        assert len(accepts) == 2
+        accept = accepts[0]
+        assert accept["amount"] == amount and accept["payTo"] == OWNER
+        assert accept["network"] == "eip155:8453" and accept["asset"] == USDC
+        sol = accepts[1]
+        assert sol["scheme"] == "exact"
+        assert sol["network"] == SOLANA_NETWORK
+        assert sol["asset"] == SOLANA_USDC
+        assert sol["amount"] == amount and sol["payTo"] == SOLANA_PAY_TO
 
 
 def _fake_request(nonce="0x" + "43" * 32):

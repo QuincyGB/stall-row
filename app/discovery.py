@@ -10,7 +10,7 @@ accepts mirror the live 402 challenges exactly.
 
 from __future__ import annotations
 
-from .config import PRICE_UNITS, Settings, units_to_price
+from .config import PRICE_UNITS, SOLANA_ACCEPT_PATHS, Settings, units_to_price
 from .services.nudge import nudge_extension
 
 USDC_ASSET = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
@@ -1536,7 +1536,7 @@ def _price_str(path: str, settings: Settings) -> str:
 
 def x402_manifest(settings: Settings, base_url: str) -> dict:
     def accepts(path: str) -> list[dict]:
-        return [
+        out = [
             {
                 "scheme": "exact",
                 "network": settings.network,
@@ -1546,6 +1546,22 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
                 "maxTimeoutSeconds": 300,
             }
         ]
+        # The Fleet Check routes also accept Solana USDC (same USD
+        # price, 6-decimal smallest units) — the manifest mirrors the
+        # live 402 challenges exactly, so the second accept is here
+        # too. An accept, not a resource: the count does not move.
+        if path in SOLANA_ACCEPT_PATHS:
+            out.append(
+                {
+                    "scheme": "exact",
+                    "network": settings.solana_network,
+                    "amount": str(PRICE_UNITS[path]),
+                    "asset": settings.solana_usdc_mint,
+                    "payTo": settings.solana_pay_to,
+                    "maxTimeoutSeconds": 300,
+                }
+            )
+        return out
 
     resources = []
     for path, r in ROUTES.items():

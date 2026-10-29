@@ -3,7 +3,12 @@
 
 fastapi>=0.115,<0.118
 uvicorn[standard]>=0.30,<0.35
-x402[fastapi,evm]==2.25.0
+x402[fastapi,evm,svm]==2.25.0
+# Pin solana explicitly: the x402 SVM modules import the sync client
+# (solana.rpc.api), which solana-py removed in 0.40+; 0.38.0 is the newest
+# release that still ships it and satisfies x402's solana>=0.36,<0.40 pin
+# (it also keeps solders<0.28, which x402 accepts). Same pin as Token Verdict.
+solana==0.38.0
 # Required only when X402_FACILITATOR_URL points at CDP (app/cdp_auth.py
 # mints the facilitator JWTs with it). Harmless on the keyless/PayAI paths.
 cdp-sdk>=1.0

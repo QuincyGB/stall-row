@@ -55,6 +55,14 @@ def _challenge(response):
     return json.loads(base64.b64decode(raw))
 
 
+SOLANA_NETWORK = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+SOLANA_USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+SOLANA_PAY_TO = "FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ"
+# The two Fleet Check routes carry a second, Solana accept (same USD
+# price) — every other route stays single-accept Base, exactly as before.
+DUAL_ACCEPT_PATHS = {"/v1/fleet-check", "/v1/fleet-check/pack"}
+
+
 @pytest.mark.parametrize("path", sorted(PRICE_UNITS))
 def test_unpaid_route_is_paywalled_at_exact_price(client, path):
     r = client.post(path, json=BODIES[path])
@@ -62,13 +70,20 @@ def test_unpaid_route_is_paywalled_at_exact_price(client, path):
     challenge = _challenge(r)
     assert challenge["x402Version"] == 2
     accepts = challenge["accepts"]
-    assert len(accepts) == 1
+    assert len(accepts) == (2 if path in DUAL_ACCEPT_PATHS else 1)
     a = accepts[0]
     assert a["scheme"] == "exact"
     assert a["network"] == "eip155:8453"
     assert a["asset"] == USDC
     assert a["amount"] == str(PRICE_UNITS[path]), f"{path} amount {a['amount']}"
     assert a["payTo"] == main.settings.pay_to == OWNER
+    if path in DUAL_ACCEPT_PATHS:
+        s = accepts[1]
+        assert s["scheme"] == "exact"
+        assert s["network"] == SOLANA_NETWORK
+        assert s["asset"] == SOLANA_USDC
+        assert s["amount"] == str(PRICE_UNITS[path])
+        assert s["payTo"] == SOLANA_PAY_TO
 
 
 @pytest.mark.parametrize("path", sorted(PRICE_UNITS))
