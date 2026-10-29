@@ -13,7 +13,13 @@ Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt
              challenges — see services/claims.py)
         GET  /v1/claim/status (an origin's patrol history; only a
              claim session token issued for that origin unlocks it)
+        POST /v1/hosted-inbox/<origin-key> (signed fleet-health
+             knocks for a CLAIMED origin — see services/hosted_inbox.py)
+        GET  /v1/claim/inbox, POST /v1/claim/inbox/config (the
+             claimed origin's mailbox read + relay config, session-gated)
         POST /v1/internal/nudges (owner read, fleet-internal secret)
+        POST /v1/internal/claims-history (claims history snapshot
+             upload, fleet-internal secret)
 
 Recheck packs: POST /v1/recheck presenting a pack id (body field
 `pack_id` or X-Recheck-Pack header) spends a prepaid credit instead
@@ -30,6 +36,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -48,7 +55,7 @@ import hashlib
 import hmac
 import json
 
-from fastapi import FastAPI, Request
+from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
@@ -65,6 +72,7 @@ from .discovery import OWNERSHIP_PROOFS, ROUTES, llms_txt, route_extension, skil
 from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import agentcard as agentcard_svc
 from .services import claims as claims_svc
+from .services import hosted_inbox as hosted_svc
 from .services import counterparty as counterparty_svc
 from .services import fetch as fetch_svc
 from .services import fleetcheck as fleetcheck_svc
@@ -303,7 +311,13 @@ async def _body_cap(request: Request, call_next):
 # carries no CORS headers at all. This middleware is registered
 # last so it runs outermost for those paths, preflight included.
 _PROBE_CORS_ORIGIN = "https://quincygb.github.io"
-_CLAIM_CORS_PATHS = ("/v1/claim/start", "/v1/claim/verify", "/v1/claim/status")
+_CLAIM_CORS_PATHS = (
+    "/v1/claim/start",
+    "/v1/claim/verify",
+    "/v1/claim/status",
+    "/v1/claim/inbox",
+    "/v1/claim/inbox/config",
+)
 
 
 @app.middleware("http")
@@ -1734,17 +1748,33 @@ async def claim_start(req: ClaimStartRequest, request: Request):
         )
 
 
+def _session_token_from(request: Request) -> str:
+    """The claim session token, from the X-Claim-Session header, an
+    Authorization: Bearer header, or the session_token query
+    parameter — the three carriers the claim page uses."""
+    token = (request.headers.get("x-claim-session") or "").strip()
+    if not token:
+        auth = (request.headers.get("authorization") or "").strip()
+        if auth.lower().startswith("bearer "):
+            token = auth[7:].strip()
+    if not token:
+        token = (request.query_params.get("session_token") or "").strip()
+    return token
+
+
 @app.post("/v1/claim/verify")
 async def claim_verify(req: ClaimVerifyRequest, request: Request):
     """Verify one proof against the origin's active challenge. On
     success the challenge is consumed, the origin is marked claimed
     in the WatchStore, and a session token bound to that origin is
-    returned. Every failure is a clean 4xx and consumes nothing."""
+    returned. Every failure is a clean 4xx and consumes nothing.
+    A successful claim also mints the origin's hosted inbox (see
+    /v1/hosted-inbox below) and returns its kit block."""
     limited = _claim_rate_limited(request)
     if limited is not None:
         return limited
     try:
-        return await claims_svc.verify_claim(
+        result = await claims_svc.verify_claim(
             _fetch_client(),
             _recheck_store,
             req.origin,
@@ -1755,6 +1785,10 @@ async def claim_verify(req: ClaimVerifyRequest, request: Request):
         return JSONResponse(
             {"error": e.message, "code": e.code}, status_code=e.http_status
         )
+    result["hosted_inbox"] = hosted_svc.inbox_block(
+        _recheck_store, result["origin"], _public_base(request)
+    )
+    return result
 
 
 @app.get("/v1/claim/status")
@@ -1766,19 +1800,187 @@ async def claim_status(request: Request, origin: str = ""):
     parameter): no session 401, unknown/expired session 401, a
     session for a different origin 403 — and nothing about the
     origin is disclosed on any refusal path."""
-    session_token = (request.headers.get("x-claim-session") or "").strip()
-    if not session_token:
-        auth = (request.headers.get("authorization") or "").strip()
-        if auth.lower().startswith("bearer "):
-            session_token = auth[7:].strip()
-    if not session_token:
-        session_token = (request.query_params.get("session_token") or "").strip()
     try:
-        return claims_svc.claim_status(_recheck_store, origin, session_token)
+        status = claims_svc.claim_status(
+            _recheck_store, origin, _session_token_from(request)
+        )
     except claims_svc.ClaimError as e:
         return JSONResponse(
             {"error": e.message, "code": e.code}, status_code=e.http_status
         )
+    status["hosted_inbox"] = hosted_svc.inbox_block(
+        _recheck_store, status["origin"], _public_base(request)
+    )
+    return status
+
+
+# --- Hosted inboxes (free) ----------------------------------------------------------
+# The mailbox relay for claimed origins (services/hosted_inbox.py,
+# spec §8): POST /v1/hosted-inbox/<origin-key> accepts spec-valid
+# signed knocks for a CLAIMED origin with exactly the fleet inbox's
+# discipline (malformed 400, forged 403, unclaimed 404); the owner
+# reads the mail and configures webhook/email relays through the
+# claim session. Free and absent from PRICE_UNITS / discovery.
+
+class HostedInboxConfigRequest(BaseModel):
+    origin: str = Field(description="The claimed origin whose mailbox to configure")
+    webhook_url: str | None = Field(default=None, description="Webhook target (public https) or null to clear")
+    webhook_enabled: bool | None = Field(default=None, description="Enable/disable webhook relay")
+    email: str | None = Field(default=None, description="Relay email address or null to clear")
+    email_enabled: bool | None = Field(default=None, description="Enable/disable email relay (relay itself is deployment-gated)")
+
+
+async def _run_hosted_deliveries(origin: str) -> None:
+    """Background relay pass after a knock is stored. Delivery
+    outcomes land on the delivery rows; a relay fault is recorded
+    there and never fails the knock that triggered it."""
+    try:
+        await hosted_svc.process_deliveries(
+            _fetch_client(), _recheck_store, origin
+        )
+    except Exception as exc:  # noqa: BLE001 - background relay, rows carry the evidence
+        print(
+            f"hosted-inbox delivery pass for {origin} raised: "
+            f"{type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+
+
+@app.post("/v1/hosted-inbox/{origin_key}")
+async def hosted_inbox_receive(
+    origin_key: str, request: Request, background: BackgroundTasks
+):
+    """Receive one knock at a claimed origin's hosted address. The
+    knock's stall must be the origin the address was minted for;
+    opt-outs signed by the origin's published payTo bind here
+    exactly as they do at a self-hosted inbox."""
+    try:
+        raw = await request.body()
+        message = json.loads(raw) if raw else None
+    except (ValueError, UnicodeDecodeError):
+        return JSONResponse(
+            {"ok": False, "error": "body_not_json",
+             "detail": "the knock must be a JSON object"},
+            status_code=400,
+        )
+    try:
+        result = await hosted_svc.receive_knock(
+            _fetch_client(), _recheck_store, origin_key, message
+        )
+    except hosted_svc.HostedError as e:
+        return JSONResponse(e.body(), status_code=e.http_status)
+    if result.get("stored"):
+        background.add_task(_run_hosted_deliveries, result["stall"])
+    return result
+
+
+@app.get("/v1/claim/inbox")
+async def claim_inbox(request: Request, origin: str = ""):
+    """The owner's mailbox read: hosted-inbox kit block, stored
+    knocks, and the relay delivery log — behind the same claim
+    session gate as /v1/claim/status."""
+    try:
+        return hosted_svc.owner_inbox(
+            _recheck_store,
+            origin,
+            _session_token_from(request),
+            _public_base(request),
+        )
+    except claims_svc.ClaimError as e:
+        return JSONResponse(
+            {"error": e.message, "code": e.code}, status_code=e.http_status
+        )
+    except hosted_svc.HostedError as e:
+        return JSONResponse(e.body(), status_code=e.http_status)
+
+
+@app.post("/v1/claim/inbox/config")
+async def claim_inbox_config(req: HostedInboxConfigRequest, request: Request):
+    """Configure a claimed origin's mailbox relays (webhook URL /
+    email address) under its claim session. Only fields the caller
+    actually sent are applied; an explicit null clears that field."""
+    body = {
+        name: getattr(req, name)
+        for name in req.model_fields_set
+        if name != "origin"
+    }
+    try:
+        result = await hosted_svc.update_config(
+            _recheck_store,
+            req.origin,
+            _session_token_from(request),
+            body,
+        )
+    except claims_svc.ClaimError as e:
+        return JSONResponse(
+            {"error": e.message, "code": e.code}, status_code=e.http_status
+        )
+    except hosted_svc.HostedError as e:
+        return JSONResponse(e.body(), status_code=e.http_status)
+    result["hosted_inbox"] = hosted_svc.inbox_block(
+        _recheck_store, result["origin"], _public_base(request)
+    )
+    return result
+
+
+@app.post("/v1/internal/claims-history")
+async def internal_claims_history(request: Request):
+    """Fleet-internal upload of the claims history snapshot (the
+    patrol census document the claim status read serves when no
+    CLAIM_HISTORY_PATH file is configured on this deployment).
+    Secret-gated exactly like /v1/internal/nudges: no secret
+    configured on the service, no endpoint (404); wrong secret,
+    403. The document is stored verbatim and replaces the last."""
+    secret = os.environ.get("FLEET_INTERNAL_SECRET", "")
+    if not secret:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    provided = request.headers.get("x-fleet-internal-secret", "")
+    if not hmac.compare_digest(provided, secret):
+        return JSONResponse(
+            {"detail": "fleet internal secret required"}, status_code=403
+        )
+    try:
+        raw = await request.body()
+        doc = json.loads(raw) if raw else None
+    except (ValueError, UnicodeDecodeError):
+        return JSONResponse(
+            {"detail": "body must be JSON"}, status_code=400
+        )
+    if not isinstance(doc, dict) or not any(
+        key in doc for key in ("origins", "open_defects", "entries")
+    ):
+        return JSONResponse(
+            {
+                "detail": "document must carry origins, open_defects "
+                "or entries"
+            },
+            status_code=400,
+        )
+    meta = _recheck_store.save_claims_history_snapshot(doc)
+    origins: set[str] = set()
+    rows = 0
+    if isinstance(doc.get("origins"), dict):
+        for origin, entry in doc["origins"].items():
+            origins.add(str(origin))
+            if isinstance(entry, dict):
+                rows += len(entry.get("defects") or [])
+    if isinstance(doc.get("open_defects"), dict):
+        for key, defect in doc["open_defects"].items():
+            origins.add(str(key).split("|", 1)[0])
+            if isinstance(defect, dict):
+                rows += 1
+    if isinstance(doc.get("entries"), list):
+        for entry in doc["entries"]:
+            if isinstance(entry, dict):
+                for origin in entry.get("origins") or []:
+                    origins.add(str(origin))
+                rows += len(entry.get("defects") or [])
+    return {
+        "ok": True,
+        **meta,
+        "origins": len(origins),
+        "defect_rows": rows,
+    }
 
 
 # --- Human payment rail (internal mint) -------------------------------------------

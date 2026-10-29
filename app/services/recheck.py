@@ -406,6 +406,59 @@ class WatchStore:
                 )
                 """
             )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS hosted_inboxes (
+                    origin TEXT PRIMARY KEY,
+                    origin_key TEXT NOT NULL UNIQUE,
+                    created_epoch REAL NOT NULL,
+                    webhook_url TEXT,
+                    webhook_enabled INTEGER NOT NULL DEFAULT 0,
+                    email TEXT,
+                    email_enabled INTEGER NOT NULL DEFAULT 0
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS hosted_knocks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    origin TEXT NOT NULL,
+                    dedupe_key TEXT NOT NULL,
+                    sender TEXT NOT NULL,
+                    route TEXT NOT NULL,
+                    defect_code TEXT NOT NULL,
+                    first_seen TEXT NOT NULL,
+                    received_epoch REAL NOT NULL,
+                    message_json TEXT NOT NULL,
+                    UNIQUE (origin, dedupe_key)
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS hosted_deliveries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    origin TEXT NOT NULL,
+                    dedupe_key TEXT NOT NULL,
+                    channel TEXT NOT NULL,
+                    target TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    attempts INTEGER NOT NULL DEFAULT 0,
+                    updated_epoch REAL NOT NULL,
+                    detail TEXT
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS claims_history_snapshots (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    uploaded_epoch REAL NOT NULL,
+                    doc_json TEXT NOT NULL
+                )
+                """
+            )
             self._conn.commit()
 
     @property
@@ -1139,6 +1192,258 @@ class WatchStore:
             "wallet": row[2],
             "claimed_at": _iso_of(row[3]),
         }
+
+    # --- hosted inboxes ------------------------------------------------
+    # The hosted-mailbox relay (app/services/hosted_inbox.py): an
+    # origin its operator has CLAIMED gets a mailbox on this service —
+    # knocks addressed to it are stored per-origin here, apart from
+    # the fleet's own inbox mail (the `nudges` table), because this
+    # mail belongs to another operator and is read back only through
+    # that origin's claim session. Deliveries (webhook / email relay)
+    # are logged per knock so a relay failure is evidence, not a
+    # silent drop.
+
+    _HOSTED_COLS = (
+        "origin, origin_key, created_epoch, webhook_url, "
+        "webhook_enabled, email, email_enabled"
+    )
+
+    def _hosted_row(self, where: str, params: tuple) -> dict | None:
+        row = self._conn.execute(
+            f"SELECT {self._HOSTED_COLS} FROM hosted_inboxes WHERE {where}",
+            params,
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "origin": row[0],
+            "origin_key": row[1],
+            "created_at": _iso_of(row[2]),
+            "webhook_url": row[3],
+            "webhook_enabled": bool(row[4]),
+            "email": row[5],
+            "email_enabled": bool(row[6]),
+        }
+
+    def mint_hosted_inbox(self, origin: str, origin_key: str) -> dict:
+        """Idempotent: the first mint wins; re-minting a claimed
+        origin returns the existing mailbox unchanged (the published
+        address must never move under an operator)."""
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR IGNORE INTO hosted_inboxes (origin, "
+                "origin_key, created_epoch) VALUES (?, ?, ?)",
+                (origin, origin_key, time.time()),
+            )
+            self._conn.commit()
+        return self._hosted_row("origin = ?", (origin,))
+
+    def get_hosted_inbox(self, origin: str) -> dict | None:
+        with self._lock:
+            return self._hosted_row("origin = ?", (origin,))
+
+    def get_hosted_by_key(self, origin_key: str) -> dict | None:
+        with self._lock:
+            return self._hosted_row("origin_key = ?", (origin_key,))
+
+    def set_hosted_webhook(
+        self, origin: str, url: str | None, enabled: bool
+    ) -> dict | None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE hosted_inboxes SET webhook_url = ?, "
+                "webhook_enabled = ? WHERE origin = ?",
+                (url, 1 if enabled else 0, origin),
+            )
+            self._conn.commit()
+            return self._hosted_row("origin = ?", (origin,))
+
+    def set_hosted_email(
+        self, origin: str, email: str | None, enabled: bool
+    ) -> dict | None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE hosted_inboxes SET email = ?, "
+                "email_enabled = ? WHERE origin = ?",
+                (email, 1 if enabled else 0, origin),
+            )
+            self._conn.commit()
+            return self._hosted_row("origin = ?", (origin,))
+
+    def store_hosted_knock(
+        self, origin: str, message: dict, dedupe_key: str
+    ) -> bool:
+        """Store one verified knock in a hosted mailbox. Dedupe is
+        scoped per origin: the same knock re-sent is a duplicate
+        delivery, not a second entry (mirrors store_nudge)."""
+        defect = message.get("defect") or {}
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT OR IGNORE INTO hosted_knocks (origin, "
+                "dedupe_key, sender, route, defect_code, first_seen, "
+                "received_epoch, message_json) VALUES (?, ?, ?, ?, "
+                "?, ?, ?, ?)",
+                (
+                    origin,
+                    dedupe_key,
+                    str(message["sender"]),
+                    str(message.get("route", "")),
+                    str(defect.get("code", "")),
+                    str(message.get("first_seen", "")),
+                    time.time(),
+                    json.dumps(message, sort_keys=True),
+                ),
+            )
+            self._conn.commit()
+            return cur.rowcount > 0
+
+    def list_hosted_knocks(
+        self, origin: str, limit: int = 50
+    ) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT received_epoch, message_json FROM "
+                "hosted_knocks WHERE origin = ? ORDER BY id DESC "
+                "LIMIT ?",
+                (origin, max(1, min(int(limit), 500))),
+            ).fetchall()
+        return [
+            {
+                "received_at": _iso_of(row[0]),
+                "message": json.loads(row[1]),
+            }
+            for row in rows
+        ]
+
+    def hosted_knock_count(self, origin: str) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM hosted_knocks WHERE origin = ?",
+                (origin,),
+            ).fetchone()
+        return int(row[0])
+
+    def queue_hosted_delivery(
+        self,
+        origin: str,
+        dedupe_key: str,
+        channel: str,
+        target: str,
+    ) -> int:
+        """Queue one relay delivery (status 'pending'); the relay
+        worker (hosted_inbox.process_deliveries) attempts it and
+        updates the row in place, so the row is the delivery's whole
+        audit trail."""
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO hosted_deliveries (origin, dedupe_key, "
+                "channel, target, status, attempts, updated_epoch, "
+                "detail) VALUES (?, ?, ?, ?, 'pending', 0, ?, NULL)",
+                (origin, dedupe_key, channel, target, time.time()),
+            )
+            self._conn.commit()
+            return int(cur.lastrowid)
+
+    def update_hosted_delivery(
+        self,
+        delivery_id: int,
+        status: str,
+        attempts: int,
+        detail: str | None = None,
+    ) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE hosted_deliveries SET status = ?, "
+                "attempts = ?, updated_epoch = ?, detail = ? "
+                "WHERE id = ?",
+                (status, attempts, time.time(), detail, delivery_id),
+            )
+            self._conn.commit()
+
+    def pending_hosted_deliveries(self, origin: str) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, dedupe_key, channel, target FROM "
+                "hosted_deliveries WHERE origin = ? AND status = "
+                "'pending' ORDER BY id",
+                (origin,),
+            ).fetchall()
+        return [
+            {
+                "id": row[0],
+                "dedupe_key": row[1],
+                "channel": row[2],
+                "target": row[3],
+            }
+            for row in rows
+        ]
+
+    def list_hosted_deliveries(
+        self, origin: str, limit: int = 50
+    ) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT dedupe_key, channel, target, status, "
+                "attempts, updated_epoch, detail FROM "
+                "hosted_deliveries WHERE origin = ? ORDER BY id DESC "
+                "LIMIT ?",
+                (origin, max(1, min(int(limit), 500))),
+            ).fetchall()
+        return [
+            {
+                "dedupe_key": row[0],
+                "channel": row[1],
+                "target": row[2],
+                "status": row[3],
+                "attempts": row[4],
+                "updated_at": _iso_of(row[5]),
+                "detail": row[6],
+            }
+            for row in rows
+        ]
+
+    # --- claims history snapshots ---------------------------------------
+    # The claims-history document the claim status read serves when no
+    # CLAIM_HISTORY_PATH file is configured: the fleet operator
+    # uploads it through the fleet-internal gate (the patrol census
+    # lives off-service), and it is stored verbatim — one row, each
+    # upload replaces the last. The loader in claims.py understands
+    # the same three document shapes from either source.
+
+    def save_claims_history_snapshot(self, doc: dict) -> dict:
+        now = time.time()
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO claims_history_snapshots "
+                "(id, uploaded_epoch, doc_json) VALUES (1, ?, ?)",
+                (now, json.dumps(doc)),
+            )
+            self._conn.commit()
+        return {"uploaded_at": _iso_of(now)}
+
+    def get_claims_history_snapshot(self) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT doc_json FROM claims_history_snapshots "
+                "WHERE id = 1"
+            ).fetchone()
+        if row is None:
+            return None
+        try:
+            doc = json.loads(row[0])
+        except ValueError:
+            return None
+        return doc if isinstance(doc, dict) else None
+
+    def claims_history_snapshot_meta(self) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT uploaded_epoch FROM claims_history_snapshots "
+                "WHERE id = 1"
+            ).fetchone()
+        if row is None:
+            return None
+        return {"uploaded_at": _iso_of(row[0])}
 
     # --- fleet passes --------------------------------------------------
     # A Fleet Pass is a USD-denominated prepaid balance (micro-units)

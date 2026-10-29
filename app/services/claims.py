@@ -41,7 +41,11 @@ shapes are understood: the canonical claims-history file
 "last_seen"}}}), and the outreach hit list ({"entries": [{"origins",
 "defects": [{"route", "class", ...}]}]}). No operator's defects are
 hardcoded here; with no file configured the history comes back
-empty with an honest "history not loaded" marker.
+empty with an honest "history not loaded" marker. When no file is
+configured, a snapshot document stored on the service itself is
+served instead — the fleet operator uploads it through the
+fleet-internal gate (POST /v1/internal/claims-history) from the
+patrol census, and store.save_claims_history_snapshot holds it.
 """
 
 from __future__ import annotations
@@ -679,16 +683,17 @@ def enrollment_offer(origin: str, history: dict) -> dict:
 
 # --- status read -------------------------------------------------------------------------
 
-def claim_status(
+def validate_session(
     store: recheck_svc.WatchStore,
     origin_raw,
     session_token,
     now_epoch: float | None = None,
-) -> dict:
-    """The gated history read. The session token must exist, be
-    unexpired, and have been issued for exactly the origin named —
-    every other case refuses without disclosing anything about the
-    origin (including whether it has any history at all)."""
+) -> tuple[str, dict]:
+    """The one session gate every claim-session read shares (status,
+    the hosted-inbox views): the token must exist, be unexpired, and
+    have been issued for exactly the origin named — every other case
+    refuses without disclosing anything about the origin. Returns
+    (origin, session row)."""
     origin = normalize_origin(origin_raw)
     token = (session_token or "").strip()
     if not token:
@@ -709,7 +714,44 @@ def claim_status(
             "this claim session was issued for a different origin",
             403,
         )
+    return origin, session
+
+
+def load_history_from_doc(origin: str, doc) -> dict:
+    """History from a snapshot document held by the service itself
+    (uploaded through the fleet-internal gate — see
+    store.save_claims_history_snapshot). Same shapes, same
+    origin-scoping as the file loader."""
+    defects = _rows_from_document(doc, origin)
+    defects.sort(key=lambda r: (str(r["first_seen"] or ""), str(r["route"])))
+    note = (
+        "patrol defect history from the claims history snapshot "
+        "stored on this service"
+        if defects
+        else "no patrol defects are recorded for this origin in the "
+        "claims history snapshot stored on this service"
+    )
+    return _history_result(loaded=True, defects=defects, note=note)
+
+
+def claim_status(
+    store: recheck_svc.WatchStore,
+    origin_raw,
+    session_token,
+    now_epoch: float | None = None,
+) -> dict:
+    """The gated history read. The session token must exist, be
+    unexpired, and have been issued for exactly the origin named —
+    every other case refuses without disclosing anything about the
+    origin (including whether it has any history at all)."""
+    origin, _session = validate_session(
+        store, origin_raw, session_token, now_epoch
+    )
     history = load_history(origin)
+    if not history["loaded"]:
+        stored = store.get_claims_history_snapshot()
+        if stored is not None:
+            history = load_history_from_doc(origin, stored)
     claimed = store.get_claimed(origin)
     return {
         "origin": origin,
