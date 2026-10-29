@@ -322,7 +322,11 @@ _CLAIM_CORS_PATHS = (
 
 @app.middleware("http")
 async def _probe_cors(request: Request, call_next):
-    is_probe = request.url.path in ("/v1/probe", "/v1/probe/batch")
+    is_probe = request.url.path in (
+        "/v1/probe",
+        "/v1/probe/batch",
+        "/v1/receipt-verify/demo",
+    )
     is_claim = request.url.path in _CLAIM_CORS_PATHS
     if not is_probe and not is_claim:
         return await call_next(request)
@@ -906,6 +910,45 @@ async def receipt_verify(req: ReceiptVerifyRequest):
             )
 
     return await _run(go)
+
+
+@app.post("/v1/receipt-verify/demo")
+async def receipt_verify_demo(req: ReceiptVerifyRequest, request: Request):
+    """Free demo of the Receipt Verifier — the same verify_receipt
+    the $0.002 route runs, one paste at a time for the public
+    widget page. Free and unpriced (absent from PRICE_UNITS and
+    discovery); per-IP brake reuses the probe limiter. An unknown
+    or unconfirmed hash is an honest 404 ("not found on Base"),
+    never a fabricated receipt."""
+    client_ip = request.client.host if request.client else "unknown"
+    if not probe_svc.RATE_LIMITER.allow(client_ip, probe_svc.rate_limit_per_min()):
+        return JSONResponse(
+            {"error": "rate limit: at most 10 demo checks per minute from one address"},
+            status_code=429,
+        )
+    if not receipts_svc._TX_HASH_RE.match((req.tx_hash or "").strip()):
+        return JSONResponse(
+            {
+                "verified": False,
+                "error": "tx_hash must be a 0x-prefixed 64-hex transaction hash",
+            },
+            status_code=422,
+        )
+    client, rpc, _scout = _clients()
+    try:
+        async with client:
+            result = await receipts_svc.verify_receipt(
+                client, rpc, tx_hash=req.tx_hash, fleet_pay_to=settings.pay_to
+            )
+    except UpstreamError as e:
+        return JSONResponse({"verified": False, "error": str(e)}, status_code=404)
+    return {
+        **result,
+        "verified": True,
+        "demo": True,
+        "paid_route": "POST /v1/receipt-verify",
+        "paid_price": "$0.002 per verification",
+    }
 
 
 @app.post("/v1/flagged-paytos")
