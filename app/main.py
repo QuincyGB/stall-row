@@ -8,6 +8,7 @@ Paid:   POST /v1/* routes (see app/discovery.py ROUTES)
 Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt
         POST /v1/recheck/pack-balance (pack id is the credential)
         POST /v1/nudge (signed fleet-health mail — see services/nudge.py)
+        POST /v1/probe (one-link checker — see services/probe.py)
         POST /v1/internal/nudges (owner read, fleet-internal secret)
 
 Recheck packs: POST /v1/recheck presenting a pack id (body field
@@ -71,6 +72,7 @@ from .services import nudge as nudge_svc
 from .services import paymentrail as paymentrail_svc
 from .services import orchestrate as orchestrate_svc
 from .services import pretrade as pretrade_svc
+from .services import probe as probe_svc
 from .services import reads as reads_svc
 from .services import recheck as recheck_svc
 from .services import rotalerts as rotalerts_svc
@@ -232,6 +234,40 @@ async def _body_cap(request: Request, call_next):
     if length is not None and length.isdigit() and int(length) > _MAX_BODY_BYTES:
         return JSONResponse({"error": "request body too large"}, status_code=413)
     return await call_next(request)
+
+
+# CORS for exactly one surface: the public one-link checker page
+# (GitHub Pages) calls POST /v1/probe cross-origin. The allowance
+# is scoped to that route + that origin only — the rest of the API
+# carries no CORS headers at all. This middleware is registered
+# last so it runs outermost for the probe path, preflight included.
+_PROBE_CORS_ORIGIN = "https://quincygb.github.io"
+
+
+@app.middleware("http")
+async def _probe_cors(request: Request, call_next):
+    if request.url.path != "/v1/probe":
+        return await call_next(request)
+    origin = request.headers.get("origin")
+    if request.method == "OPTIONS":
+        if origin == _PROBE_CORS_ORIGIN:
+            return JSONResponse(
+                {},
+                status_code=204,
+                headers={
+                    "Access-Control-Allow-Origin": _PROBE_CORS_ORIGIN,
+                    "Access-Control-Allow-Methods": "POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Max-Age": "600",
+                    "Vary": "Origin",
+                },
+            )
+        return JSONResponse({}, status_code=204)
+    response = await call_next(request)
+    if origin == _PROBE_CORS_ORIGIN:
+        response.headers["Access-Control-Allow-Origin"] = _PROBE_CORS_ORIGIN
+        response.headers["Vary"] = "Origin"
+    return response
 
 
 def _scrub_upstreams(text: str) -> str:
@@ -1526,6 +1562,47 @@ async def fleet_check_status(req: FleetCheckPackIdRequest):
     )
     pack["deliveries"] = _recheck_store.deliveries_for(req.pack_id.strip())
     return pack
+
+
+# --- One-link probe (free) -------------------------------------------------------
+# The public checker page's backend (services/probe.py): ONE route
+# URL or origin in, Fleet Check's own classification out. Free and
+# absent from PRICE_UNITS / discovery — the priced count does not
+# move. Abuse brakes: the per-IP rate limiter in probe.py, the SSRF
+# guard inside definition validation, and the probe timeout.
+
+class ProbeRequest(BaseModel):
+    url: str = Field(description="One x402 route URL, or one stall origin to expand from its /.well-known/x402")
+
+
+@app.post("/v1/probe")
+async def probe(req: ProbeRequest, request: Request):
+    """Probe one route (or origin) unpaid and classify it with
+    Fleet Check's machinery. Refused targets (non-http(s),
+    private/loopback) are a 422 before anything is probed; a probe
+    that cannot run at all on our side is a 502, never dressed up
+    as a verdict on the target."""
+    client_ip = request.client.host if request.client else "unknown"
+    if not probe_svc.RATE_LIMITER.allow(
+        client_ip, probe_svc.rate_limit_per_min()
+    ):
+        return JSONResponse(
+            {"error": "rate limit: at most 10 probes per minute from one address"},
+            status_code=429,
+        )
+    url = (req.url or "").strip()
+    if not url:
+        return JSONResponse({"error": "url is required"}, status_code=422)
+    try:
+        return await probe_svc.probe_one(_fetch_client(), url)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception:  # noqa: BLE001 — our failure, stated as ours
+        log.exception("probe failed to run for %s", url)
+        return JSONResponse(
+            {"error": "probe failed to run — this says nothing about the target"},
+            status_code=502,
+        )
 
 
 # --- Human payment rail (internal mint) -------------------------------------------
