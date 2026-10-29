@@ -42,6 +42,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 
@@ -591,4 +592,72 @@ async def run_pack_sweep(
         "credits_remaining": reserved["credits_remaining"],
         "webhook_push_attempted": push_attempted,
         "webhook_delivered": pushed,
+    }
+
+
+# --- free first sweep (one per wallet) -------------------------------------
+
+_WALLET_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
+
+
+class FreeSweepError(Exception):
+    """A free-sweep refusal with a client-facing shape."""
+
+    def __init__(self, code: str, message: str, http_status: int):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.http_status = http_status
+
+
+async def free_sweep(
+    client: httpx.AsyncClient,
+    store: recheck_svc.WatchStore,
+    wallet: str,
+    resources: list[str] | None,
+    origins: list[str] | None,
+) -> dict:
+    """One free Fleet Check sweep per wallet, ever — the first-call
+    form of POST /v1/fleet-check. The definition is validated BEFORE
+    the claim is taken (a refused definition spends nothing), the
+    claim is atomic in the watch store (persistent across restarts),
+    and a sweep that fails inside our own machinery releases the
+    claim again — the free call is spent only by a delivered table.
+
+    The wallet is self-declared: that is the same trust level as the
+    free probe route's per-IP brake, and it is stated here rather
+    than dressed up — a determined caller can rotate wallets, at
+    the cost of a fresh wallet per sweep, while every honest first
+    caller gets exactly one real sweep. Raises FreeSweepError for
+    refusals, ValueError for definition refusals (the handler's
+    422, raised before any claim)."""
+    wallet = (wallet or "").strip()
+    if not _WALLET_RE.match(wallet):
+        raise FreeSweepError(
+            "bad_wallet",
+            "wallet must be a 0x-prefixed 40-hex EVM address",
+            422,
+        )
+    definition = await validate_definition(resources, origins)
+    if not store.claim_free_fleet_check(wallet):
+        raise FreeSweepError(
+            "free_call_used",
+            "this wallet has already used its free Fleet Check — "
+            "further sweeps are POST /v1/fleet-check at $0.10",
+            402,
+        )
+    try:
+        result = await sweep(client, definition)
+    except Exception:
+        store.release_free_fleet_check(wallet)
+        raise
+    return {
+        **result,
+        "free": True,
+        "wallet": wallet.lower(),
+        "note": (
+            "First Fleet Check for this wallet, free. Further sweeps: "
+            "POST /v1/fleet-check ($0.10) or the $5 pack "
+            "(POST /v1/fleet-check/pack, 100 sweeps of one fleet)."
+        ),
     }

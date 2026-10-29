@@ -342,6 +342,14 @@ class WatchStore:
             )
             self._conn.execute(
                 """
+                CREATE TABLE IF NOT EXISTS fleet_check_free_claims (
+                    wallet TEXT PRIMARY KEY,
+                    claimed_epoch REAL NOT NULL
+                )
+                """
+            )
+            self._conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS consumed_payment_txs (
                     tx_hash TEXT PRIMARY KEY,
                     pack_id TEXT NOT NULL,
@@ -752,6 +760,44 @@ class WatchStore:
                 if existing is not None:
                     return self._fc_pack_view(existing, now), False
             raise RuntimeError("could not mint a unique fleet check pack id")
+
+    # --- free first Fleet Check (one per wallet) ---------------------------
+
+    def claim_free_fleet_check(
+        self, wallet: str, now_epoch: float | None = None
+    ) -> bool:
+        """Atomically record a wallet's one free Fleet Check.
+        Returns True when this call claimed it (first time), False
+        when the wallet had already used its free sweep. The claim
+        is persistent — a restart does not hand out a second one."""
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT OR IGNORE INTO fleet_check_free_claims "
+                "(wallet, claimed_epoch) VALUES (?, ?)",
+                (wallet.lower(), now),
+            )
+            self._conn.commit()
+        return cur.rowcount == 1
+
+    def release_free_fleet_check(self, wallet: str) -> None:
+        """Undo a claim whose sweep never delivered (our machinery
+        failed after the claim) — the free call is only spent when
+        a sweep actually runs, mirroring reserve-then-refund."""
+        with self._lock:
+            self._conn.execute(
+                "DELETE FROM fleet_check_free_claims WHERE wallet = ?",
+                (wallet.lower(),),
+            )
+            self._conn.commit()
+
+    def free_fleet_check_used(self, wallet: str) -> bool:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT 1 FROM fleet_check_free_claims WHERE wallet = ?",
+                (wallet.lower(),),
+            ).fetchone()
+        return row is not None
 
     def get_fleet_check_pack(self, pack_id: str) -> dict | None:
         with self._lock:

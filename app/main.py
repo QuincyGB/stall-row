@@ -1529,6 +1529,56 @@ class FleetCheckRequest(BaseModel):
     )
 
 
+class FleetCheckFreeRequest(BaseModel):
+    wallet: str = Field(description="Your EVM wallet address — one free sweep per wallet, ever")
+    resources: list[str] | None = Field(
+        default=None,
+        description="Resource URLs to probe (max 40 across the whole sweep)",
+    )
+    origins: list[str] | None = Field(
+        default=None,
+        description="Origins whose /.well-known/x402 priced resources join the sweep (max 10)",
+    )
+
+
+@app.post("/v1/fleet-check/free")
+async def fleet_check_free(req: FleetCheckFreeRequest, request: Request):
+    """Free first Fleet Check: one sweep per wallet, ever. NOT a
+    priced route — absent from PRICE_UNITS and discovery, like the
+    free probe. The claim is persistent in the watch store, so a
+    restart does not mint a second freebie; a second call from the
+    same wallet gets an honest 402 pointing at the paid route.
+    Wallet is self-declared — the same trust level as the probe's
+    per-IP brake, with the probe limiter reused as a second brake.
+    A sweep that fails inside our machinery releases the claim."""
+    client_ip = request.client.host if request.client else "unknown"
+    if not probe_svc.RATE_LIMITER.allow(
+        client_ip, probe_svc.batch_rate_limit_per_min()
+    ):
+        return JSONResponse(
+            {"error": "rate limit: at most 3 free sweeps per minute from one address"},
+            status_code=429,
+        )
+    try:
+        return await fleetcheck_svc.free_sweep(
+            _fetch_client(), _recheck_store, req.wallet, req.resources, req.origins
+        )
+    except fleetcheck_svc.FreeSweepError as e:
+        body: dict = {"error": e.message, "code": e.code}
+        if e.code == "free_call_used":
+            body["paid_route"] = "POST /v1/fleet-check"
+            body["price"] = "$0.10 per sweep"
+        return JSONResponse(body, status_code=e.http_status)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception:  # noqa: BLE001 — our failure, stated as ours
+        log.exception("free fleet check failed to run")
+        return JSONResponse(
+            {"error": "free sweep failed to run — your free call was not spent"},
+            status_code=502,
+        )
+
+
 class FleetCheckPackBuyRequest(BaseModel):
     resources: list[str] | None = Field(
         default=None,
