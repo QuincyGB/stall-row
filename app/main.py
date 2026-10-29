@@ -322,7 +322,7 @@ _CLAIM_CORS_PATHS = (
 
 @app.middleware("http")
 async def _probe_cors(request: Request, call_next):
-    is_probe = request.url.path == "/v1/probe"
+    is_probe = request.url.path in ("/v1/probe", "/v1/probe/batch")
     is_claim = request.url.path in _CLAIM_CORS_PATHS
     if not is_probe and not is_claim:
         return await call_next(request)
@@ -1693,6 +1693,39 @@ async def probe(req: ProbeRequest, request: Request):
         log.exception("probe failed to run for %s", url)
         return JSONResponse(
             {"error": "probe failed to run — this says nothing about the target"},
+            status_code=502,
+        )
+
+
+class ProbeBatchRequest(BaseModel):
+    urls: list[str] = Field(description="Up to 10 x402 route URLs or stall origins to probe in one report")
+
+
+@app.post("/v1/probe/batch")
+async def probe_batch(req: ProbeBatchRequest, request: Request):
+    """Batch form of the free one-link probe: up to 10 URLs in, one
+    combined report out, every row classified by the same Fleet
+    Check machinery. Free and unpriced, like /v1/probe; the per-IP
+    limit is tighter because one batch costs up to 10 probes. An
+    empty or oversized batch is a 422 before anything is probed;
+    individual refused targets are rows in the report, not a
+    failed batch."""
+    client_ip = request.client.host if request.client else "unknown"
+    if not probe_svc.RATE_LIMITER.allow(
+        client_ip, probe_svc.batch_rate_limit_per_min()
+    ):
+        return JSONResponse(
+            {"error": "rate limit: at most 3 batches per minute from one address"},
+            status_code=429,
+        )
+    try:
+        return await probe_svc.probe_many(_fetch_client(), req.urls)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception:  # noqa: BLE001 — our failure, stated as ours
+        log.exception("probe batch failed to run")
+        return JSONResponse(
+            {"error": "probe batch failed to run — this says nothing about the targets"},
             status_code=502,
         )
 

@@ -66,6 +66,92 @@ class _RateLimiter:
 RATE_LIMITER = _RateLimiter()
 
 
+# --- batch mode ------------------------------------------------------------------
+# The checker page's batch form: up to MAX_BATCH_URLS links in, one
+# combined report out. Same fence as the single probe — free,
+# unpriced, absent from discovery — with a tighter per-IP limit,
+# because one batch costs up to MAX_BATCH_URLS probes.
+
+MAX_BATCH_URLS = 10
+
+
+def batch_rate_limit_per_min() -> int:
+    try:
+        return max(1, int(os.environ.get("STALLROW_PROBE_BATCH_RATE_PER_MIN", "3")))
+    except ValueError:
+        return 3
+
+
+async def probe_many(client: httpx.AsyncClient, urls: list[str]) -> dict:
+    """Probe up to MAX_BATCH_URLS URLs, one combined report. Each
+    item is exactly a probe_one result; an item the SSRF guard
+    refuses becomes a refused row (the batch still runs for the
+    rest), and an item whose probe fails to run on OUR side is an
+    error row — never dressed up as a verdict on the target.
+    Raises ValueError (the handler's 422) on an empty or oversized
+    batch, before anything is probed."""
+    clean: list[str] = []
+    seen: set[str] = set()
+    for value in urls or []:
+        url = str(value).strip()
+        if url and url not in seen:
+            seen.add(url)
+            clean.append(url)
+    if not clean:
+        raise ValueError("name at least one URL to probe")
+    if len(clean) > MAX_BATCH_URLS:
+        raise ValueError(
+            f"at most {MAX_BATCH_URLS} URLs per batch (got {len(clean)})"
+        )
+    results: list[dict] = []
+    for url in clean:
+        try:
+            results.append(await probe_one(client, url))
+        except ValueError as e:
+            results.append(
+                {
+                    "url": url,
+                    "status": "refused",
+                    "observed_status": None,
+                    "defect_class": "target_refused",
+                    "detail": str(e),
+                    "checked_at": fleetcheck_svc._now_iso(),
+                    "verdict": "REFUSED",
+                    "defects": [{"code": "target_refused", "detail": str(e)}],
+                    "accepts": [],
+                }
+            )
+        except Exception as e:  # noqa: BLE001 — our failure, stated as ours
+            results.append(
+                {
+                    "url": url,
+                    "status": "error",
+                    "observed_status": None,
+                    "defect_class": None,
+                    "detail": (
+                        "the probe failed to run on our side "
+                        f"({type(e).__name__}) — this says nothing "
+                        "about the target"
+                    ),
+                    "checked_at": fleetcheck_svc._now_iso(),
+                    "verdict": None,
+                    "defects": [],
+                    "accepts": [],
+                }
+            )
+    return {
+        "checked_at": fleetcheck_svc._now_iso(),
+        "results": results,
+        "summary": {
+            "total": len(results),
+            "ok": sum(1 for r in results if r["status"] == "ok"),
+            "defect": sum(1 for r in results if r["status"] == "defect"),
+            "refused": sum(1 for r in results if r["status"] == "refused"),
+            "error": sum(1 for r in results if r["status"] == "error"),
+        },
+    }
+
+
 # --- the probe -------------------------------------------------------------------
 
 def _is_bare_origin(url: str) -> bool:

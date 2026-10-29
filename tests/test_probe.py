@@ -163,3 +163,99 @@ def test_probe_is_not_a_priced_route(http_env):
     # Unpaid callers are served, not paywalled.
     r = http_env.post("/v1/probe", json={"url": VERDICT})
     assert r.status_code == 200
+
+
+# --- batch mode -----------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_probe_many_mixed_results():
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(fleet_handler())
+    ) as client:
+        out = await probe_svc.probe_many(
+            client, [VERDICT, ORIGIN + "/v1/missing", VERDICT]
+        )
+    # duplicates collapse; order preserved
+    assert [r["url"] for r in out["results"]] == [VERDICT, ORIGIN + "/v1/missing"]
+    assert out["results"][0]["status"] == "ok"
+    assert out["results"][1]["status"] == "defect"
+    assert out["results"][1]["defect_class"] == "unexpected_status"
+    assert out["summary"] == {"total": 2, "ok": 1, "defect": 1,
+                              "refused": 0, "error": 0}
+
+
+@pytest.mark.asyncio
+async def test_probe_many_refused_item_is_a_row_not_a_failure():
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(fleet_handler())
+    ) as client:
+        out = await probe_svc.probe_many(
+            client, ["https://127.0.0.1/v1/x", VERDICT]
+        )
+    assert out["results"][0]["status"] == "refused"
+    assert out["results"][0]["defect_class"] == "target_refused"
+    assert out["results"][1]["status"] == "ok"
+    assert out["summary"]["refused"] == 1
+
+
+@pytest.mark.asyncio
+async def test_probe_many_rejects_empty_and_oversized():
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(fleet_handler())
+    ) as client:
+        with pytest.raises(ValueError):
+            await probe_svc.probe_many(client, [])
+        with pytest.raises(ValueError):
+            await probe_svc.probe_many(
+                client, [f"https://x{i}.example.com/v1/r" for i in range(11)]
+            )
+
+
+def test_http_probe_batch_ok(http_env):
+    r = http_env.post(
+        "/v1/probe/batch",
+        json={"urls": [VERDICT, ORIGIN + "/v1/missing"]},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["summary"]["total"] == 2
+    assert body["results"][0]["status"] == "ok"
+    assert body["results"][1]["defect_class"] == "unexpected_status"
+
+
+def test_http_probe_batch_rejects_empty_and_oversized(http_env):
+    r = http_env.post("/v1/probe/batch", json={"urls": []})
+    assert r.status_code == 422, r.text
+    r = http_env.post(
+        "/v1/probe/batch",
+        json={"urls": [f"https://x{i}.example.com/v1/r" for i in range(11)]},
+    )
+    assert r.status_code == 422, r.text
+
+
+def test_http_probe_batch_rate_limit_trips(http_env, monkeypatch):
+    monkeypatch.setenv("STALLROW_PROBE_BATCH_RATE_PER_MIN", "1")
+    r = http_env.post("/v1/probe/batch", json={"urls": [VERDICT]})
+    assert r.status_code == 200, r.text
+    r = http_env.post("/v1/probe/batch", json={"urls": [VERDICT]})
+    assert r.status_code == 429
+
+
+def test_probe_batch_is_not_a_priced_route(http_env):
+    assert "/v1/probe/batch" not in PRICE_UNITS
+    body = http_env.get("/.well-known/x402").json()
+    urls = [e.get("resource") or "" for e in body.get("resources", [])]
+    assert not any("/v1/probe/batch" in u for u in urls)
+
+
+def test_cors_preflight_for_batch_path(http_env):
+    r = http_env.options(
+        "/v1/probe/batch",
+        headers={
+            "Origin": PAGES_ORIGIN,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert r.status_code == 204
+    assert r.headers.get("access-control-allow-origin") == PAGES_ORIGIN
