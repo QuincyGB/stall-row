@@ -342,6 +342,16 @@ class WatchStore:
             )
             self._conn.execute(
                 """
+                CREATE TABLE IF NOT EXISTS consumed_payment_txs (
+                    tx_hash TEXT PRIMARY KEY,
+                    pack_id TEXT NOT NULL,
+                    buyer_wallet TEXT NOT NULL,
+                    consumed_epoch REAL NOT NULL
+                )
+                """
+            )
+            self._conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS nudges (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     dedupe_key TEXT NOT NULL UNIQUE,
@@ -794,6 +804,60 @@ class WatchStore:
             for r in rows
             if (pack := self.get_fleet_check_pack(r[0])) is not None
         ]
+
+    # --- human payment rail: consumed tx hashes -------------------------
+    # A direct on-chain USDC payment (the human rail, for buyers who
+    # cannot pay via x402) may mint exactly ONE Fleet Check pack.
+    # The tx hash is the replay identity: once recorded here it can
+    # never mint again, even across restarts/redeploys (same sqlite
+    # file / durability story as the packs themselves).
+
+    def consumed_tx(self, tx_hash: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT tx_hash, pack_id, buyer_wallet, consumed_epoch "
+                "FROM consumed_payment_txs WHERE tx_hash = ?",
+                (tx_hash.lower(),),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "tx_hash": row[0],
+            "pack_id": row[1],
+            "buyer_wallet": row[2],
+            "consumed_at": _iso_of(row[3]),
+        }
+
+    def is_tx_consumed(self, tx_hash: str) -> bool:
+        return self.consumed_tx(tx_hash) is not None
+
+    def record_consumed_tx(
+        self,
+        tx_hash: str,
+        pack_id: str,
+        buyer_wallet: str,
+        now_epoch: float | None = None,
+    ) -> bool:
+        """Record a tx hash as consumed for a mint. Returns False
+        when the hash was already consumed (the INSERT was ignored)
+        — the caller must treat that as a replay, not a new mint."""
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT OR IGNORE INTO consumed_payment_txs "
+                "(tx_hash, pack_id, buyer_wallet, consumed_epoch) "
+                "VALUES (?, ?, ?, ?)",
+                (tx_hash.lower(), pack_id, buyer_wallet, now),
+            )
+            self._conn.commit()
+            return cur.rowcount == 1
+
+    def consumed_tx_count(self) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM consumed_payment_txs"
+            ).fetchone()
+        return int(row[0]) if row else 0
 
     # --- nudges ----------------------------------------------------------
     # The fleet-health nudge inbox (app/services/nudge.py): signed

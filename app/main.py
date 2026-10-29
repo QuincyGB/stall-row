@@ -68,6 +68,7 @@ from .services import fleetpass as fleetpass_svc
 from .services import indexfeed as indexfeed_svc
 from .services import indexsub as indexsub_svc
 from .services import nudge as nudge_svc
+from .services import paymentrail as paymentrail_svc
 from .services import orchestrate as orchestrate_svc
 from .services import pretrade as pretrade_svc
 from .services import reads as reads_svc
@@ -1525,6 +1526,120 @@ async def fleet_check_status(req: FleetCheckPackIdRequest):
     )
     pack["deliveries"] = _recheck_store.deliveries_for(req.pack_id.strip())
     return pack
+
+
+# --- Human payment rail (internal mint) -------------------------------------------
+# A buyer who cannot pay via x402 sends exactly $5.00 USDC on Base
+# directly to the payTo wallet; the payment-rail watcher
+# (fleet-checker/payment_rail.py) detects the transfer and calls
+# this endpoint. Fleet-internal secret gate, mirroring
+# /v1/internal/nudges exactly: secret unset = 404, wrong = 403.
+# The endpoint verifies the payment ON-CHAIN (receipt + USDC
+# Transfer log: to payTo, from buyer_wallet, exactly $5.00) before
+# minting, and a tx hash may mint exactly once, ever — consumed
+# hashes persist in the WatchStore beside the packs.
+
+class HumanRailMintRequest(BaseModel):
+    buyer_wallet: str = Field(description="Wallet that sent the $5.00 USDC payment, 0x…")
+    tx_hash: str = Field(description="Base transaction hash of the payment, 0x… (66 chars)")
+    definition: dict | None = Field(
+        default=None,
+        description=(
+            "Optional fleet definition {resources, origins} for the pack; "
+            "defaults to an empty definition the buyer configures later"
+        ),
+    )
+
+
+@app.post("/v1/internal/fleet-check/pack/mint")
+async def internal_fleet_check_pack_mint(
+    req: HumanRailMintRequest, request: Request
+):
+    secret = os.environ.get("FLEET_INTERNAL_SECRET", "")
+    if not secret:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    presented = request.headers.get("x-fleet-internal-secret", "")
+    if not hmac.compare_digest(presented, secret):
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    buyer = (req.buyer_wallet or "").strip()
+    tx_hash = (req.tx_hash or "").strip()
+    if not is_address(buyer):
+        return JSONResponse(
+            {"error": "buyer_wallet must be a 0x EVM address"}, status_code=422
+        )
+    if not is_tx_hash(tx_hash):
+        return JSONResponse(
+            {"error": "tx_hash must be a 0x transaction hash"}, status_code=422
+        )
+    if _recheck_store.is_tx_consumed(tx_hash):
+        return JSONResponse(
+            {"error": "this transaction already minted a pack", "code": "tx_consumed"},
+            status_code=409,
+        )
+    # Definition: default empty (buyer configures origins later);
+    # when one is supplied it must be a {resources, origins} object
+    # of string lists — stored verbatim, capped like a normal pack.
+    definition: dict = {"resources": [], "origins": []}
+    if req.definition is not None:
+        if not isinstance(req.definition, dict):
+            return JSONResponse(
+                {"error": "definition must be an object"}, status_code=422
+            )
+        resources = req.definition.get("resources") or []
+        origins = req.definition.get("origins") or []
+        if not all(
+            isinstance(v, list) and all(isinstance(x, str) for x in v)
+            for v in (resources, origins)
+        ):
+            return JSONResponse(
+                {"error": "definition resources/origins must be string lists"},
+                status_code=422,
+            )
+        if len(resources) > fleetcheck_svc.MAX_RESOURCES or len(origins) > fleetcheck_svc.MAX_ORIGINS:
+            return JSONResponse(
+                {"error": "definition exceeds Fleet Check pack limits"},
+                status_code=422,
+            )
+        definition = {"resources": list(resources), "origins": list(origins)}
+    client, rpc, _scout = _clients()
+    try:
+        async with client:
+            await paymentrail_svc.verify_usdc_payment(
+                rpc,
+                tx_hash=tx_hash,
+                buyer_wallet=buyer,
+                pay_to=settings.pay_to,
+            )
+    except paymentrail_svc.PaymentRailError as e:
+        return JSONResponse(
+            {"error": str(e), "code": e.code}, status_code=e.http_status
+        )
+    except UpstreamError as e:
+        return JSONResponse(
+            {"error": _scrub_upstreams(str(e))}, status_code=502
+        )
+    pack, created = _recheck_store.mint_fleet_check_pack(
+        f"human-rail:{tx_hash.lower()}",
+        definition,
+        None,
+        None,
+        False,
+        fleetcheck_svc.DEFAULT_INTERVAL_S,
+    )
+    recorded = _recheck_store.record_consumed_tx(tx_hash, pack["pack_id"], buyer)
+    if not recorded:
+        # Lost a race with a concurrent mint of the same tx: the
+        # pack above is the idempotent replay of that same payment
+        # key, so returning it is correct — never a second pack.
+        return {"pack_id": pack["pack_id"], "created": False}
+    return {
+        "pack_id": pack["pack_id"],
+        "created": created,
+        "credits_total": pack["credits_total"],
+        "credits_remaining": pack["credits_remaining"],
+        "expires_at": pack["expires_at"],
+        "definition": pack["definition"],
+    }
 
 
 # --- Nudge inbox ------------------------------------------------------------------
