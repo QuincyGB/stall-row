@@ -9,6 +9,10 @@ Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt
         POST /v1/recheck/pack-balance (pack id is the credential)
         POST /v1/nudge (signed fleet-health mail — see services/nudge.py)
         POST /v1/probe (one-link checker — see services/probe.py)
+        POST /v1/claim/start, POST /v1/claim/verify (stall claim
+             challenges — see services/claims.py)
+        GET  /v1/claim/status (an origin's patrol history; only a
+             claim session token issued for that origin unlocks it)
         POST /v1/internal/nudges (owner read, fleet-internal secret)
 
 Recheck packs: POST /v1/recheck presenting a pack id (body field
@@ -58,6 +62,7 @@ from .config import PRICE_UNITS, load_settings
 from .discovery import OWNERSHIP_PROOFS, ROUTES, llms_txt, route_extension, skill_md, x402_manifest
 from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import agentcard as agentcard_svc
+from .services import claims as claims_svc
 from .services import counterparty as counterparty_svc
 from .services import fetch as fetch_svc
 from .services import fleetcheck as fleetcheck_svc
@@ -236,28 +241,38 @@ async def _body_cap(request: Request, call_next):
     return await call_next(request)
 
 
-# CORS for exactly one surface: the public one-link checker page
-# (GitHub Pages) calls POST /v1/probe cross-origin. The allowance
-# is scoped to that route + that origin only — the rest of the API
+# CORS for exactly two surfaces, both GitHub Pages: the public
+# one-link checker page calls POST /v1/probe cross-origin, and the
+# stall claim page calls /v1/claim/* cross-origin. The allowance is
+# scoped to those routes + that origin only — the rest of the API
 # carries no CORS headers at all. This middleware is registered
-# last so it runs outermost for the probe path, preflight included.
+# last so it runs outermost for those paths, preflight included.
 _PROBE_CORS_ORIGIN = "https://quincygb.github.io"
+_CLAIM_CORS_PATHS = ("/v1/claim/start", "/v1/claim/verify", "/v1/claim/status")
 
 
 @app.middleware("http")
 async def _probe_cors(request: Request, call_next):
-    if request.url.path != "/v1/probe":
+    is_probe = request.url.path == "/v1/probe"
+    is_claim = request.url.path in _CLAIM_CORS_PATHS
+    if not is_probe and not is_claim:
         return await call_next(request)
     origin = request.headers.get("origin")
     if request.method == "OPTIONS":
         if origin == _PROBE_CORS_ORIGIN:
+            methods = "POST, OPTIONS" if is_probe else "GET, POST, OPTIONS"
+            allow_headers = (
+                "Content-Type"
+                if is_probe
+                else "Content-Type, X-Claim-Session, Authorization"
+            )
             return JSONResponse(
                 {},
                 status_code=204,
                 headers={
                     "Access-Control-Allow-Origin": _PROBE_CORS_ORIGIN,
-                    "Access-Control-Allow-Methods": "POST, OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Access-Control-Allow-Methods": methods,
+                    "Access-Control-Allow-Headers": allow_headers,
                     "Access-Control-Max-Age": "600",
                     "Vary": "Origin",
                 },
@@ -1602,6 +1617,104 @@ async def probe(req: ProbeRequest, request: Request):
         return JSONResponse(
             {"error": "probe failed to run — this says nothing about the target"},
             status_code=502,
+        )
+
+
+# --- Stall claim flow (free) ------------------------------------------------------
+# An operator proves control of a stall origin — EIP-191 signature
+# by the payTo its own discovery doc publishes, or a token file
+# under its /.well-known/ — and only then reads that origin's
+# patrol defect history (services/claims.py). Free and absent from
+# PRICE_UNITS / discovery — the priced route count does not move.
+# Abuse brakes: the per-IP rate limiter in claims.py, and the SSRF
+# discipline on every fetch verify makes of the claimed origin.
+
+class ClaimStartRequest(BaseModel):
+    origin: str = Field(description="The stall origin to claim, e.g. https://stall.example.com")
+
+
+class ClaimVerifyRequest(BaseModel):
+    origin: str = Field(description="The stall origin named at claim start")
+    method: str = Field(description="'sign-message' or 'file'")
+    signature: str | None = Field(
+        default=None,
+        description="EIP-191 signature over the challenge message (sign-message method only)",
+    )
+
+
+def _claim_rate_limited(request: Request) -> JSONResponse | None:
+    client_ip = request.client.host if request.client else "unknown"
+    if not claims_svc.RATE_LIMITER.allow(
+        f"{request.url.path}:{client_ip}", claims_svc.rate_limit_per_min()
+    ):
+        return JSONResponse(
+            {"error": "rate limit: too many claim attempts from one address"},
+            status_code=429,
+        )
+    return None
+
+
+@app.post("/v1/claim/start")
+async def claim_start(req: ClaimStartRequest, request: Request):
+    """Issue a claim challenge for one origin: a single-use token
+    (≤1h) with both proof options — the exact EIP-191 message to
+    sign with the origin's published payTo wallet, and the
+    /.well-known/claim-<token> file to serve."""
+    limited = _claim_rate_limited(request)
+    if limited is not None:
+        return limited
+    try:
+        return claims_svc.start_claim(_recheck_store, req.origin)
+    except claims_svc.ClaimError as e:
+        return JSONResponse(
+            {"error": e.message, "code": e.code}, status_code=e.http_status
+        )
+
+
+@app.post("/v1/claim/verify")
+async def claim_verify(req: ClaimVerifyRequest, request: Request):
+    """Verify one proof against the origin's active challenge. On
+    success the challenge is consumed, the origin is marked claimed
+    in the WatchStore, and a session token bound to that origin is
+    returned. Every failure is a clean 4xx and consumes nothing."""
+    limited = _claim_rate_limited(request)
+    if limited is not None:
+        return limited
+    try:
+        return await claims_svc.verify_claim(
+            _fetch_client(),
+            _recheck_store,
+            req.origin,
+            req.method,
+            req.signature,
+        )
+    except claims_svc.ClaimError as e:
+        return JSONResponse(
+            {"error": e.message, "code": e.code}, status_code=e.http_status
+        )
+
+
+@app.get("/v1/claim/status")
+async def claim_status(request: Request, origin: str = ""):
+    """One origin's patrol defect history + Managed Loop enrollment
+    offer. Answers ONLY to a claim session token issued for the
+    origin named in the query (X-Claim-Session header, an
+    Authorization: Bearer header, or the session_token query
+    parameter): no session 401, unknown/expired session 401, a
+    session for a different origin 403 — and nothing about the
+    origin is disclosed on any refusal path."""
+    session_token = (request.headers.get("x-claim-session") or "").strip()
+    if not session_token:
+        auth = (request.headers.get("authorization") or "").strip()
+        if auth.lower().startswith("bearer "):
+            session_token = auth[7:].strip()
+    if not session_token:
+        session_token = (request.query_params.get("session_token") or "").strip()
+    try:
+        return claims_svc.claim_status(_recheck_store, origin, session_token)
+    except claims_svc.ClaimError as e:
+        return JSONResponse(
+            {"error": e.message, "code": e.code}, status_code=e.http_status
         )
 
 

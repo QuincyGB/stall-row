@@ -374,6 +374,38 @@ class WatchStore:
                 )
                 """
             )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS claim_challenges (
+                    token TEXT PRIMARY KEY,
+                    origin TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    expires_epoch REAL NOT NULL,
+                    used INTEGER NOT NULL DEFAULT 0
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS claim_sessions (
+                    session_token TEXT PRIMARY KEY,
+                    origin TEXT NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    expires_epoch REAL NOT NULL
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS claimed_origins (
+                    origin TEXT PRIMARY KEY,
+                    method TEXT NOT NULL,
+                    wallet TEXT,
+                    claimed_epoch REAL NOT NULL
+                )
+                """
+            )
             self._conn.commit()
 
     @property
@@ -952,6 +984,161 @@ class WatchStore:
                 (stall.rstrip("/"),),
             ).fetchone()
         return row is not None
+
+    # --- stall claims ----------------------------------------------------
+    # The claim flow (app/services/claims.py): an operator proves
+    # control of a stall origin — by signing with the origin's
+    # published payTo wallet, or by serving a token file under the
+    # origin's /.well-known/ — and only then may read that origin's
+    # patrol defect history. Challenges are single-use and expire;
+    # a successful verify consumes the challenge, records the origin
+    # as claimed, and mints a session token bound to that ONE origin.
+    # The session token is the only credential the history read
+    # accepts, and it never unlocks another origin's history.
+
+    _CLAIM_CHALLENGE_COLS = (
+        "token, origin, message, created_epoch, expires_epoch, used"
+    )
+
+    def create_claim_challenge(
+        self,
+        origin: str,
+        token: str,
+        message: str,
+        created_epoch: float,
+        expires_epoch: float,
+    ) -> dict:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO claim_challenges "
+                "(token, origin, message, created_epoch, expires_epoch, used) "
+                "VALUES (?, ?, ?, ?, ?, 0)",
+                (token, origin, message, created_epoch, expires_epoch),
+            )
+            self._conn.commit()
+        row = self._claim_challenge_row("token = ?", (token,))
+        assert row is not None
+        return row
+
+    def _claim_challenge_row(self, where: str, params: tuple) -> dict | None:
+        row = self._conn.execute(
+            f"SELECT {self._CLAIM_CHALLENGE_COLS} FROM claim_challenges "
+            f"WHERE {where}",
+            params,
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "token": row[0],
+            "origin": row[1],
+            "message": row[2],
+            "created_epoch": row[3],
+            "expires_epoch": row[4],
+            "used": bool(row[5]),
+            "created_at": _iso_of(row[3]),
+            "expires_at": _iso_of(row[4]),
+        }
+
+    def latest_claim_challenge(self, origin: str) -> dict | None:
+        """The newest challenge issued for an origin — the one a
+        verify call is judged against. Starting a new challenge
+        supersedes older unused ones for verification purposes."""
+        with self._lock:
+            return self._claim_challenge_row(
+                "origin = ? ORDER BY created_epoch DESC, rowid DESC LIMIT 1",
+                (origin,),
+            )
+
+    def consume_claim_challenge(self, token: str) -> bool:
+        """Atomically mark a challenge used. Returns False when it
+        was already consumed — a replayed verify can never succeed
+        twice, even concurrently."""
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE claim_challenges SET used = 1 "
+                "WHERE token = ? AND used = 0",
+                (token,),
+            )
+            self._conn.commit()
+            return cur.rowcount == 1
+
+    def create_claim_session(
+        self,
+        origin: str,
+        session_token: str,
+        created_epoch: float,
+        expires_epoch: float,
+    ) -> dict:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO claim_sessions "
+                "(session_token, origin, created_epoch, expires_epoch) "
+                "VALUES (?, ?, ?, ?)",
+                (session_token, origin, created_epoch, expires_epoch),
+            )
+            self._conn.commit()
+        return {
+            "session_token": session_token,
+            "origin": origin,
+            "created_at": _iso_of(created_epoch),
+            "expires_at": _iso_of(expires_epoch),
+            "expires_epoch": expires_epoch,
+        }
+
+    def get_claim_session(self, session_token: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT session_token, origin, created_epoch, expires_epoch "
+                "FROM claim_sessions WHERE session_token = ?",
+                (session_token,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "session_token": row[0],
+            "origin": row[1],
+            "created_at": _iso_of(row[2]),
+            "expires_at": _iso_of(row[3]),
+            "expires_epoch": row[3],
+        }
+
+    def mark_claimed(
+        self,
+        origin: str,
+        method: str,
+        wallet: str | None,
+        now_epoch: float | None = None,
+    ) -> dict:
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO claimed_origins "
+                "(origin, method, wallet, claimed_epoch) VALUES (?, ?, ?, ?)",
+                (origin, method, wallet, now),
+            )
+            self._conn.commit()
+        return {
+            "origin": origin,
+            "method": method,
+            "wallet": wallet,
+            "claimed_at": _iso_of(now),
+        }
+
+    def get_claimed(self, origin: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT origin, method, wallet, claimed_epoch "
+                "FROM claimed_origins WHERE origin = ?",
+                (origin,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "origin": row[0],
+            "method": row[1],
+            "wallet": row[2],
+            "claimed_at": _iso_of(row[3]),
+        }
 
     # --- fleet passes --------------------------------------------------
     # A Fleet Pass is a USD-denominated prepaid balance (micro-units)
