@@ -1472,6 +1472,158 @@ ROUTES: dict[str, dict] = {
             "note": "Spend with the X-Fleet-Pass header on any fleet route; each call debits that route's listed price. Read the balance free at POST /v1/fleet-pass/balance.",
         },
     },
+    "/v1/sign-read": {
+        "description": (
+            "Sign Reader — read one x402 endpoint's 402 challenge: both "
+            "wire formats (v2 PAYMENT-REQUIRED header, v1 JSON body) "
+            "parsed and normalized (network, asset, amount atomic and "
+            "exact decimal, payTo, scheme), malformed fields named, "
+            "declared-vs-live mismatches (method included) when you "
+            "pass your catalogue entry, and a compatibility verdict "
+            "for the official Python and TypeScript x402 SDKs. Probe "
+            "is unpaid. Use this when a checker's parser keeps choking "
+            "on sellers' signs."
+        ),
+        "tags": ["x402", "inspector", "challenge", "sdk", "verification"],
+        "input_schema": _obj(
+            {
+                "url": _S,
+                "declared_method": _N,
+                "declared_amount": _N,
+                "declared_pay_to": _N,
+                "declared_network": _N,
+            },
+            ["url"],
+        ),
+        "input_example": {"url": "https://example.com/v1/verdict"},
+        "output_schema": _obj(
+            {
+                "url": _S,
+                "origin": _S,
+                "read_at": _S,
+                "http_status": _IN,
+                "challenge_found": _B,
+                "x402_version": _IN,
+                "accepts": {"type": "array", "items": {"type": "object"}},
+                "sdk_compat": {"type": ["object", "null"]},
+                "mismatches": {"type": "array", "items": {"type": "object"}},
+                "defects": {"type": "array", "items": {"type": "object"}},
+                "limits": _S,
+            },
+            ["url", "challenge_found", "accepts"],
+        ),
+        "output_example": {
+            "url": "https://example.com/v1/verdict",
+            "origin": "https://example.com",
+            "read_at": "2026-10-30T12:00:00Z",
+            "http_status": 402,
+            "challenge_found": True,
+            "x402_version": 2,
+            "accepts": [
+                {
+                    "scheme": "exact",
+                    "network": "eip155:8453",
+                    "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+                    "amount_atomic": "5000",
+                    "amount_decimal": "0.005",
+                    "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+                    "max_timeout_seconds": 300,
+                    "resource": "https://example.com/v1/verdict",
+                    "description": "A target service.",
+                }
+            ],
+            "sdk_compat": {
+                "python": {"parses": True, "failures": []},
+                "typescript": {"parses": True, "failures": []},
+            },
+            "mismatches": [],
+            "defects": [],
+            "limits": "One unpaid probe per method tried, at call time.",
+        },
+    },
+    "/v1/score-book": {
+        "description": (
+            "Score Book — one x402 resource's, origin's, or payTo's track "
+            "record from this service's own stores: recorded check counts "
+            "and outcomes, first/last seen, the distinct prices and payTos "
+            "its live sign has carried (change counts), its current "
+            "fingerprint, and its presence across the catalogue snapshots "
+            "held. Nothing is probed or invented — a target outside our "
+            "records answers found=false. Use this when judging a stall "
+            "needs its history, not just its current sign."
+        ),
+        "tags": ["x402", "inspector", "history", "reputation", "monitoring"],
+        "input_schema": _obj(
+            {"url": _N, "origin": _N, "pay_to": _N},
+            [],
+        ),
+        "input_example": {"url": "https://example.com/v1/verdict"},
+        "output_schema": _obj(
+            {
+                "target": {"type": "object"},
+                "found": _B,
+                "computed_at": _S,
+                "limits": _S,
+            },
+            ["target", "found"],
+        ),
+        "output_example": {
+            "target": {"type": "url", "value": "https://example.com/v1/verdict"},
+            "found": True,
+            "computed_at": "2026-10-30T12:00:00Z",
+            "limits": "Aggregates cover only what this service's stores hold.",
+        },
+    },
+    "/v1/guard": {
+        "description": (
+            "Guard — one pay / caution / avoid verdict for one x402 "
+            "endpoint, composed from the row's inspector tools: the live "
+            "402 sign read and SDK-checked, the payTo screened against "
+            "the bad-payTo registry (OFAC plus rotation/vanishing "
+            "flags, evidence attached), and the resource's recorded "
+            "history — unknown history caps the verdict at CAUTION. "
+            "Every verdict carries its reasons; the one probe inside "
+            "is unpaid. Use this when your agent is about to pay an "
+            "endpoint it does not know."
+        ),
+        "tags": ["x402", "inspector", "trust", "pre-pay", "security"],
+        "input_schema": _obj({"url": _S}, ["url"]),
+        "input_example": {"url": "https://example.com/v1/verdict"},
+        "output_schema": _obj(
+            {
+                "url": _S,
+                "verdict": _S,
+                "reasons": {"type": "array", "items": {"type": "object"}},
+                "terms": {"type": ["object", "null"]},
+                "payto_flag": {"type": ["object", "null"]},
+                "limits": _S,
+            },
+            ["url", "verdict", "reasons"],
+        ),
+        "output_example": {
+            "url": "https://example.com/v1/verdict",
+            "verdict": "CAUTION",
+            "reasons": [
+                {
+                    "code": "no_history",
+                    "detail": "no recorded checks or catalogue presence in our stores",
+                }
+            ],
+            "terms": {
+                "scheme": "exact",
+                "network": "eip155:8453",
+                "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+                "amount_atomic": "10000",
+                "amount_decimal": "0.01",
+                "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+                "max_timeout_seconds": 300,
+                "resource": "https://example.com/v1/verdict",
+                "description": "A target service.",
+            },
+            "payto_flag": None,
+            "limits": "One unpaid probe plus this service's own records, at call time.",
+        },
+    },
 }
 
 for _path, _r in ROUTES.items():

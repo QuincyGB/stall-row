@@ -1,4 +1,4 @@
-"""Settings for the stall-row x402 service (one deployment, 25 paid routes)."""
+"""Settings for the stall-row x402 service (one deployment, 28 paid routes)."""
 
 from __future__ import annotations
 
@@ -79,6 +79,9 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/fleet-check/pack": 5_000_000,  # $5.00 — 100 prepaid fleet sweeps of one fixed fleet definition
     "/v1/fleet-pass": 5_000_000,       # $5.00 — prepaid USD balance for all fleet routes
     "/v1/fleet-pass-20": 20_000_000,   # $20.00 — Fleet Pass v2: framework working pass, same ledger/TTL
+    "/v1/sign-read": 10_000,           # $0.01 — Sign Reader: parse + SDK-compat verdict for one 402 challenge (price card 2026-10-30)
+    "/v1/score-book": 10_000,          # $0.01 — Score Book: one resource/origin/payTo track record from our stores
+    "/v1/guard": 10_000,               # $0.01 — Guard: one composed pay/caution/avoid verdict for one endpoint
 }
 
 

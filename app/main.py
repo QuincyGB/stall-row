@@ -113,6 +113,9 @@ from .services import probe as probe_svc
 from .services import reads as reads_svc
 from .services import fingerprint_spec as fingerprint_spec_svc
 from .services import recheck as recheck_svc
+from .services import signread as signread_svc
+from .services import scorebook as scorebook_svc
+from .services import guard as guard_svc
 from .services import rotalerts as rotalerts_svc
 from .services import sandbox as sandbox_svc
 from .services import timeline as timeline_svc
@@ -986,6 +989,88 @@ async def flagged_paytos(_req: EmptyRequest | None = None):
     evidence; caps and truncations are stated in the response."""
     async def go():
         return registry_svc.build_feed(_index_store)
+
+    return await _run(go)
+
+
+class SignReadRequest(BaseModel):
+    url: str = Field(description="Public http(s) URL of the x402 resource whose sign to read")
+    declared_method: str | None = Field(
+        default=None, description="Method your catalogue entry declares for this resource"
+    )
+    declared_amount: str | None = Field(
+        default=None, description="Atomic amount your catalogue entry declares"
+    )
+    declared_pay_to: str | None = Field(
+        default=None, description="payTo your catalogue entry declares"
+    )
+    declared_network: str | None = Field(
+        default=None, description="Network your catalogue entry declares"
+    )
+
+
+@app.post("/v1/sign-read")
+async def sign_read(req: SignReadRequest):
+    """Sign Reader: one unpaid probe of the target's 402 challenge;
+    both wire formats parsed and normalized with exact decimals,
+    malformed/missing fields named, declared-vs-live mismatches
+    (method included), and Python/TypeScript SDK compatibility
+    verdicts. An unreachable or non-402 target is a delivered
+    report, not an error — only an SSRF refusal is a 422."""
+    declared = {
+        "method": req.declared_method,
+        "amount": req.declared_amount,
+        "payTo": req.declared_pay_to,
+        "network": req.declared_network,
+    }
+
+    async def go():
+        return await signread_svc.sign_read(_fetch_client(), req.url, declared)
+
+    return await _run(go)
+
+
+class ScoreBookRequest(BaseModel):
+    url: str | None = Field(default=None, description="One resource URL — its track record")
+    origin: str | None = Field(default=None, description="One origin — every recorded resource under it")
+    pay_to: str | None = Field(default=None, description="One payTo address — every resource observed paying it")
+
+
+@app.post("/v1/score-book")
+async def score_book(req: ScoreBookRequest):
+    """Score Book: a track record aggregated from the stores this
+    service already holds (recheck history + Index snapshots).
+    Probes nothing; a target with no record answers found=false.
+    Exactly one of url / origin / pay_to per call (else 422)."""
+
+    async def go():
+        return scorebook_svc.score_book(
+            _recheck_store,
+            _index_store,
+            url=req.url,
+            origin=req.origin,
+            pay_to=req.pay_to,
+        )
+
+    return await _run(go)
+
+
+class GuardRequest(BaseModel):
+    url: str = Field(description="Public http(s) URL of the x402 endpoint you are about to pay")
+
+
+@app.post("/v1/guard")
+async def guard(req: GuardRequest):
+    """Guard: one PROCEED / CAUTION / ABORT verdict for one
+    endpoint, composed from the sign read (live terms + SDK
+    compatibility), the bad-payTo registry, and the score book's
+    history leg. Hard flags abort; unknown history caps at
+    CAUTION. The only probe inside is unpaid."""
+
+    async def go():
+        return await guard_svc.guard(
+            _fetch_client(), _recheck_store, _index_store, req.url
+        )
 
     return await _run(go)
 

@@ -131,7 +131,7 @@ def test_manifest_publishes_inbox_and_route_count_holds(client):
     assert ext["accepts"] == ["fleet-health/v1"]
     assert ext["endpoint"].endswith("/v1/nudge")
     paid = [r for r in body["resources"] if r["method"] == "POST"]
-    assert len(paid) == 25  # inbound mail is free; the count must not move
+    assert len(paid) == 28  # inbound mail is free; the count must not move
     from app.config import PRICE_UNITS
 
     assert "/v1/nudge" not in PRICE_UNITS

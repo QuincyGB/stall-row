@@ -182,7 +182,7 @@ def test_claim_endpoints_are_not_priced_routes(http_env):
     body = http_env.get("/.well-known/x402").json()
     urls = [e.get("resource") or "" for e in body.get("resources", [])]
     assert not any("/v1/claim" in u for u in urls)
-    assert len(body["resources"]) == 26  # 25 priced + the free /quote
+    assert len(body["resources"]) == 29  # 28 priced + the free /quote
     # Unpaid callers are served, not paywalled.
     assert http_env.post("/v1/claim/start", json={"origin": ORIGIN}).status_code == 200
 

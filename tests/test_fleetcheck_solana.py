@@ -169,7 +169,7 @@ def test_config_solana_values_and_scope():
 
 
 def test_routes_carry_dual_accepts_and_others_stay_base_only():
-    assert len(main.routes) == len(PRICE_UNITS) == 25
+    assert len(main.routes) == len(PRICE_UNITS) == 28
     for path, amount in FLEET_CHECK_AMOUNTS.items():
         accepts = main.routes[f"POST {path}"].accepts
         assert len(accepts) == 2, path
@@ -373,7 +373,7 @@ def test_http_garbage_payment_header_rejected_like_base():
 
 def test_manifest_mirrors_dual_accepts_and_count_unchanged():
     manifest = x402_manifest(main.settings, "https://stall-row.example.com")
-    assert len(manifest["resources"]) == 26  # 25 priced + the free /quote
+    assert len(manifest["resources"]) == 29  # 28 priced + the free /quote
     by_path = {
         r["resource"].removeprefix("https://stall-row.example.com"): r
         for r in manifest["resources"]
