@@ -2174,6 +2174,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `GET {base_url}/v1/sandbox/x402` — TEST FIXTURE, not a service: a mutable x402 challenge for rehearsing Recheck change detection (flip its schema/price via the gated internal mutation; nothing is sold and no payment settles)",
         "- Recheck results carry a structured `field_changes` array (path, op, before, after, severity, category) beside the legacy `changes[]`, a `probe` object (latency_ms, attempts, redirect_count, error_class, flapping) and — when the catalogue snapshot is readable — a `catalogue_crosscheck` frozen at check time. Watch baselines can be pinned/imported and CHANGED results pushed to a signed per-watch webhook — both mutations are fleet-internal-secret gated (`/v1/internal/recheck/*`), never public writes",
         f"- `POST {base_url}/v1/recheck/webhooks` — SELF-SERVE change webhook: register your own signed callback for Recheck CHANGED events (feed-wide, one URL, or one origin), managed + signed with your own secret — no operator gate; `/list`, `/delete`, `/deliveries` beside it take the same secret in the body",
+        f"- `POST {base_url}/v1/recheck/batch` — Survey Batch Recheck (Fleet-Pass-funded ONLY, not a priced route): up to 100 unique URLs checked in one batch at the $0.005 single-Recheck price per unique URL (20% off a full 100: $0.40 total), debited once from the pass (`fleet_pass_id` body field or X-Fleet-Pass header); Recheck packs cannot fund a survey",
     ]
     return "\n".join(lines) + "\n"
 
@@ -2209,6 +2210,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/v1/recheck/fingerprint-spec — free fingerprint spec + test vectors, exactly as implemented",
         f"- GET {base_url}/v1/recheck/corrections — free append-only corrections log (originals never mutated)",
         f"- POST {base_url}/v1/recheck/webhooks — free self-serve change-webhook registration (signed callbacks for CHANGED events; /list, /delete, /deliveries beside it, managed by your own secret)",
+        f"- POST {base_url}/v1/recheck/batch — Survey Batch Recheck (Fleet-Pass-funded ONLY, not a priced route): up to 100 unique URLs at $0.005/check from a Fleet Pass, 20% off a full 100 ($0.40 total); Recheck packs cannot fund a survey",
         f"- GET {base_url}/v1/sandbox/x402 — TEST FIXTURE (not a service, never listed for sale): a mutable x402 challenge for Recheck ingestion rehearsal",
     ]
     return "\n".join(lines) + "\n"

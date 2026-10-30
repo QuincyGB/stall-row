@@ -54,6 +54,9 @@ of paying per call, so the middleware below lets such requests
 through to the handler, which validates the pack against the store
 before any check runs — an invalid pack delivers nothing.
 
+Survey Batch Recheck: POST /v1/recheck/batch (Fleet-Pass-funded
+only, NOT a priced x402 route — see services/recheck_batch.py)
+
 Failure honesty: when an upstream cannot supply the data, handlers
 raise UpstreamError / return 502 — and the x402 middleware does NOT
 settle payment on >= 400 responses, so nobody pays for undelivered data.
@@ -119,6 +122,7 @@ from .services import probe as probe_svc
 from .services import reads as reads_svc
 from .services import fingerprint_spec as fingerprint_spec_svc
 from .services import recheck as recheck_svc
+from .services import recheck_batch as recheck_batch_svc
 from .services import signread as signread_svc
 from .services import scorebook as scorebook_svc
 from .services import guard as guard_svc
@@ -554,6 +558,17 @@ class RecheckRequest(BaseModel):
         description=(
             "Optional recheck pack id (or send the X-Recheck-Pack header): "
             "spends one pack credit instead of the per-call payment"
+        ),
+    )
+
+
+class RecheckBatchRequest(BaseModel):
+    urls: list[str] = Field(description="Resource URLs to check in one survey batch (max 100 unique)")
+    fleet_pass_id: str | None = Field(
+        default=None,
+        description=(
+            "Fleet Pass funding this batch (or send the X-Fleet-Pass "
+            "header): the ONLY funding this route accepts"
         ),
     )
 
@@ -1226,6 +1241,48 @@ async def recheck(req: RecheckRequest, request: Request):
         )
 
     return await _run(go)
+
+
+@app.post("/v1/recheck/batch")
+async def recheck_batch(req: RecheckBatchRequest, request: Request):
+    """Survey Batch Recheck: run one Recheck per unique URL in
+    `urls` (max 100 unique; exact duplicates are charged and checked
+    once) and return every result in input order.
+
+    Funding is Fleet-Pass ONLY — Recheck packs are bound to a single
+    URL and cannot fund a survey. Send the pass as `fleet_pass_id`
+    in the body or the X-Fleet-Pass header. This is a pass-funded
+    surface, NOT a new x402-priced route: it is absent from
+    PRICE_UNITS, the discovery priced routes, and the fleetpass
+    price table, and no existing price changes for it.
+
+    Pricing: the single-Recheck price ($0.005/check) per unique URL,
+    debited ONCE before any check runs; a batch of exactly 100
+    unique URLs gets a 20% batch discount ($0.004/check, $0.40
+    total). Unknown pass → 404, expired → 410, balance below the
+    total → 402, empty/oversized list → 422 — all before any debit
+    or check. A per-URL failure (SSRF refusal, unreachable, upstream
+    error) is that URL's ERROR result row, never a batch failure
+    and never refunded."""
+    fleet_pass_id = (
+        req.fleet_pass_id or request.headers.get(PASS_HEADER) or ""
+    ).strip()
+    try:
+        return await recheck_batch_svc.run_batch(
+            _fetch_client(), _recheck_store, req.urls, fleet_pass_id,
+            index_store=_index_store,
+        )
+    except recheck_batch_svc.BatchError as e:
+        return JSONResponse(
+            {"error": e.message, "code": e.code}, status_code=e.http_status
+        )
+    except recheck_svc.PackError as e:
+        return JSONResponse(
+            {"error": e.message, "code": e.code}, status_code=e.http_status
+        )
+    except Exception:  # noqa: BLE001 — the service already refunded the debit
+        log.exception("recheck batch failed")
+        return JSONResponse({"error": "internal failure"}, status_code=502)
 
 
 @app.post("/v1/recheck/pack")
