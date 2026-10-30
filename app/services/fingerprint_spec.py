@@ -14,6 +14,14 @@ frozen expectations, so this document cannot silently drift from
 the code: if a fingerprint rule changes, a vector breaks and the
 spec must be updated in the same commit.
 
+The same document also publishes the feed v2 hash chain
+(``feed_record_hash`` below): the exact canonical form a consumer
+needs to recompute any feed envelope's ``record_hash`` from the
+served fields alone, with a worked vector taken from a real
+production record. Same drift-proofing: tests recompute the
+vector with the production ``_chain_hash`` and with an
+independent implementation written from the published rules.
+
 Served read-only at GET /v1/recheck/fingerprint-spec.
 """
 
@@ -185,6 +193,25 @@ TEST_VECTORS: list[dict] = [
 ]
 
 
+# The feed hash-chain worked vector (improvements 1–5 chain,
+# published 2026-10-29 to close the independent-recomputation
+# gap): a REAL production record — seq 15 of the live feed,
+# recorded 2026-10-30T03:05:39Z by a disclosed self-seed check of
+# the fleet's own sandbox fixture. Frozen verbatim; the test
+# suite recomputes expected_record_hash three ways (production
+# _chain_hash, an independent from-spec implementation, and the
+# frozen canonical_json string itself), so the published rules,
+# this vector, and the code cannot drift apart silently.
+FEED_RECORD_HASH_VECTOR: dict = {
+    "name": "production-seq-15",
+    "seq": 15,
+    "prev_hash": '959f00752e333a45aedded3ce3a69776ce5275e90208b2ee7dc8b1d21af632c5',
+    "record": {'catalogue_crosscheck': {'captured_at': '2026-10-30T00:43:31Z', 'fields': {'amount': 'not_listed', 'network': 'not_listed', 'payTo': 'not_listed'}, 'listed': False, 'snapshot_id': 13, 'source': 'cdp_index_snapshot', 'verdict': 'not_listed'}, 'changes': [], 'checked_at': '2026-10-30T03:05:39Z', 'current': {'amount': '5000', 'asset': '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', 'description_hash': '8b61a13439d3d8ed948ec8848d9112c6b441c629676fe4755a73d1ea67afef53', 'network': 'eip155:8453', 'payTo': '0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F', 'schema_hash': '6be5cbfd9529aa2d0c64f94bd6ce5208e57df015e16c99ffdcce65271421bc7d', 'status_code': 402}, 'field_changes': [], 'kind': 'x402', 'probe': {'attempts': 1, 'error_class': None, 'flapping': {'alternations': 0, 'flapping': False, 'window': 1}, 'latency_ms': 109, 'redirect_count': 0}, 'status': 'BASELINE', 'summary': 'Baseline recorded for this x402 target; the next call for this watch reports what changed against it.', 'url': 'https://stall-row-production.up.railway.app/v1/sandbox/x402', 'watch_id': 'sandbox-proof-2026-10-29'},
+    "canonical_json": '{"catalogue_crosscheck":{"captured_at":"2026-10-30T00:43:31Z","fields":{"amount":"not_listed","network":"not_listed","payTo":"not_listed"},"listed":false,"snapshot_id":13,"source":"cdp_index_snapshot","verdict":"not_listed"},"changes":[],"checked_at":"2026-10-30T03:05:39Z","current":{"amount":"5000","asset":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913","description_hash":"8b61a13439d3d8ed948ec8848d9112c6b441c629676fe4755a73d1ea67afef53","network":"eip155:8453","payTo":"0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F","schema_hash":"6be5cbfd9529aa2d0c64f94bd6ce5208e57df015e16c99ffdcce65271421bc7d","status_code":402},"field_changes":[],"kind":"x402","probe":{"attempts":1,"error_class":null,"flapping":{"alternations":0,"flapping":false,"window":1},"latency_ms":109,"redirect_count":0},"status":"BASELINE","summary":"Baseline recorded for this x402 target; the next call for this watch reports what changed against it.","url":"https://stall-row-production.up.railway.app/v1/sandbox/x402","watch_id":"sandbox-proof-2026-10-29"}',
+    "expected_record_hash": '90f96802a031582a6cf825290b0a44410400d8547b7d0ba61647936448410d97',
+    "expected_record_id": 'rec_90f96802a031582a6cf82529',
+}
+
 def fingerprint_spec() -> dict:
     """The specification document, served verbatim by
     GET /v1/recheck/fingerprint-spec."""
@@ -275,6 +302,63 @@ def fingerprint_spec() -> dict:
                 "blank lines. The normalized text is UTF-8 encoded "
                 "and hashed."
             ),
+        },
+        "feed_record_hash": {
+            "describes": (
+                "app/services/recheck.py _chain_hash / "
+                "_canonical_record_json — the hash chain carried "
+                "by GET /v1/recheck/feed v2 envelopes (seq, "
+                "record_id, schema_version, prev_hash, record_hash, "
+                "record). Every input is in the served envelope; "
+                "nothing store-side enters the hash, so any "
+                "consumer can recompute every record_hash "
+                "independently."
+            ),
+            "algorithm": (
+                "SHA-256 over UTF-8 bytes, lowercase hex digest "
+                "(hashlib.sha256(...).hexdigest())"
+            ),
+            "hash_input": (
+                "prev_hash + \"\\n\" + canonical_json(record) — "
+                "the predecessor's hash, one LF byte, then the "
+                "canonical record serialization, nothing else."
+            ),
+            "input_object": (
+                "The envelope's `record` member ONLY: the exact "
+                "check-response object as served. Envelope metadata "
+                "(seq, record_id, schema_version, record_hash, "
+                "corrections) is NOT an input — corrections ride "
+                "beside the record and never enter its hash."
+            ),
+            "genesis": (
+                "The first record's prev_hash is the literal "
+                "string \"genesis\" — not a hash, not empty. Every "
+                "later record's prev_hash is the previous record's "
+                "record_hash."
+            ),
+            "canonical_json": {
+                "function": (
+                    "Python json.dumps(record, sort_keys=True, "
+                    "separators=(',', ':')) with json.dumps "
+                    "defaults otherwise (ensure_ascii=True)."
+                ),
+                "rules": [
+                    "Object keys sorted lexicographically (by "
+                    "Unicode code point) at every nesting depth.",
+                    "Item separator ',' and key separator ':' — "
+                    "no whitespace anywhere in the output.",
+                    "Strings double-quoted with standard JSON "
+                    "escapes; non-ASCII characters appear as "
+                    "\\uXXXX escapes (ensure_ascii=True).",
+                    "Numbers, booleans and null in their plain "
+                    "JSON forms; the record contains no floats "
+                    "with fractional parts in practice, and any "
+                    "number is rendered exactly as Python's "
+                    "json renders it.",
+                ],
+            },
+            "record_id": "\"rec_\" + record_hash[:24]",
+            "worked_vector": FEED_RECORD_HASH_VECTOR,
         },
         "test_vectors": TEST_VECTORS,
     }

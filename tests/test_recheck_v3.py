@@ -7,6 +7,7 @@ the SSRF guard's DNS lookup local.
 """
 
 import base64
+import hashlib
 import json
 import sqlite3
 
@@ -133,6 +134,81 @@ def test_fingerprint_spec_endpoint(http):
     assert doc["hash"]["algorithm"] == "SHA-256"
     assert doc["test_vectors"] == fingerprint_spec.TEST_VECTORS
     assert "json.dumps(schema, sort_keys=True)" in doc["x402_fingerprint"]["canonicalization"]["schema_serialization"]
+    assert doc["feed_record_hash"]["worked_vector"] == fingerprint_spec.FEED_RECORD_HASH_VECTOR
+    assert "record" in doc["feed_record_hash"]["input_object"]
+
+
+# --- item 6b: the feed hash chain, recomputable from served data -----------------
+#
+# The chain's promise is that a consumer can verify it WITHOUT
+# our store. These tests recompute record_hash exactly the way
+# the published spec (feed_record_hash section) describes, from
+# served-shape data only — never via store internals — and pin
+# the spec's worked vector (a real production record) against
+# both that independent implementation and the production code,
+# so spec, vector, and code cannot drift apart silently.
+
+
+def _spec_record_hash(prev_hash, record):
+    """Independent implementation written from the PUBLISHED
+    rules only: sha256 of prev_hash + LF + json.dumps(record,
+    sort_keys=True, separators=(',', ':')), UTF-8 encoded."""
+    canonical = json.dumps(record, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(f"{prev_hash}\n{canonical}".encode("utf-8")).hexdigest()
+
+
+def test_feed_record_hash_vector_recomputes_three_ways():
+    vector = fingerprint_spec.FEED_RECORD_HASH_VECTOR
+    # 1. The independent from-spec implementation, envelope fields only.
+    assert (
+        _spec_record_hash(vector["prev_hash"], vector["record"])
+        == vector["expected_record_hash"]
+    )
+    # 2. The frozen canonical_json string in the spec is itself
+    #    the exact hashed serialization.
+    digest = hashlib.sha256(
+        f"{vector['prev_hash']}\n{vector['canonical_json']}".encode("utf-8")
+    ).hexdigest()
+    assert digest == vector["expected_record_hash"]
+    assert (
+        json.dumps(vector["record"], sort_keys=True, separators=(",", ":"))
+        == vector["canonical_json"]
+    )
+    # 3. The production code agrees with both.
+    assert (
+        recheck._chain_hash(vector["prev_hash"], vector["record"])
+        == vector["expected_record_hash"]
+    )
+    assert recheck._canonical_record_json(vector["record"]) == vector["canonical_json"]
+    assert vector["expected_record_id"] == "rec_" + vector["expected_record_hash"][:24]
+
+
+def test_feed_record_hash_recomputes_from_served_envelopes(http, store):
+    for i in range(3):
+        store.record_check(
+            {
+                "watch_id": "w1",
+                "url": X402_URL,
+                "kind": "x402",
+                "status": "UNCHANGED",
+                "changes": [],
+                "field_changes": [],
+                "current": {"amount": str(100 + i), "payTo": OWNER},
+                "checked_at": f"2026-10-29T00:00:0{i}Z",
+                "summary": "synthetic",
+            }
+        )
+    r = http.get("/v1/recheck/feed", params={"since_seq": 0})
+    assert r.status_code == 200
+    envelopes = [json.loads(line) for line in r.text.splitlines()]
+    assert [e["seq"] for e in envelopes] == [1, 2, 3]
+    prev = "genesis"  # the spec's published genesis value
+    for env in envelopes:
+        # Only served envelope fields are used: record + prev_hash.
+        assert env["prev_hash"] == prev
+        assert _spec_record_hash(env["prev_hash"], env["record"]) == env["record_hash"]
+        assert env["record_id"] == "rec_" + env["record_hash"][:24]
+        prev = env["record_hash"]
 
 
 # --- item 7: the sandbox fixture --------------------------------------------------
