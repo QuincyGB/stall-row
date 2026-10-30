@@ -677,6 +677,25 @@ class WatchStore:
                     self._conn.execute(
                         f"ALTER TABLE recheck_history ADD COLUMN {col} {decl}"
                     )
+            # Standing Watch RouteVerdict leg: check_kind selects
+            # which check a watch_regs row runs ('recheck' default —
+            # every pre-existing row keeps its exact behaviour), and
+            # last_summary holds that leg's own last successful
+            # summary JSON for its change detection.
+            reg_cols = {
+                row[1]
+                for row in self._conn.execute(
+                    "PRAGMA table_info(watch_regs)"
+                )
+            }
+            for col, decl in (
+                ("check_kind", "TEXT NOT NULL DEFAULT 'recheck'"),
+                ("last_summary", "TEXT"),
+            ):
+                if col not in reg_cols:
+                    self._conn.execute(
+                        f"ALTER TABLE watch_regs ADD COLUMN {col} {decl}"
+                    )
             # Self-serve webhook subscriptions: funding gate
             # columns. Rows created before the gate carry
             # funding_kind NULL and are grandfathered as legacy.
@@ -2758,6 +2777,7 @@ class WatchStore:
         funding_kind: str,
         funding_id: str,
         now_epoch: float | None = None,
+        check_kind: str = "recheck",
     ) -> dict:
         now = time.time() if now_epoch is None else now_epoch
         watch_reg_id = "watch_" + secrets.token_hex(8)
@@ -2765,8 +2785,9 @@ class WatchStore:
             self._conn.execute(
                 "INSERT INTO watch_regs "
                 "(watch_reg_id, url, webhook_url, email, interval_s, "
-                "funding_kind, funding_id, created_epoch, active) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)",
+                "funding_kind, funding_id, created_epoch, active, "
+                "check_kind) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
                 (
                     watch_reg_id,
                     url,
@@ -2776,6 +2797,7 @@ class WatchStore:
                     funding_kind,
                     funding_id,
                     now,
+                    check_kind,
                 ),
             )
             self._conn.commit()
@@ -2786,11 +2808,19 @@ class WatchStore:
             row = self._conn.execute(
                 "SELECT watch_reg_id, url, webhook_url, email, interval_s, "
                 "funding_kind, funding_id, created_epoch, last_run_epoch, "
-                "last_status, active FROM watch_regs WHERE watch_reg_id = ?",
+                "last_status, active, check_kind, last_summary "
+                "FROM watch_regs WHERE watch_reg_id = ?",
                 (watch_reg_id,),
             ).fetchone()
         if row is None:
             return None
+        last_summary = None
+        if row[12]:
+            try:
+                parsed = json.loads(row[12])
+            except ValueError:
+                parsed = None
+            last_summary = parsed if isinstance(parsed, dict) else None
         return {
             "watch_reg_id": row[0],
             "url": row[1],
@@ -2803,6 +2833,8 @@ class WatchStore:
             "last_run_at": _iso_of(row[8]) if row[8] else None,
             "last_status": row[9],
             "active": bool(row[10]),
+            "check_kind": row[11] or "recheck",
+            "last_summary": last_summary,
         }
 
     def due_watch_regs(self, now_epoch: float | None = None) -> list[dict]:
@@ -2820,15 +2852,35 @@ class WatchStore:
         ]
 
     def update_watch_run(
-        self, watch_reg_id: str, status: str, now_epoch: float | None = None
+        self,
+        watch_reg_id: str,
+        status: str,
+        now_epoch: float | None = None,
+        last_summary: dict | None = None,
     ) -> None:
+        """Record one run's outcome. `last_summary` (the RouteVerdict
+        leg's own change-detection memory) is written only when the
+        caller passes it — a successful run — so failed runs never
+        overwrite the last good summary."""
         now = time.time() if now_epoch is None else now_epoch
         with self._lock:
-            self._conn.execute(
-                "UPDATE watch_regs SET last_run_epoch = ?, last_status = ? "
-                "WHERE watch_reg_id = ?",
-                (now, status, watch_reg_id),
-            )
+            if last_summary is None:
+                self._conn.execute(
+                    "UPDATE watch_regs SET last_run_epoch = ?, last_status = ? "
+                    "WHERE watch_reg_id = ?",
+                    (now, status, watch_reg_id),
+                )
+            else:
+                self._conn.execute(
+                    "UPDATE watch_regs SET last_run_epoch = ?, last_status = ?, "
+                    "last_summary = ? WHERE watch_reg_id = ?",
+                    (
+                        now,
+                        status,
+                        json.dumps(last_summary, sort_keys=True),
+                        watch_reg_id,
+                    ),
+                )
             self._conn.commit()
 
     def record_delivery(

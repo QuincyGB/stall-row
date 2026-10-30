@@ -1642,7 +1642,8 @@ class WatchRegisterRequest(BaseModel):
     email: str | None = Field(default=None, description="Optional contact email (stored; webhook is the live channel)")
     interval_s: int | None = Field(default=None, ge=300, le=86400, description="Seconds between automatic checks (300–86400)")
     pack_id: str | None = Field(default=None, description="Fund runs with this recheck pack (bound to the watched URL)")
-    fleet_pass_id: str | None = Field(default=None, description="Fund runs with this Fleet Pass ($0.005 per run)")
+    fleet_pass_id: str | None = Field(default=None, description="Fund runs with this Fleet Pass ($0.005 per recheck run)")
+    check_kind: str = Field(default="recheck", description="Which standing check to run: 'recheck' (default) or 'route_verdict' (RouteVerdict check of the watched URL; Fleet Pass only, $0.05 per run debited by RouteVerdict via X-Fleet-Pass)")
 
 
 class WatchIdRequest(BaseModel):
@@ -1663,6 +1664,7 @@ async def watch_register(req: WatchRegisterRequest):
             req.interval_s,
             req.pack_id,
             req.fleet_pass_id,
+            check_kind=req.check_kind,
         )
     except watch_svc.WatchError as e:
         return JSONResponse({"error": e.message}, status_code=e.http_status)
