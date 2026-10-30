@@ -5,7 +5,8 @@ or two to hit. One deployment, one facilitator configuration, every
 route independently priced, listed, and settled.
 
 Paid:   POST /v1/* routes (see app/discovery.py ROUTES)
-Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt
+Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt,
+             /.well-known/agent-card.json
         POST /v1/recheck/pack-balance (pack id is the credential)
         GET  /v1/recheck/feed (public JSONL feed of recent recheck
              responses — see services/recheck.py)
@@ -90,7 +91,7 @@ from x402.server import x402ResourceServer
 from .blockscout import Blockscout
 from .config import PRICE_UNITS, SOLANA_ACCEPT_PATHS, load_settings
 from .solana_rail import SvmReplayGuard, make_after_settle_hook, make_before_verify_hook
-from .discovery import OWNERSHIP_PROOFS, ROUTES, llms_txt, route_extension, skill_md, x402_manifest
+from .discovery import OWNERSHIP_PROOFS, ROUTES, agent_card, llms_txt, route_extension, skill_md, x402_manifest
 from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import agentcard as agentcard_svc
 from .services import claims as claims_svc
@@ -2987,6 +2988,11 @@ async def quote():
 @app.get("/.well-known/x402")
 async def well_known(request: Request):
     return JSONResponse(x402_manifest(settings, _public_base(request)))
+
+
+@app.get("/.well-known/agent-card.json")
+async def agent_card_document(request: Request):
+    return JSONResponse(agent_card(settings, _public_base(request)))
 
 
 @app.get("/skill.md", response_class=PlainTextResponse)

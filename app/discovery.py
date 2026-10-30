@@ -10,6 +10,8 @@ accepts mirror the live 402 challenges exactly.
 
 from __future__ import annotations
 
+import json
+
 from .config import PRICE_UNITS, SOLANA_ACCEPT_PATHS, Settings, units_to_price
 from .services.nudge import nudge_extension
 
@@ -1764,6 +1766,85 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
     }
 
 
+# --- agent card -------------------------------------------------------------
+# The A2A-style card served at /.well-known/agent-card.json. It is
+# DERIVED from the x402 manifest above — same resources, same prices,
+# same payTo — so the card can never drift from the discovery doc the
+# directories already read. Skills mirror the priced routes; the
+# services[] entries carry each route's endpoint + atomic amount in
+# the shape card verifiers (including this fleet's own
+# /v1/agent-card-verify) read. No capability is claimed that the
+# service does not have: no streaming, no A2A task push notifications
+# (the fleet's webhooks are x402 product surfaces, not A2A tasks).
+
+CARD_NAME = "StallRow"
+CARD_PROVIDER = {"organization": "Verdict Row", "url": "https://github.com/QuincyGB"}
+
+
+def _skill_name(path: str) -> str:
+    return path.rstrip("/").rsplit("/", 1)[-1].replace("-", " ").title()
+
+
+def agent_card(settings: Settings, base_url: str) -> dict:
+    manifest = x402_manifest(settings, base_url)
+    skills: list[dict] = []
+    services: list[dict] = []
+    for r in manifest["resources"]:
+        if r.get("method") != "POST":
+            continue  # free reads (the quote) are not skills
+        resource = r["resource"]
+        path = resource[len(base_url):] if resource.startswith(base_url) else resource
+        base_accept = next(
+            (a for a in r.get("accepts") or [] if a.get("network") == settings.network),
+            None,
+        )
+        skills.append(
+            {
+                "id": path.strip("/").replace("/", "-"),
+                "name": _skill_name(path),
+                "description": r["description"],
+                "tags": r.get("tags") or [],
+                "examples": (
+                    [json.dumps(ROUTES[path]["input_example"])]
+                    if path in ROUTES and ROUTES[path].get("input_example")
+                    else []
+                ),
+                "inputModes": ["application/json"],
+                "outputModes": ["application/json"],
+            }
+        )
+        entry = {"name": path, "endpoint": resource}
+        if base_accept is not None:
+            entry["amount"] = str(base_accept["amount"])
+        services.append(entry)
+    return {
+        "protocolVersion": "0.3.0",
+        "name": CARD_NAME,
+        "description": manifest["description"],
+        "url": base_url,
+        "provider": CARD_PROVIDER,
+        "version": "1.0.0",
+        "documentationUrl": f"{base_url}/llms.txt",
+        "capabilities": {
+            "streaming": False,
+            "pushNotifications": False,
+            "stateTransitionHistory": False,
+        },
+        "defaultInputModes": ["application/json"],
+        "defaultOutputModes": ["application/json"],
+        "skills": skills,
+        "services": services,
+        "x402": {
+            "version": 2,
+            "scheme": "exact",
+            "discovery": f"{base_url}/.well-known/x402",
+            "payTo": settings.pay_to,
+            "network": settings.network,
+            "asset": USDC_ASSET,
+        },
+    }
+
+
 def skill_md(settings: Settings, base_url: str) -> str:
     lines = [
         f"# {settings.service_name} — a row of x402 micro-services",
@@ -1857,6 +1938,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `GET {base_url}/quote` — every route's price, network, payTo",
         f"- `GET {base_url}/health` — liveness",
         f"- `GET {base_url}/.well-known/x402` — machine-readable manifest",
+        f"- `GET {base_url}/.well-known/agent-card.json` — A2A agent card (skills mirror the priced routes; derived from the manifest)",
         f"- `POST {base_url}/v1/recheck/pack-balance` — a pack's credits + expiry (pack id required)",
         f"- `GET {base_url}/v1/recheck/feed` — recent Recheck results as JSONL, newest first (public observatory feed)",
         f"- `GET {base_url}/v1/recheck/feed?v=2&since_seq=N` — feed v2: each line an envelope (seq, record_id, schema_version, prev_hash, record_hash, record); since_seq is the gap-proof cursor mode (ascending), watch_id / url filter",
@@ -1893,6 +1975,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/quote — free price quote",
         f"- GET {base_url}/health — free liveness check",
         f"- GET {base_url}/.well-known/x402 — manifest",
+        f"- GET {base_url}/.well-known/agent-card.json — A2A agent card (skills mirror the priced routes)",
         f"- POST {base_url}/v1/recheck/pack-balance — free pack balance (pack id required)",
         f"- GET {base_url}/v1/recheck/feed — free Recheck results feed (JSONL, newest first); ?v=2&since_seq=N for the hash-chained cursor mode",
         f"- GET {base_url}/v1/recheck/history — free recorded history (envelopes); /v1/recheck/history/<record_id> for one snapshot",
