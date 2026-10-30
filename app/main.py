@@ -88,7 +88,7 @@ import json
 
 from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel, Field
 from x402.http import FacilitatorConfig, HTTPFacilitatorClient, PaymentOption, RouteConfig
 from x402.http.middleware import fastapi_payment_middleware
@@ -3175,6 +3175,21 @@ async def well_known(request: Request):
 @app.get("/.well-known/agent-card.json")
 async def agent_card_document(request: Request):
     return JSONResponse(agent_card(settings, _public_base(request)))
+
+
+@app.get("/.well-known/stability-manifest.json")
+async def stability_manifest_document():
+    # The signed pinned-route stability manifest, served VERBATIM as
+    # committed at app/data/stability-manifest.json (generated + signed
+    # VM-side by the fleet's stability_manifest.py). Absent file -> 404,
+    # never fabricated.
+    path = os.path.join(os.path.dirname(__file__), "data", "stability-manifest.json")
+    try:
+        with open(path, "rb") as f:
+            payload = f.read()
+    except OSError:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    return Response(content=payload, media_type="application/json")
 
 
 @app.get("/skill.md", response_class=PlainTextResponse)

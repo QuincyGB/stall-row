@@ -1,0 +1,487 @@
+{
+  "base_url": "https://stall-row-production.up.railway.app",
+  "change_policy": {
+    "statement": "Prices and output schemas recorded here change only under a new signed manifest version, published before or with the change taking effect; changes are also announced in the fleet's public change record as they land. A served route whose price or schema fingerprint disagrees with the latest signed manifest is a defect — report it to patrol@verdictrow.com."
+  },
+  "issued_at": "2026-10-30T20:57:51Z",
+  "manifest": "verdict-row-stability/v1",
+  "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "routes": [
+    {
+      "accepts": [
+        {
+          "amount": "5000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/wallet-snapshot",
+      "schema_fingerprint": "sha256:0c5c17df4cf1543fd352ef911cdf717f0b846ba7dacb467c1a5e581b35e5d723"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "5000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/allowance-audit",
+      "schema_fingerprint": "sha256:e0d8839f286424507fe260a75898a06c85c2400cd0f5b88e9e4e38fa5d06bf37"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "2000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/tx-decoder",
+      "schema_fingerprint": "sha256:adc39a3c94b97c544c97e9da7257964bf8c1b4e7c217fb93331a956f48df637f"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "1000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/gas-oracle",
+      "schema_fingerprint": "sha256:ca8f540bd44863ce9b201fd5bb96d973776045552fe3da4b555596ffe4b508c3"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "20000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+      "schema_fingerprint": "sha256:6c900bc287c82e97ad212150a31dae61f64ffeebc0681c8aa6edbc1da6c1fcb8"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "5000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/pre-trade-guard",
+      "schema_fingerprint": "sha256:d9d7b98c1173f1e5f18c6623b7c44c7ff4c95fa847e72ad657092f3ce8cf24f9"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "1000000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/counterparty-report",
+      "schema_fingerprint": "sha256:fa92c7640cb2d2b7291d253b7b54f6ff095eafc8c15e6f43323292ea92bf5958"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "5000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/grade-my-stall",
+      "schema_fingerprint": "sha256:cdfd2e0e303ff7e36ea489bff1671e09dea04b22e432a97f6b23a07bc5755efa"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "2000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/receipt-verify",
+      "schema_fingerprint": "sha256:191a6c9e9b0cb7713e0b8339a2b35b4e50d3a6d2e8cc518c15e0c28ffc6e69e9"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "5000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/flagged-paytos",
+      "schema_fingerprint": "sha256:104043f537ca717c705cdd7f831060355af884d145d42fffe9637b19154a9186"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "5000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/agent-card-verify",
+      "schema_fingerprint": "sha256:9ce63ff3864af6ac0aa2a415b6b74a3567c90f324ec51aa968d75941c0534afc"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "10000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/tube-search",
+      "schema_fingerprint": "sha256:15374941795b48505acf191479576b2e15a92592e6f4290fe29e56f02030ce29"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "10000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/page-to-markdown",
+      "schema_fingerprint": "sha256:e8555cb4b2a99780ec792c2872139bf2455006e6d0b12226114bde7d9b02918c"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "5000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/repo-vitals",
+      "schema_fingerprint": "sha256:318023f50618f10bde41b84773486ecb3210685918a84c8e92ee3e608631072c"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "50000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/price-check",
+      "schema_fingerprint": "sha256:ef58aafe8191d405d90ca13c57f212d3a4af359ea05a638ba6d5d2ddcf604dc9"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "100000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/card-smith",
+      "schema_fingerprint": "sha256:a43bc59243381322d54049aa798c31b9a875585b17d8d71dc2450fe8518a2f14"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "50000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/job-scout",
+      "schema_fingerprint": "sha256:a3e133a6095bf84c43ff1fb395356505dbc4465a0c4c6d7458d7efd639da5061"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "5000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/recheck",
+      "schema_fingerprint": "sha256:4f7acf054a9ff6466d7a8574be4a5922f781cb644184d9a5a35ca358c6de0422"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "100000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/index/changes",
+      "schema_fingerprint": "sha256:54bab7592b2e8c6c2b0befdbbc50c2b7b246c380b4181d2dec095139895e880f"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "750000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/orchestrate",
+      "schema_fingerprint": "sha256:6e3812f4698f5fbbcd09c44f756c6d3a5f2fc5f2cf313fb288dd4de08048ed15"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "1000000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/recheck/pack",
+      "schema_fingerprint": "sha256:231fb29580824f99f182454815cbb2f33bc8ba8f8d499aeb5b4256b824245ffe"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "100000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        },
+        {
+          "amount": "100000",
+          "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "maxTimeoutSeconds": 300,
+          "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+          "payTo": "FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/fleet-check",
+      "schema_fingerprint": "sha256:8a3bb833eb885fdb251bbe96033036e56e05c9aa84ecc4c5d72100c7cc67da28"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "5000000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        },
+        {
+          "amount": "5000000",
+          "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "maxTimeoutSeconds": 300,
+          "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+          "payTo": "FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/fleet-check/pack",
+      "schema_fingerprint": "sha256:68663ec470bbea37d1aeb588c238defb3b22b9312919e6e951644b98fd34c388"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "5000000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/fleet-pass",
+      "schema_fingerprint": "sha256:fc5856ad3ac06869a30e2de215589a7452c7e10f3e322b5b93914d14a04cafa9"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "20000000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/fleet-pass-20",
+      "schema_fingerprint": "sha256:fc5856ad3ac06869a30e2de215589a7452c7e10f3e322b5b93914d14a04cafa9"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "10000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/sign-read",
+      "schema_fingerprint": "sha256:ed87f17de3114d29fd209d0a04e80fbe3f754d1d1f76face6dbfd848ad150c8b"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "10000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/score-book",
+      "schema_fingerprint": "sha256:8a84f0a73be660ab24deb9e5cb66a303feeff9c2ca4489c48dbde33ed8562610"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "10000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/guard",
+      "schema_fingerprint": "sha256:3e2d68e05d95afaf25eaddf2a855717c712cf1c968afecc3b5bf88a6a0c20674"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "100000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/ledger-dataset",
+      "schema_fingerprint": "sha256:1117f91db15bdca9cc17bfcff45bc74f39ae432400d2caa4736ebb37696ac3d0"
+    },
+    {
+      "accepts": [
+        {
+          "amount": "1000000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/ledger-dataset/full",
+      "schema_fingerprint": "sha256:f0435580f06d24e4ee4ede04d3dd5e509276ce448e347a0c0fa375f2189a18bc"
+    },
+    {
+      "accepts": null,
+      "method": "GET",
+      "resource": "https://stall-row-production.up.railway.app/quote",
+      "schema_fingerprint": "sha256:06334c74179fe04003e14ffd129c8518b8c3380bfea5e3d1308f4f4888c8f6e2"
+    }
+  ],
+  "signature": "0x5a65bf0f6bb12f885c623ccaec74413d3015293b3464022fd4044f2b96a4edad1bc56b6587d35103ef3c64b2e4d8659bef665a07842137e7bc2269fa96f353b51c",
+  "signer": "0xa4f183a6799F0310FcCC545B07F2DcC960223de2",
+  "stall": "stall-row",
+  "version": "2026-10-30.1"
+}
