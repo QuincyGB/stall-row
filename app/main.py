@@ -7,6 +7,8 @@ route independently priced, listed, and settled.
 Paid:   POST /v1/* routes (see app/discovery.py ROUTES)
 Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt
         POST /v1/recheck/pack-balance (pack id is the credential)
+        GET  /v1/recheck/feed (public JSONL feed of recent recheck
+             responses — see services/recheck.py)
         POST /v1/nudge (signed fleet-health mail — see services/nudge.py)
         POST /v1/probe (one-link checker — see services/probe.py)
         POST /v1/claim/start, POST /v1/claim/verify (stall claim
@@ -1115,6 +1117,24 @@ async def recheck_pack_balance(req: RecheckPackBalanceRequest):
     if pack is None or (req.url is not None and pack["url"] != req.url.strip()):
         return JSONResponse({"error": "unknown pack_id"}, status_code=404)
     return pack
+
+
+@app.get("/v1/recheck/feed")
+async def recheck_feed():
+    """Free public feed of recent Recheck results: one JSON object
+    per line (JSONL), newest first, bounded to the last
+    recheck_svc.FEED_LIMIT recorded checks. This is the observatory
+    surface promised to the aicom survey (alexar76/aicom#13): other
+    graders read our own check responses next to their results.
+    Records are the exact response objects POST /v1/recheck
+    returned, recorded by the store at check time; checks from
+    before the history existed are seeded from the stored watch
+    state and carry only the fields that state persisted (no
+    status/changes/summary — see services/recheck.py). Empty
+    history returns an empty body with 200."""
+    records = _recheck_store.recent_checks()
+    body = "".join(json.dumps(r, sort_keys=True) + "\n" for r in records)
+    return PlainTextResponse(body, media_type="application/x-ndjson")
 
 
 # --- Fleet Pass ---------------------------------------------------------------

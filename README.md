@@ -49,8 +49,13 @@ credit buys a whole sweep, never one route. Every probe is unpaid:
 the checker never pays, signs, or settles any route it checks.
 
 Free: `GET /`, `/health`, `/quote`, `/.well-known/x402`, `/skill.md`,
-`/llms.txt`, and `POST /v1/recheck/pack-balance` (credits + expiry for
-a pack id; spends nothing). Pack semantics: minting is idempotent on
+`/llms.txt`, `POST /v1/recheck/pack-balance` (credits + expiry for
+a pack id; spends nothing), and `GET /v1/recheck/feed` — the recent
+Recheck responses as JSONL (one object per line, newest first, last
+100), a public observatory feed: every completed check's exact
+response object, recorded in the store at check time. Checks from
+before the history existed are seeded from the stored watch state
+and carry only the fields that state persisted. Pack semantics: minting is idempotent on
 the payment's EIP-3009 authorization nonce, so a re-presented payment
 returns the pack it already bought; a credit is reserved atomically
 before each check and refunded when the check itself fails (our

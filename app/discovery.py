@@ -1706,6 +1706,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `GET {base_url}/health` — liveness",
         f"- `GET {base_url}/.well-known/x402` — machine-readable manifest",
         f"- `POST {base_url}/v1/recheck/pack-balance` — a pack's credits + expiry (pack id required)",
+        f"- `GET {base_url}/v1/recheck/feed` — recent Recheck results as JSONL, newest first (public observatory feed)",
     ]
     return "\n".join(lines) + "\n"
 
@@ -1734,5 +1735,6 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/health — free liveness check",
         f"- GET {base_url}/.well-known/x402 — manifest",
         f"- POST {base_url}/v1/recheck/pack-balance — free pack balance (pack id required)",
+        f"- GET {base_url}/v1/recheck/feed — free Recheck results feed (JSONL, newest first)",
     ]
     return "\n".join(lines) + "\n"

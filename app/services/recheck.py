@@ -28,6 +28,18 @@ Failure honesty: a probe that fails (unreachable, or a non-402
 handler returns 502, no payment settles, and the stored fingerprint
 is NOT overwritten — the next good probe still diffs against the
 last good state.
+
+Feed: every COMPLETED check's response is also appended to a
+history table in the same store, and GET /v1/recheck/feed serves
+the recent ones as JSONL, free — the observatory surface promised
+to the aicom survey (alexar76/aicom#13), so other graders can read
+our own check responses next to their results. History begins when
+the table does: watches that already existed are seeded with ONE
+record built only from what the watches table persisted (watch id,
+URL, kind, the stored fingerprint as `current`, checked_at). The
+per-check status/changes/summary of those earlier checks were
+never stored, so seeded records omit them — the feed serves what
+the store holds, never a reconstruction.
 """
 
 from __future__ import annotations
@@ -88,6 +100,10 @@ PACK_CREDITS = 250
 PACK_PRICE_UNITS = 1_000_000  # $1.00 — mirrors config.PRICE_UNITS
 PACK_TTL_DAYS = 90
 _PACK_ID_PREFIX = "pack_"
+
+# The public feed's window: GET /v1/recheck/feed serves at most
+# this many of the most recent recorded check responses.
+FEED_LIMIT = 100
 
 # --- fleet check packs -----------------------------------------------------------
 #
@@ -467,7 +483,18 @@ class WatchStore:
                 )
                 """
             )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS recheck_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    watch_key TEXT NOT NULL,
+                    checked_at TEXT NOT NULL,
+                    response_json TEXT NOT NULL
+                )
+                """
+            )
             self._conn.commit()
+        self._seed_history_from_watches()
 
     @property
     def path(self) -> str:
@@ -504,6 +531,95 @@ class WatchStore:
     def count(self) -> int:
         with self._lock:
             row = self._conn.execute("SELECT COUNT(*) FROM watches").fetchone()
+        return int(row[0]) if row else 0
+
+    # --- check history (the public JSONL feed) ------------------------
+    # Every completed check appends its exact response object here;
+    # GET /v1/recheck/feed serves the recent window as JSONL. The
+    # watches table above keeps only the LAST fingerprint per watch,
+    # so without this table the responses themselves were lost the
+    # moment the next check overwrote the baseline.
+
+    def _seed_history_from_watches(self) -> None:
+        """One history record per pre-existing watch, built ONLY
+        from what the watches table persisted — the per-check
+        status/changes/summary of those earlier checks were never
+        stored, so seeded records omit them rather than reconstruct
+        them. Idempotent: a watch that already has history rows is
+        never re-seeded, so restarts add nothing."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT watch_key, kind, fingerprint_json, checked_at "
+                "FROM watches"
+            ).fetchall()
+            for watch_key, kind, fingerprint_json, checked_at in rows:
+                (existing,) = self._conn.execute(
+                    "SELECT COUNT(*) FROM recheck_history "
+                    "WHERE watch_key = ?",
+                    (watch_key,),
+                ).fetchone()
+                if existing:
+                    continue
+                try:
+                    fingerprint = json.loads(fingerprint_json)
+                except ValueError:
+                    continue
+                watch_id, _, url = watch_key.partition("\n")
+                record = {
+                    "watch_id": watch_id,
+                    "url": url,
+                    "kind": kind,
+                    "current": fingerprint,
+                    "checked_at": checked_at,
+                }
+                self._conn.execute(
+                    "INSERT INTO recheck_history "
+                    "(watch_key, checked_at, response_json) "
+                    "VALUES (?, ?, ?)",
+                    (watch_key, checked_at, json.dumps(record, sort_keys=True)),
+                )
+            self._conn.commit()
+
+    def record_check(self, response: dict) -> None:
+        """Append one COMPLETED check's response to the history.
+        Called by recheck() itself, so per-call, pack-spent, and
+        scheduled-watch checks are all recorded exactly once, with
+        the exact object the caller was answered with."""
+        key = f"{response['watch_id']}\n{response['url']}"
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO recheck_history "
+                "(watch_key, checked_at, response_json) VALUES (?, ?, ?)",
+                (
+                    key,
+                    response["checked_at"],
+                    json.dumps(response, sort_keys=True),
+                ),
+            )
+            self._conn.commit()
+
+    def recent_checks(self, limit: int = FEED_LIMIT) -> list[dict]:
+        """The feed window: the most recent recorded check
+        responses, newest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT response_json FROM recheck_history "
+                "ORDER BY id DESC LIMIT ?",
+                (max(1, min(int(limit), 500)),),
+            ).fetchall()
+        out = []
+        for (raw,) in rows:
+            try:
+                out.append(json.loads(raw))
+            except ValueError:
+                continue
+        return out
+
+    def check_history_count(self) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM recheck_history"
+            ).fetchone()
         return int(row[0]) if row else 0
 
     # --- watch packs ---------------------------------------------------
@@ -2323,7 +2439,7 @@ async def recheck(
     prior = store.get(key)
     if prior is None:
         store.save(key, kind, fingerprint, checked_at)
-        return {
+        result = {
             "watch_id": wid,
             "url": url,
             "kind": kind,
@@ -2336,6 +2452,8 @@ async def recheck(
                 "for this watch reports what changed against it."
             ),
         }
+        store.record_check(result)
+        return result
     changes = _diff(prior["fingerprint"], fingerprint)
     if prior["kind"] != kind:
         changes.insert(
@@ -2344,7 +2462,7 @@ async def recheck(
     store.save(key, kind, fingerprint, checked_at)
     if changes:
         fields = ", ".join(c["field"] for c in changes)
-        return {
+        result = {
             "watch_id": wid,
             "url": url,
             "kind": kind,
@@ -2354,16 +2472,19 @@ async def recheck(
             "checked_at": checked_at,
             "summary": f"Changed since the previous check: {fields}.",
         }
-    return {
-        "watch_id": wid,
-        "url": url,
-        "kind": kind,
-        "status": "UNCHANGED",
-        "changes": [],
-        "current": fingerprint,
-        "checked_at": checked_at,
-        "summary": "No material change since the previous check.",
-    }
+    else:
+        result = {
+            "watch_id": wid,
+            "url": url,
+            "kind": kind,
+            "status": "UNCHANGED",
+            "changes": [],
+            "current": fingerprint,
+            "checked_at": checked_at,
+            "summary": "No material change since the previous check.",
+        }
+    store.record_check(result)
+    return result
 
 
 async def recheck_with_pack(
