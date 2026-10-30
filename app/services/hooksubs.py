@@ -5,22 +5,34 @@ by the fleet operator under the internal secret — right for our own
 watches, useless to an inspector who wants OUR feed pushed to THEIR
 system. This module is the self-serve counterpart, mirroring the
 fleet's other self-serve patterns (watch registration, pack
-balance): registration is free and ungated, the callback URL is
+balance): registration is gated by a live funding credential — a
+Recheck pack or a Fleet Pass with balance for at least one Recheck
+check (mirroring watch.register's validation) — the callback URL is
 SSRF-checked BEFORE anything is stored and again at send time,
 deliveries are the existing pipeline's (CHANGED only, HMAC-SHA256
 signed, bounded retries, every attempt recorded, dead_letter
 terminal), and the caller's own secret is both the management
-credential and the signing key.
+credential and the signing key. Registration itself is not debited
+and deliveries are not debited: the checks that produce events are
+funded by their callers as before; the credential is the gate.
 
 A subscription is feed-wide by default, or filtered to exactly one
 resource URL or one origin — enough for an inspector watching a
-beat, without turning the feed into a firehose configurator.
+beat, without turning the feed into a firehose configurator. A
+pack-funded subscription is the exception: a pack is bound to ONE
+endpoint URL, so it may only fund a subscription filtered to
+exactly that URL.
 
-Abuse caps (registration is free, so the caps are the product):
-at most MAX_PER_SECRET subscriptions per secret, MAX_PER_HOST per
-callback host, MAX_TOTAL overall; a secret must carry real entropy
-(MIN_SECRET_LEN). Refusals raise SubsError with the HTTP status,
-mirroring watch.WatchError; nothing is stored on refusal.
+Abuse caps: at most MAX_PER_SECRET subscriptions per secret,
+MAX_PER_HOST per callback host, MAX_TOTAL overall; a secret must
+carry real entropy (MIN_SECRET_LEN). Refusals raise SubsError
+with the HTTP status, mirroring watch.WatchError; nothing is
+stored on refusal.
+
+Grandfathering: subscriptions created before this gate carry no
+funding credential (funding_kind NULL in the store); they keep
+working, skip the fan-out lapse check, and are labelled kind
+"legacy" in the public view.
 """
 
 from __future__ import annotations
@@ -31,6 +43,7 @@ import uuid
 from urllib.parse import urlsplit
 
 from . import fetch as fetch_svc
+from . import fleetpass as fleetpass_svc
 from . import recheck as recheck_svc
 
 MIN_SECRET_LEN = 16
@@ -64,6 +77,11 @@ def _public_view(sub: dict) -> dict:
             "origin": sub.get("filter_origin"),
         },
         "enabled": sub["enabled"],
+        "funding": {
+            "kind": sub.get("funding_kind") or "legacy",
+            "id": sub.get("funding_id"),
+        },
+        "funding_status": sub.get("funding_status") or "ok",
         "created_at": time.strftime(
             "%Y-%m-%dT%H:%M:%SZ", time.gmtime(sub["created_epoch"])
         ),
@@ -97,10 +115,13 @@ async def register(
     secret: str,
     url: str | None = None,
     origin: str | None = None,
+    pack_id: str | None = None,
+    fleet_pass_id: str | None = None,
 ) -> dict:
     """Validate everything BEFORE storing (SSRF on the callback,
-    shape on the filter, caps on the book). Returns the public
-    view; raises SubsError with the refusal."""
+    shape on the filter, funding credential live, caps on the
+    book). Returns the public view; raises SubsError with the
+    refusal; nothing is stored on any refusal."""
     secret = _check_secret(secret)
     callback_url = (callback_url or "").strip()
     if not callback_url.startswith("https://"):
@@ -117,6 +138,55 @@ async def register(
             raise SubsError("filter url must be a full http(s) resource URL")
     if origin:
         filter_origin = _normalize_origin(origin)
+    pack_id = (pack_id or "").strip() or None
+    fleet_pass_id = (fleet_pass_id or "").strip() or None
+    if pack_id and fleet_pass_id:
+        raise SubsError(
+            "fund with exactly one credential: a Recheck pack_id "
+            "or a fleet_pass_id, not both"
+        )
+    if not pack_id and not fleet_pass_id:
+        raise SubsError(
+            "registration requires a funding credential: a Recheck "
+            "pack_id or a fleet_pass_id"
+        )
+    funding_kind: str
+    funding_id: str
+    if pack_id:
+        pack = store.get_pack(pack_id)
+        if pack is None:
+            raise SubsError("unknown pack_id", 404)
+        if pack["expired"]:
+            raise SubsError("this pack has expired", 410)
+        if pack["credits_remaining"] < 1:
+            raise SubsError("this pack has no credits left", 402)
+        if filter_origin is not None or filter_url is None:
+            raise SubsError(
+                "a pack only funds its own URL's changes: a "
+                "pack-funded subscription must carry a filter url "
+                "exactly equal to the pack's URL (feed-wide and "
+                "origin filters need a fleet_pass_id instead)"
+            )
+        if filter_url != pack["url"]:
+            raise SubsError(
+                "a pack only funds its own URL's changes: the "
+                "filter url must exactly equal the pack's URL"
+            )
+        funding_kind, funding_id = "pack", pack_id
+    else:
+        assert fleet_pass_id is not None
+        fleet_pass = store.get_pass(fleet_pass_id)
+        if fleet_pass is None:
+            raise SubsError("unknown fleet_pass_id", 404)
+        if fleet_pass["expired"]:
+            raise SubsError("this fleet pass has expired", 410)
+        price = fleetpass_svc.price_for("stall-row", "/v1/recheck")
+        assert price is not None
+        if fleet_pass["balance_units"] < price:
+            raise SubsError(
+                "fleet pass balance cannot fund one Recheck check", 402
+            )
+        funding_kind, funding_id = "fleet_pass", fleet_pass_id
     if store.count_webhook_subs() >= MAX_TOTAL:
         raise SubsError(
             "the subscription book is full; try again later", 503
@@ -136,6 +206,8 @@ async def register(
         secret,
         filter_url,
         filter_origin,
+        funding_kind,
+        funding_id,
     )
     return _public_view(sub)
 

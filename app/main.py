@@ -2719,6 +2719,8 @@ class HookSubRegisterRequest(BaseModel):
     secret: str = Field(description="Your secret: management credential AND the HMAC-SHA256 key deliveries are signed with (16+ chars; never echoed back)")
     url: str | None = Field(default=None, description="Optional filter: only this exact resource URL's changes")
     origin: str | None = Field(default=None, description="Optional filter: only changes under this origin (https://host); ignored when url is set — send one or neither")
+    pack_id: str | None = Field(default=None, description="Funding credential (exactly one of pack_id / fleet_pass_id required): a Recheck pack — must be live with credits left, and the subscription's url filter must exactly equal the pack's URL")
+    fleet_pass_id: str | None = Field(default=None, description="Funding credential (exactly one of pack_id / fleet_pass_id required): a Fleet Pass — must be live with balance for at least one Recheck check ($0.005)")
 
 
 class HookSubSecretRequest(BaseModel):
@@ -2740,14 +2742,28 @@ class HookSubDeliveriesRequest(BaseModel):
 async def hooksub_register(req: HookSubRegisterRequest):
     """Self-serve Recheck change webhook: register a callback for
     CHANGED events — feed-wide, one resource URL, or one origin.
-    No operator gate; the callback is SSRF-checked before storing
+    No operator gate; registration is pack/pass-gated: exactly one
+    funding credential (a live Recheck pack_id, or a fleet_pass_id
+    with balance for at least one Recheck check) is required, and
+    a pack-funded subscription must filter to exactly the pack's
+    URL. The checks that produce events are funded by their
+    callers as before — deliveries themselves are not debited, and
+    registration is not debited either; the credential is the gate
+    and is re-validated at fan-out (a lapsed credential disables
+    the subscription). The callback is SSRF-checked before storing
     and again at send time, deliveries are HMAC-SHA256 signed with
     your secret and ride the same bounded retry / dead-letter
-    pipeline as the fleet's own watch webhooks. Registration is
-    free; abuse caps live in services/hooksubs.py."""
+    pipeline as the fleet's own watch webhooks. Abuse caps live in
+    services/hooksubs.py."""
     try:
         view = await hooksubs_svc.register(
-            _recheck_store, req.callback_url, req.secret, req.url, req.origin
+            _recheck_store,
+            req.callback_url,
+            req.secret,
+            req.url,
+            req.origin,
+            pack_id=req.pack_id,
+            fleet_pass_id=req.fleet_pass_id,
         )
     except hooksubs_svc.SubsError as e:
         return JSONResponse({"error": e.message}, status_code=e.http_status)

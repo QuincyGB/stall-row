@@ -619,7 +619,10 @@ class WatchStore:
                     filter_origin TEXT,
                     enabled INTEGER NOT NULL DEFAULT 1,
                     created_epoch REAL NOT NULL,
-                    updated_epoch REAL NOT NULL
+                    updated_epoch REAL NOT NULL,
+                    funding_kind TEXT,
+                    funding_id TEXT,
+                    funding_status TEXT NOT NULL DEFAULT 'ok'
                 )
                 """
             )
@@ -673,6 +676,24 @@ class WatchStore:
                 if col not in cols:
                     self._conn.execute(
                         f"ALTER TABLE recheck_history ADD COLUMN {col} {decl}"
+                    )
+            # Self-serve webhook subscriptions: funding gate
+            # columns. Rows created before the gate carry
+            # funding_kind NULL and are grandfathered as legacy.
+            sub_cols = {
+                row[1]
+                for row in self._conn.execute(
+                    "PRAGMA table_info(recheck_webhook_subs)"
+                )
+            }
+            for col, decl in (
+                ("funding_kind", "TEXT"),
+                ("funding_id", "TEXT"),
+                ("funding_status", "TEXT NOT NULL DEFAULT 'ok'"),
+            ):
+                if col not in sub_cols:
+                    self._conn.execute(
+                        f"ALTER TABLE recheck_webhook_subs ADD COLUMN {col} {decl}"
                     )
             self._conn.commit()
         self._seed_history_from_watches()
@@ -1296,8 +1317,10 @@ class WatchStore:
     # The self-serve counterpart of the per-watch webhooks above
     # (services/hooksubs.py is the validation layer): anyone may
     # register a callback for Recheck CHANGED events — feed-wide or
-    # filtered to one resource URL / one origin — with NO fleet
-    # operator gate. The caller's secret is the management
+    # filtered to one resource URL / one origin — gated by a live
+    # pack / Fleet Pass funding credential (no fleet operator gate).
+    # Rows created before the gate carry funding_kind NULL and are
+    # grandfathered as legacy. The caller's secret is the management
     # credential (list/delete present it) AND the HMAC signing key
     # for deliveries, which is why it is stored — exactly like the
     # per-watch table. Deliveries ride the same queue: a
@@ -1312,15 +1335,28 @@ class WatchStore:
         secret: str,
         filter_url: str | None,
         filter_origin: str | None,
+        funding_kind: str | None = None,
+        funding_id: str | None = None,
     ) -> dict:
         now = time.time()
         with self._lock:
             self._conn.execute(
                 "INSERT INTO recheck_webhook_subs (sub_id, "
                 "callback_url, secret, filter_url, filter_origin, "
-                "enabled, created_epoch, updated_epoch) VALUES "
-                "(?, ?, ?, ?, ?, 1, ?, ?)",
-                (sub_id, callback_url, secret, filter_url, filter_origin, now, now),
+                "enabled, created_epoch, updated_epoch, funding_kind, "
+                "funding_id, funding_status) VALUES "
+                "(?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 'ok')",
+                (
+                    sub_id,
+                    callback_url,
+                    secret,
+                    filter_url,
+                    filter_origin,
+                    now,
+                    now,
+                    funding_kind,
+                    funding_id,
+                ),
             )
             self._conn.commit()
         return self.get_webhook_sub(sub_id) or {}
@@ -1329,7 +1365,8 @@ class WatchStore:
         with self._lock:
             row = self._conn.execute(
                 "SELECT sub_id, callback_url, secret, filter_url, "
-                "filter_origin, enabled, created_epoch FROM "
+                "filter_origin, enabled, created_epoch, funding_kind, "
+                "funding_id, funding_status FROM "
                 "recheck_webhook_subs WHERE sub_id = ?",
                 (sub_id,),
             ).fetchone()
@@ -1343,7 +1380,23 @@ class WatchStore:
             "filter_origin": row[4],
             "enabled": bool(row[5]),
             "created_epoch": row[6],
+            "funding_kind": row[7],
+            "funding_id": row[8],
+            "funding_status": row[9] or "ok",
         }
+
+    def mark_webhook_sub_lapsed(self, sub_id: str) -> None:
+        """Disable a funded subscription whose credential no
+        longer validates at fan-out time, and stamp it lapsed."""
+        now = time.time()
+        with self._lock:
+            self._conn.execute(
+                "UPDATE recheck_webhook_subs SET enabled = 0, "
+                "funding_status = 'lapsed', updated_epoch = ? "
+                "WHERE sub_id = ?",
+                (now, sub_id),
+            )
+            self._conn.commit()
 
     def list_webhook_subs(self, secret: str) -> list[dict]:
         with self._lock:
@@ -3783,12 +3836,48 @@ def subscription_matches(sub: dict, url: str) -> bool:
     return True
 
 
+def _sub_funding_lapsed(store: WatchStore, sub: dict) -> bool:
+    """Re-validate a funded subscription's credential at fan-out.
+    Legacy subscriptions (funding_kind NULL, created before the
+    gate) skip this check and keep working. A funded sub is lapsed
+    when its credential no longer exists, has expired, or can no
+    longer cover one Recheck check (pack: credits < 1; pass:
+    balance below the /v1/recheck price)."""
+    kind = sub.get("funding_kind")
+    if not kind:
+        return False
+    funding_id = sub.get("funding_id")
+    if not funding_id:
+        return True
+    if kind == "pack":
+        pack = store.get_pack(funding_id)
+        return (
+            pack is None
+            or pack["expired"]
+            or pack["credits_remaining"] < 1
+        )
+    if kind == "fleet_pass":
+        from . import fleetpass as fleetpass_svc
+
+        price = fleetpass_svc.price_for("stall-row", "/v1/recheck")
+        fleet_pass = store.get_pass(funding_id)
+        return (
+            fleet_pass is None
+            or fleet_pass["expired"]
+            or price is None
+            or fleet_pass["balance_units"] < price
+        )
+    return True
+
+
 def queue_subscription_events(store: WatchStore, envelope: dict) -> list[int]:
     """Queue a CHANGED delivery for every enabled self-serve
     subscription whose filter matches (services/hooksubs.py
     registers them). Delivery ids returned; a subscription removed
     or disabled before send dead-letters readably at delivery time,
-    exactly like a removed per-watch config."""
+    exactly like a removed per-watch config. A funded subscription
+    whose credential has lapsed is NOT queued: it is disabled and
+    stamped funding_status 'lapsed' instead."""
     record = envelope["record"]
     if record.get("status") != "CHANGED":
         return []
@@ -3796,6 +3885,9 @@ def queue_subscription_events(store: WatchStore, envelope: dict) -> list[int]:
     out: list[int] = []
     for sub in store.enabled_webhook_subs():
         if not subscription_matches(sub, record["url"]):
+            continue
+        if _sub_funding_lapsed(store, sub):
+            store.mark_webhook_sub_lapsed(sub["sub_id"])
             continue
         sub_payload = dict(payload)
         sub_payload["event_id"] = f"{payload['event_id']}@{sub['sub_id']}"
