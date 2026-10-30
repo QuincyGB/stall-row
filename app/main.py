@@ -22,6 +22,14 @@ Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt
         POST /v1/internal/nudges (owner read, fleet-internal secret)
         POST /v1/internal/claims-history (claims history snapshot
              upload, fleet-internal secret)
+        GET  /v1/recheck/history[/<record_id>] (recorded checks as
+             feed-v2 envelopes — seq, record_id, hash chain)
+        GET  /v1/resource/timeline?url= (unified per-resource
+             timeline: Recheck events + RouteVerdict history +
+             catalogue snapshot state — see services/timeline.py)
+        POST /v1/internal/recheck/baseline/{pin,unpin,import} and
+             /v1/internal/recheck/webhooks[/deliveries] (watch
+             mutations, fleet-internal secret — see services/recheck.py)
 
 Recheck packs: POST /v1/recheck presenting a pack id (body field
 `pack_id` or X-Recheck-Pack header) spends a prepaid credit instead
@@ -93,6 +101,7 @@ from .services import probe as probe_svc
 from .services import reads as reads_svc
 from .services import recheck as recheck_svc
 from .services import rotalerts as rotalerts_svc
+from .services import timeline as timeline_svc
 from .services import watch as watch_svc
 from .services import scout as scout_svc
 from .services import seller as seller_svc
@@ -1120,7 +1129,7 @@ async def recheck_pack_balance(req: RecheckPackBalanceRequest):
 
 
 @app.get("/v1/recheck/feed")
-async def recheck_feed():
+async def recheck_feed(request: Request):
     """Free public feed of recent Recheck results: one JSON object
     per line (JSONL), newest first, bounded to the last
     recheck_svc.FEED_LIMIT recorded checks. This is the observatory
@@ -1131,10 +1140,157 @@ async def recheck_feed():
     before the history existed are seeded from the stored watch
     state and carry only the fields that state persisted (no
     status/changes/summary — see services/recheck.py). Empty
-    history returns an empty body with 200."""
-    records = _recheck_store.recent_checks()
-    body = "".join(json.dumps(r, sort_keys=True) + "\n" for r in records)
-    return PlainTextResponse(body, media_type="application/x-ndjson")
+    history returns an empty body with 200.
+
+    Feed v2 (additive, backwards compatible): with NO parameters
+    the body above is byte-identical to the original feed. Every
+    history record also carries a monotonically increasing seq, a
+    record_id, a schema_version, and a hash chain (prev_hash /
+    record_hash). Pass ?v=2 — or any of ?watch_id=, ?url=,
+    ?since_seq= — and each line is the envelope {seq, record_id,
+    schema_version, prev_hash, record_hash, record}. since_seq=N
+    is the cursor mode: records with seq > N, ascending, bounded by
+    ?limit= (default FEED_LIMIT, max 1000); seq continuity across
+    pages proves nothing was silently dropped. X-Recheck-Feed-
+    Latest-Seq and X-Recheck-Feed-Count headers ride on every
+    response so a poller can see the chain head either way."""
+    params = request.query_params
+    v2 = (
+        params.get("v") == "2"
+        or "watch_id" in params
+        or "url" in params
+        or "since_seq" in params
+    )
+    headers = {
+        "X-Recheck-Feed-Latest-Seq": str(_recheck_store.latest_seq()),
+        "X-Recheck-Feed-Count": str(_recheck_store.check_history_count()),
+    }
+    if not v2:
+        records = _recheck_store.recent_checks()
+        body = "".join(json.dumps(r, sort_keys=True) + "\n" for r in records)
+        return PlainTextResponse(
+            body, media_type="application/x-ndjson", headers=headers
+        )
+    try:
+        since_seq = (
+            int(params["since_seq"]) if "since_seq" in params else None
+        )
+        limit = int(params.get("limit", recheck_svc.FEED_LIMIT))
+    except ValueError:
+        return JSONResponse(
+            {"error": "since_seq and limit must be integers"},
+            status_code=422,
+        )
+    envelopes = _recheck_store.feed_rows(
+        watch_id=params.get("watch_id"),
+        url=params.get("url"),
+        since_seq=since_seq,
+        limit=limit,
+        ascending=since_seq is not None,
+    )
+    if envelopes:
+        headers["X-Recheck-Feed-First-Seq"] = str(envelopes[0]["seq"])
+        headers["X-Recheck-Feed-Last-Seq"] = str(envelopes[-1]["seq"])
+    body = "".join(json.dumps(e, sort_keys=True) + "\n" for e in envelopes)
+    return PlainTextResponse(
+        body, media_type="application/x-ndjson", headers=headers
+    )
+
+
+@app.get("/v1/recheck/history")
+async def recheck_history(request: Request):
+    """Free read of the recorded check history as feed-v2 envelopes
+    (oldest first): ?watch_id= and/or ?url= filter, ?limit= bounds
+    (default 100, max 1000). ?compare_seq=N adds a stateless
+    baseline comparison: the newest record in the filtered history
+    diffed against the record with seq N (which must be in the same
+    filtered history) — {changes, field_changes} computed on the
+    fly from the two stored fingerprints, nothing mutated."""
+    params = request.query_params
+    try:
+        limit = int(params.get("limit", 100))
+        compare_seq = (
+            int(params["compare_seq"]) if "compare_seq" in params else None
+        )
+    except ValueError:
+        return JSONResponse(
+            {"error": "limit and compare_seq must be integers"},
+            status_code=422,
+        )
+    envelopes = _recheck_store.feed_rows(
+        watch_id=params.get("watch_id"),
+        url=params.get("url"),
+        limit=limit,
+        ascending=True,
+    )
+    out: dict = {
+        "count": len(envelopes),
+        "latest_seq": _recheck_store.latest_seq(),
+        "records": envelopes,
+    }
+    pin_key = None
+    if params.get("watch_id") and params.get("url"):
+        pin_key = f"{params['watch_id']}\n{params['url']}"
+    if pin_key:
+        out["baseline_pin"] = _recheck_store.get_pin(pin_key)
+    if compare_seq is not None:
+        base = next(
+            (e for e in envelopes if e["seq"] == compare_seq), None
+        )
+        if base is None:
+            return JSONResponse(
+                {
+                    "error": "compare_seq is not in the filtered history",
+                },
+                status_code=404,
+            )
+        newest = envelopes[-1] if envelopes else None
+        if newest is None or newest["seq"] == compare_seq:
+            out["comparison"] = {
+                "against_seq": compare_seq,
+                "changes": [],
+                "field_changes": [],
+            }
+        else:
+            before = base["record"].get("current") or {}
+            after = newest["record"].get("current") or {}
+            out["comparison"] = {
+                "against_seq": compare_seq,
+                "against_checked_at": base["record"].get("checked_at"),
+                "changes": recheck_svc._diff(before, after),
+                "field_changes": recheck_svc.fingerprint_field_changes(
+                    before, after
+                ),
+            }
+    return out
+
+
+@app.get("/v1/recheck/history/{record_id}")
+async def recheck_history_record(record_id: str):
+    """One recorded check by record_id (or by seq, as ?seq=N on the
+    collection read) — the individual snapshot read behind the
+    history list."""
+    envelope = _recheck_store.record_by_id(record_id)
+    if envelope is None:
+        return JSONResponse({"error": "unknown record_id"}, status_code=404)
+    return envelope
+
+
+@app.get("/v1/resource/timeline")
+async def resource_timeline(url: str):
+    """Free unified per-resource timeline: Recheck events from this
+    service's history, RouteVerdict check events from that
+    service's free /v1/history read, and the resource's state in
+    the latest CDP catalogue snapshot held here — merged by time,
+    each section naming its source and whether it contributed (see
+    services/timeline.py). A source that cannot answer is reported
+    unavailable, never filled in."""
+    url = url.strip()
+    if not url:
+        return JSONResponse({"error": "url is required"}, status_code=422)
+    return await timeline_svc.build_timeline(
+        _fetch_client(), _recheck_store, _index_store, url
+    )
 
 
 # --- Fleet Pass ---------------------------------------------------------------
@@ -2127,6 +2283,178 @@ async def internal_claims_history(request: Request):
         "origins": len(origins),
         "defect_rows": rows,
     }
+
+
+# --- Recheck watch mutations (baseline pins/imports, change webhooks) ------------
+# Mutations on a watch's state, gated by the fleet-internal secret
+# exactly like /v1/internal/claims-history: secret unset = 404,
+# wrong secret = 403. Why not claim sessions: those bind to a
+# CLAIMED ORIGIN; a Recheck watch (watch_id + URL) has no owner
+# session in the existing model, so the internal secret is the only
+# existing credential that can authorize watch-level mutation
+# without inventing a new auth system. Reads stay public (the feed
+# already publishes the same records); only writes are gated.
+
+def _internal_gate(request: Request) -> JSONResponse | None:
+    secret = os.environ.get("FLEET_INTERNAL_SECRET", "")
+    if not secret:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    provided = request.headers.get("x-fleet-internal-secret", "")
+    if not hmac.compare_digest(provided, secret):
+        return JSONResponse(
+            {"detail": "fleet internal secret required"}, status_code=403
+        )
+    return None
+
+
+def _watch_key_of(watch_id: str | None, url: str) -> str:
+    wid = (watch_id or "").strip() or recheck_svc.default_watch_id(url.strip())
+    return f"{wid}\n{url.strip()}"
+
+
+class BaselinePinRequest(BaseModel):
+    watch_id: str | None = Field(default=None, description="Watch id; defaults to the URL's implicit watch")
+    url: str = Field(description="The watch's target URL")
+    seq: int = Field(description="History seq of the snapshot to pin as the baseline")
+
+
+class BaselineUnpinRequest(BaseModel):
+    watch_id: str | None = None
+    url: str
+
+
+class BaselineImportRequest(BaseModel):
+    watch_id: str | None = None
+    url: str
+    kind: str = Field(description="'x402' or 'web'")
+    current: dict = Field(description="The snapshot's fingerprint, in the shape Recheck stores")
+    checked_at: str = Field(description="ISO timestamp the snapshot claims")
+    source: str = Field(description="Where this snapshot came from (provenance, stored verbatim)")
+    schema_: dict | None = Field(
+        default=None,
+        alias="schema",
+        description="For x402 snapshots claiming a schema_hash: the raw output schema; it must hash to the claimed schema_hash or the import is refused",
+    )
+
+
+class ChangeWebhookRequest(BaseModel):
+    watch_id: str | None = None
+    url: str
+    webhook_url: str = Field(description="Public https URL; SSRF-checked before storing")
+    secret: str = Field(description="HMAC-SHA256 key for X-Recheck-Signature")
+    enabled: bool = True
+
+
+@app.post("/v1/internal/recheck/baseline/pin")
+async def internal_baseline_pin(req: BaselinePinRequest, request: Request):
+    """Pin one recorded history snapshot as the watch's baseline:
+    while pinned, recheck() diffs against the pinned fingerprint
+    instead of the latest state. The pin must name a record that
+    belongs to this watch."""
+    if (gate := _internal_gate(request)) is not None:
+        return gate
+    key = _watch_key_of(req.watch_id, req.url)
+    envelope = _recheck_store.pin_baseline(key, req.seq, source="internal-pin")
+    if envelope is None:
+        return JSONResponse(
+            {"error": "no history record with that seq for this watch"},
+            status_code=404,
+        )
+    return {"ok": True, "watch_key": key, "pin": _recheck_store.get_pin(key)}
+
+
+@app.post("/v1/internal/recheck/baseline/unpin")
+async def internal_baseline_unpin(req: BaselineUnpinRequest, request: Request):
+    if (gate := _internal_gate(request)) is not None:
+        return gate
+    key = _watch_key_of(req.watch_id, req.url)
+    removed = _recheck_store.unpin_baseline(key)
+    return {"ok": True, "watch_key": key, "was_pinned": removed}
+
+
+@app.post("/v1/internal/recheck/baseline/import")
+async def internal_baseline_import(req: BaselineImportRequest, request: Request):
+    """Import an external snapshot as a watch's baseline. The
+    snapshot is validated by recomputation BEFORE anything is
+    stored (services/recheck.py validate_imported_snapshot): an
+    x402 snapshot claiming a schema_hash must carry the raw schema
+    and the schema must hash to the claim — a forged import is a
+    loud 422 and stores nothing. What lands carries its provenance
+    (imported=true, source, imported_at)."""
+    if (gate := _internal_gate(request)) is not None:
+        return gate
+    try:
+        recheck_svc.validate_imported_snapshot(
+            req.kind, req.current, req.schema_
+        )
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    key = _watch_key_of(req.watch_id, req.url)
+    envelope = _recheck_store.import_baseline(
+        key, req.kind, req.current, req.checked_at, req.source.strip() or "unspecified"
+    )
+    return {"ok": True, "watch_key": key, "record": envelope}
+
+
+@app.post("/v1/internal/recheck/webhooks")
+async def internal_change_webhook(req: ChangeWebhookRequest, request: Request):
+    """Configure a watch's change webhook. The target must be a
+    public https URL under the fleet's SSRF discipline — checked
+    before storing and again at send time. On every CHANGED result
+    for the watch, the recorded event is POSTed signed with
+    HMAC-SHA256 (X-Recheck-Signature) over the raw body; deliveries
+    retry bounded, record every attempt, and dead-letter readably.
+    The secret is never echoed back."""
+    if (gate := _internal_gate(request)) is not None:
+        return gate
+    webhook_url = req.webhook_url.strip()
+    if not webhook_url.startswith("https://"):
+        return JSONResponse(
+            {"error": "webhook_url must be an https URL"}, status_code=422
+        )
+    try:
+        await asyncio.to_thread(fetch_svc.ssrf_check, webhook_url)
+    except ValueError as e:
+        return JSONResponse(
+            {"error": f"webhook_url refused by the SSRF guard: {e}"},
+            status_code=422,
+        )
+    if not req.secret.strip():
+        return JSONResponse(
+            {"error": "secret is required"}, status_code=422
+        )
+    key = _watch_key_of(req.watch_id, req.url)
+    _recheck_store.set_change_webhook(
+        key, webhook_url, req.secret, req.enabled
+    )
+    return {
+        "ok": True,
+        "watch_key": key,
+        "webhook_url": webhook_url,
+        "enabled": req.enabled,
+    }
+
+
+@app.get("/v1/internal/recheck/webhooks/deliveries")
+async def internal_change_deliveries(request: Request):
+    """Authenticated read of change-webhook deliveries (status,
+    attempts, last error, full payload) — where a dead_letter is
+    found and diagnosed. Optional ?watch_id= + ?url= scope it to
+    one watch."""
+    if (gate := _internal_gate(request)) is not None:
+        return gate
+    params = request.query_params
+    key = None
+    if params.get("url"):
+        key = _watch_key_of(params.get("watch_id"), params["url"])
+    try:
+        limit = int(params.get("limit", 50))
+    except ValueError:
+        return JSONResponse(
+            {"error": "limit must be an integer"}, status_code=422
+        )
+    deliveries = _recheck_store.list_change_deliveries(key, limit)
+    return {"count": len(deliveries), "deliveries": deliveries}
 
 
 # --- Human payment rail (internal mint) -------------------------------------------

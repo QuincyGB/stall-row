@@ -40,6 +40,20 @@ URL, kind, the stored fingerprint as `current`, checked_at). The
 per-check status/changes/summary of those earlier checks were
 never stored, so seeded records omit them — the feed serves what
 the store holds, never a reconstruction.
+
+Feed v2 + baselines + webhooks (2026-10-29, aicom improvements
+1–5): every history record also carries a seq, a record_id, and a
+hash chain (see FEED_SCHEMA_VERSION); the default feed body is
+unchanged, the envelope rides the v2 parameters. A baseline PIN
+(one recorded snapshot, internal-secret gated at the HTTP layer)
+governs a watch's diff while it exists; an imported baseline is
+validated by recomputation before it is stored and carries its
+provenance. Results carry a structured field_changes array beside
+the legacy changes[]. A watch may register one change webhook
+(internal-secret gated): CHANGED results — never BASELINE or
+UNCHANGED — are delivered as HMAC-signed events with bounded
+retries and a readable dead-letter. The unified per-resource
+timeline lives in services/timeline.py.
 """
 
 from __future__ import annotations
@@ -47,6 +61,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -104,6 +119,28 @@ _PACK_ID_PREFIX = "pack_"
 # The public feed's window: GET /v1/recheck/feed serves at most
 # this many of the most recent recorded check responses.
 FEED_LIMIT = 100
+
+# --- feed v2: sequence + hash chain -------------------------------------
+# Every history record also carries a monotonically increasing seq,
+# a record_id, a schema_version, and a hash chain (prev_hash /
+# record_hash over the record's canonical JSON). A poller reading
+# with ?since_seq= can advance a cursor and PROVE nothing was
+# silently dropped: seqs are continuous and each record_hash
+# commits to its content and its predecessor. The legacy default
+# feed shape (bare response objects) is unchanged; the envelope is
+# served when a v2 parameter is present (see main.py).
+FEED_SCHEMA_VERSION = 1
+_FEED_GENESIS = "genesis"
+
+
+def _canonical_record_json(record: dict) -> str:
+    return json.dumps(record, sort_keys=True, separators=(",", ":"))
+
+
+def _chain_hash(prev_hash: str, record: dict) -> str:
+    return hashlib.sha256(
+        f"{prev_hash}\n{_canonical_record_json(record)}".encode("utf-8")
+    ).hexdigest()
 
 # --- fleet check packs -----------------------------------------------------------
 #
@@ -493,8 +530,90 @@ class WatchStore:
                 )
                 """
             )
+            # Feed v2 (seq + hash chain), baseline pins, and the
+            # per-watch change webhooks. All additive: existing rows
+            # are backfilled deterministically by _backfill_chain.
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS feed_meta (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS recheck_baseline_pins (
+                    watch_key TEXT PRIMARY KEY,
+                    seq INTEGER NOT NULL,
+                    record_id TEXT NOT NULL,
+                    pinned_at TEXT NOT NULL,
+                    source TEXT
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS recheck_webhooks (
+                    watch_key TEXT PRIMARY KEY,
+                    webhook_url TEXT NOT NULL,
+                    secret TEXT NOT NULL,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    created_epoch REAL NOT NULL,
+                    updated_epoch REAL NOT NULL
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS recheck_webhook_deliveries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_id TEXT NOT NULL UNIQUE,
+                    watch_key TEXT NOT NULL,
+                    seq INTEGER,
+                    url TEXT,
+                    status TEXT NOT NULL,
+                    attempts INTEGER NOT NULL DEFAULT 0,
+                    last_http_status INTEGER,
+                    last_error TEXT,
+                    created_epoch REAL NOT NULL,
+                    updated_epoch REAL NOT NULL,
+                    payload_json TEXT NOT NULL
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS recheck_webhook_attempts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    delivery_id INTEGER NOT NULL,
+                    attempt_no INTEGER NOT NULL,
+                    epoch REAL NOT NULL,
+                    http_status INTEGER,
+                    error TEXT
+                )
+                """
+            )
+            cols = {
+                row[1]
+                for row in self._conn.execute(
+                    "PRAGMA table_info(recheck_history)"
+                )
+            }
+            for col, decl in (
+                ("seq", "INTEGER"),
+                ("record_id", "TEXT"),
+                ("schema_version", "INTEGER"),
+                ("prev_hash", "TEXT"),
+                ("record_hash", "TEXT"),
+            ):
+                if col not in cols:
+                    self._conn.execute(
+                        f"ALTER TABLE recheck_history ADD COLUMN {col} {decl}"
+                    )
             self._conn.commit()
         self._seed_history_from_watches()
+        self._backfill_chain()
 
     @property
     def path(self) -> str:
@@ -580,23 +699,131 @@ class WatchStore:
                 )
             self._conn.commit()
 
-    def record_check(self, response: dict) -> None:
-        """Append one COMPLETED check's response to the history.
-        Called by recheck() itself, so per-call, pack-spent, and
-        scheduled-watch checks are all recorded exactly once, with
-        the exact object the caller was answered with."""
+    # --- feed v2: chain state --------------------------------------
+    # feed_meta carries the chain head: next_seq + last record_hash.
+    # Backfill and live appends share _chain_locked so the chain is
+    # built exactly one way.
+
+    def _feed_meta(self, key: str) -> str | None:
+        row = self._conn.execute(
+            "SELECT value FROM feed_meta WHERE key = ?", (key,)
+        ).fetchone()
+        return row[0] if row else None
+
+    def _set_feed_meta(self, key: str, value: str) -> None:
+        self._conn.execute(
+            "INSERT OR REPLACE INTO feed_meta (key, value) VALUES (?, ?)",
+            (key, value),
+        )
+
+    def _backfill_chain(self) -> None:
+        """Assign seq/record_id/hashes to every history row that
+        lacks them, oldest first. Deterministic: the hash input is
+        the stored response JSON itself, so re-running (or running
+        on a copy of the store) reproduces the identical chain, and
+        a store whose rows are already chained is untouched."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, response_json, seq, record_hash "
+                "FROM recheck_history ORDER BY id ASC"
+            ).fetchall()
+            next_seq = self._feed_meta("next_seq")
+            seq = int(next_seq) if next_seq is not None else None
+            prev_hash = self._feed_meta("last_hash") or _FEED_GENESIS
+            if seq is None:
+                chained = [r for r in rows if r[2] is not None]
+                seq = (max(r[2] for r in chained) + 1) if chained else 1
+                if chained:
+                    head = max(chained, key=lambda r: r[2])
+                    prev_hash = head[3] or _FEED_GENESIS
+            for row_id, raw, row_seq, _rh in rows:
+                if row_seq is not None:
+                    continue
+                try:
+                    record = json.loads(raw)
+                except ValueError:
+                    continue
+                record_hash = _chain_hash(prev_hash, record)
+                record_id = f"rec_{record_hash[:24]}"
+                self._conn.execute(
+                    "UPDATE recheck_history SET seq = ?, record_id = ?, "
+                    "schema_version = ?, prev_hash = ?, record_hash = ? "
+                    "WHERE id = ?",
+                    (
+                        seq,
+                        record_id,
+                        FEED_SCHEMA_VERSION,
+                        prev_hash,
+                        record_hash,
+                        row_id,
+                    ),
+                )
+                prev_hash = record_hash
+                seq += 1
+            self._set_feed_meta("next_seq", str(seq))
+            self._set_feed_meta("last_hash", prev_hash)
+            self._conn.commit()
+
+    _HISTORY_COLS = (
+        "seq, record_id, schema_version, prev_hash, record_hash, response_json"
+    )
+
+    @classmethod
+    def _row_envelope(cls, row) -> dict | None:
+        try:
+            record = json.loads(row[5])
+        except ValueError:
+            return None
+        return {
+            "seq": row[0],
+            "record_id": row[1],
+            "schema_version": row[2],
+            "prev_hash": row[3],
+            "record_hash": row[4],
+            "record": record,
+        }
+
+    def record_check(self, response: dict) -> dict:
+        """Append one COMPLETED check's response to the history and
+        return its feed envelope ({seq, record_id, schema_version,
+        prev_hash, record_hash, record}). Called by recheck()
+        itself, so per-call, pack-spent, and scheduled-watch checks
+        are all recorded exactly once, with the exact object the
+        caller was answered with."""
         key = f"{response['watch_id']}\n{response['url']}"
         with self._lock:
+            next_seq = self._feed_meta("next_seq")
+            seq = int(next_seq) if next_seq is not None else 1
+            prev_hash = self._feed_meta("last_hash") or _FEED_GENESIS
+            record_hash = _chain_hash(prev_hash, response)
+            record_id = f"rec_{record_hash[:24]}"
             self._conn.execute(
                 "INSERT INTO recheck_history "
-                "(watch_key, checked_at, response_json) VALUES (?, ?, ?)",
+                "(watch_key, checked_at, response_json, seq, record_id, "
+                "schema_version, prev_hash, record_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     key,
                     response["checked_at"],
                     json.dumps(response, sort_keys=True),
+                    seq,
+                    record_id,
+                    FEED_SCHEMA_VERSION,
+                    prev_hash,
+                    record_hash,
                 ),
             )
+            self._set_feed_meta("next_seq", str(seq + 1))
+            self._set_feed_meta("last_hash", record_hash)
             self._conn.commit()
+        return {
+            "seq": seq,
+            "record_id": record_id,
+            "schema_version": FEED_SCHEMA_VERSION,
+            "prev_hash": prev_hash,
+            "record_hash": record_hash,
+            "record": response,
+        }
 
     def recent_checks(self, limit: int = FEED_LIMIT) -> list[dict]:
         """The feed window: the most recent recorded check
@@ -621,6 +848,351 @@ class WatchStore:
                 "SELECT COUNT(*) FROM recheck_history"
             ).fetchone()
         return int(row[0]) if row else 0
+
+    def latest_seq(self) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT MAX(seq) FROM recheck_history"
+            ).fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
+    @staticmethod
+    def _like_escape(text: str) -> str:
+        return (
+            text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+
+    def feed_rows(
+        self,
+        watch_id: str | None = None,
+        url: str | None = None,
+        since_seq: int | None = None,
+        limit: int = FEED_LIMIT,
+        ascending: bool = False,
+    ) -> list[dict]:
+        """History envelopes, filtered. Cursor mode (since_seq set)
+        is ascending by construction — the caller advances its
+        cursor to the last seq seen; continuity of seq across pages
+        is the no-silent-gap proof. Default order is newest first,
+        like the legacy feed."""
+        clauses: list[str] = []
+        params: list = []
+        if watch_id is not None and url is not None:
+            clauses.append("watch_key = ?")
+            params.append(f"{watch_id}\n{url}")
+        elif watch_id is not None:
+            clauses.append("watch_key LIKE ? ESCAPE '\\'")
+            params.append(f"{self._like_escape(watch_id)}\n%")
+        elif url is not None:
+            clauses.append("watch_key LIKE ? ESCAPE '\\'")
+            params.append(f"%\n{self._like_escape(url)}")
+        if since_seq is not None:
+            clauses.append("seq > ?")
+            params.append(int(since_seq))
+            ascending = True
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        order = "ASC" if ascending else "DESC"
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT {self._HISTORY_COLS} FROM recheck_history "
+                f"{where} ORDER BY seq {order} LIMIT ?",
+                (*params, max(1, min(int(limit), 1000))),
+            ).fetchall()
+        out = []
+        for row in rows:
+            env = self._row_envelope(row)
+            if env is not None:
+                out.append(env)
+        return out
+
+    def record_by_seq(self, seq: int) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                f"SELECT {self._HISTORY_COLS} FROM recheck_history "
+                "WHERE seq = ?",
+                (int(seq),),
+            ).fetchone()
+        return self._row_envelope(row) if row else None
+
+    def record_by_id(self, record_id: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                f"SELECT {self._HISTORY_COLS} FROM recheck_history "
+                "WHERE record_id = ?",
+                (record_id,),
+            ).fetchone()
+        return self._row_envelope(row) if row else None
+
+    def verify_chain(self) -> bool:
+        """Recompute the whole chain from the stored records; True
+        only when every seq is continuous from 1 and every hash
+        links. The feed's integrity claim, checkable in-process."""
+        with self._lock:
+            rows = self._conn.execute(
+                f"SELECT {self._HISTORY_COLS} FROM recheck_history "
+                "ORDER BY seq ASC"
+            ).fetchall()
+        prev_hash = _FEED_GENESIS
+        for expected_seq, row in enumerate(rows, start=1):
+            env = self._row_envelope(row)
+            if env is None or env["seq"] != expected_seq:
+                return False
+            if env["prev_hash"] != prev_hash:
+                return False
+            if env["record_hash"] != _chain_hash(prev_hash, env["record"]):
+                return False
+            prev_hash = env["record_hash"]
+        return True
+
+    # --- baseline pins + imports ------------------------------------
+    # A pin makes one recorded snapshot THE baseline a watch diffs
+    # against (recheck() consults pins before the latest-state row).
+    # Pins and imports are mutations: the HTTP layer gates them
+    # behind the fleet-internal secret (see main.py); the store just
+    # keeps the state honestly, provenance included.
+
+    def pin_baseline(self, watch_key: str, seq: int, source: str) -> dict | None:
+        env = self.record_by_seq(seq)
+        if env is None:
+            return None
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT watch_key FROM recheck_history WHERE seq = ?",
+                (int(seq),),
+            ).fetchone()
+            if row is None or row[0] != watch_key:
+                return None
+            self._conn.execute(
+                "INSERT OR REPLACE INTO recheck_baseline_pins "
+                "(watch_key, seq, record_id, pinned_at, source) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    watch_key,
+                    int(seq),
+                    env["record_id"],
+                    _now_iso(),
+                    source,
+                ),
+            )
+            self._conn.commit()
+        return env
+
+    def get_pin(self, watch_key: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT seq, record_id, pinned_at, source FROM "
+                "recheck_baseline_pins WHERE watch_key = ?",
+                (watch_key,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "seq": row[0],
+            "record_id": row[1],
+            "pinned_at": row[2],
+            "source": row[3],
+        }
+
+    def unpin_baseline(self, watch_key: str) -> bool:
+        with self._lock:
+            cur = self._conn.execute(
+                "DELETE FROM recheck_baseline_pins WHERE watch_key = ?",
+                (watch_key,),
+            )
+            self._conn.commit()
+        return cur.rowcount > 0
+
+    def pinned_baseline(self, watch_key: str) -> dict | None:
+        """The pinned record's stored state in the watches-table
+        shape ({kind, fingerprint, checked_at}), or None."""
+        pin = self.get_pin(watch_key)
+        if pin is None:
+            return None
+        env = self.record_by_seq(pin["seq"])
+        if env is None:
+            return None
+        record = env["record"]
+        fingerprint = record.get("current")
+        if not isinstance(fingerprint, dict):
+            return None
+        return {
+            "kind": record.get("kind"),
+            "fingerprint": fingerprint,
+            "checked_at": record.get("checked_at"),
+        }
+
+    def import_baseline(
+        self,
+        watch_key: str,
+        kind: str,
+        fingerprint: dict,
+        checked_at: str,
+        source: str,
+    ) -> dict:
+        """Store an externally supplied snapshot as the watch's
+        baseline: it lands in the history as a record carrying its
+        provenance (imported=true, source, imported_at) AND becomes
+        the watch's stored state, so the next check diffs against
+        it. Validation (fingerprint recomputation) happens in
+        validate_imported_snapshot BEFORE this is called."""
+        watch_id, _, url = watch_key.partition("\n")
+        record = {
+            "watch_id": watch_id,
+            "url": url,
+            "kind": kind,
+            "status": "BASELINE",
+            "changes": [],
+            "field_changes": [],
+            "current": fingerprint,
+            "checked_at": checked_at,
+            "summary": (
+                f"Baseline imported from {source}; the next check for "
+                "this watch diffs against this snapshot."
+            ),
+            "imported": True,
+            "provenance": {"source": source, "imported_at": _now_iso()},
+        }
+        envelope = self.record_check(record)
+        self.save(watch_key, kind, fingerprint, checked_at)
+        return envelope
+
+    # --- per-watch change webhooks -----------------------------------
+    # Config is a mutation (fleet-internal secret at the HTTP
+    # layer); delivery state is fully recorded — every attempt, and
+    # a terminal dead_letter after the bounded retries.
+
+    def set_change_webhook(
+        self,
+        watch_key: str,
+        webhook_url: str,
+        secret: str,
+        enabled: bool = True,
+    ) -> dict:
+        now = time.time()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO recheck_webhooks (watch_key, webhook_url, "
+                "secret, enabled, created_epoch, updated_epoch) "
+                "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(watch_key) DO "
+                "UPDATE SET webhook_url = excluded.webhook_url, "
+                "secret = excluded.secret, enabled = excluded.enabled, "
+                "updated_epoch = excluded.updated_epoch",
+                (watch_key, webhook_url, secret, 1 if enabled else 0, now, now),
+            )
+            self._conn.commit()
+        return self.get_change_webhook(watch_key) or {}
+
+    def get_change_webhook(self, watch_key: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT webhook_url, secret, enabled FROM "
+                "recheck_webhooks WHERE watch_key = ?",
+                (watch_key,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {"webhook_url": row[0], "secret": row[1], "enabled": bool(row[2])}
+
+    def queue_change_delivery(
+        self, event_id: str, watch_key: str, seq: int | None, url: str, payload: dict
+    ) -> int:
+        now = time.time()
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO recheck_webhook_deliveries (event_id, "
+                "watch_key, seq, url, status, created_epoch, "
+                "updated_epoch, payload_json) VALUES (?, ?, ?, ?, "
+                "'pending', ?, ?, ?)",
+                (
+                    event_id,
+                    watch_key,
+                    seq,
+                    url,
+                    now,
+                    now,
+                    json.dumps(payload, sort_keys=True),
+                ),
+            )
+            self._conn.commit()
+            return int(cur.lastrowid)
+
+    def get_change_delivery(self, delivery_id: int) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id, event_id, watch_key, seq, url, status, "
+                "attempts, last_http_status, last_error, payload_json "
+                "FROM recheck_webhook_deliveries WHERE id = ?",
+                (int(delivery_id),),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": row[0],
+            "event_id": row[1],
+            "watch_key": row[2],
+            "seq": row[3],
+            "url": row[4],
+            "status": row[5],
+            "attempts": row[6],
+            "last_http_status": row[7],
+            "last_error": row[8],
+            "payload": json.loads(row[9]),
+        }
+
+    def record_change_attempt(
+        self,
+        delivery_id: int,
+        http_status: int | None,
+        error: str | None,
+    ) -> int:
+        now = time.time()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT attempts FROM recheck_webhook_deliveries "
+                "WHERE id = ?",
+                (int(delivery_id),),
+            ).fetchone()
+            attempt_no = int(row[0]) + 1 if row else 1
+            self._conn.execute(
+                "INSERT INTO recheck_webhook_attempts (delivery_id, "
+                "attempt_no, epoch, http_status, error) VALUES "
+                "(?, ?, ?, ?, ?)",
+                (int(delivery_id), attempt_no, now, http_status, error),
+            )
+            self._conn.execute(
+                "UPDATE recheck_webhook_deliveries SET attempts = ?, "
+                "last_http_status = ?, last_error = ?, "
+                "updated_epoch = ? WHERE id = ?",
+                (attempt_no, http_status, error, now, int(delivery_id)),
+            )
+            self._conn.commit()
+        return attempt_no
+
+    def finish_change_delivery(self, delivery_id: int, status: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE recheck_webhook_deliveries SET status = ?, "
+                "updated_epoch = ? WHERE id = ?",
+                (status, time.time(), int(delivery_id)),
+            )
+            self._conn.commit()
+
+    def list_change_deliveries(
+        self, watch_key: str | None = None, limit: int = 50
+    ) -> list[dict]:
+        clause = "WHERE watch_key = ?" if watch_key else ""
+        params: tuple = (watch_key,) if watch_key else ()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id FROM recheck_webhook_deliveries "
+                f"{clause} ORDER BY id DESC LIMIT ?",
+                (*params, max(1, min(int(limit), 500))),
+            ).fetchall()
+        return [
+            d
+            for d in (self.get_change_delivery(r[0]) for r in rows)
+            if d is not None
+        ]
 
     # --- watch packs ---------------------------------------------------
     # Every pack mutation runs under the same lock as the watch state
@@ -2421,6 +2993,114 @@ def _diff(before: dict, after: dict) -> list[dict]:
     return changes
 
 
+# Structured field-level changes (additive to the legacy changes[]):
+# {path, op, before, after, severity, category} with the same op /
+# category vocabulary as RouteVerdict's diff. Derived from the
+# fingerprint components the store actually keeps. For schema_hash
+# the entry carries the hash before/after — the fingerprint stores
+# the schema's hash, not the schema itself, so field-level detail
+# INSIDE the target's schema is not available from Recheck (that is
+# RouteVerdict's contract map's job, and the timeline joins them).
+_FINGERPRINT_FIELD_CHANGES = {
+    # fingerprint field -> (category, severity)
+    "amount": ("payment", "medium"),
+    "payTo": ("payment", "high"),
+    "network": ("payment", "medium"),
+    "asset": ("payment", "medium"),
+    "schema_hash": ("schema", "medium"),
+    "description_hash": ("schema", "low"),
+    "body_sha256": ("schema", "medium"),
+    "status_code": ("listing", "high"),
+    "kind": ("schema", "medium"),
+}
+
+
+def fingerprint_field_changes(before: dict, after: dict) -> list[dict]:
+    out: list[dict] = []
+    for field in sorted(set(before) | set(after)):
+        b, a = before.get(field), after.get(field)
+        if b == a:
+            continue
+        category, severity = _FINGERPRINT_FIELD_CHANGES.get(
+            field, ("schema", "low")
+        )
+        out.append(
+            {
+                "path": field,
+                "op": "value_changed",
+                "before": b,
+                "after": a,
+                "severity": severity,
+                "category": category,
+            }
+        )
+    return out
+
+
+_HEX64 = frozenset("0123456789abcdef")
+
+
+def validate_imported_snapshot(
+    kind: str, fingerprint: dict, schema: dict | None = None
+) -> None:
+    """Validate a snapshot offered for baseline import by
+    RECOMPUTING what can be recomputed from its own fields. Raises
+    ValueError with the reason; a forged snapshot (e.g. a schema
+    that does not hash to the claimed schema_hash) never reaches
+    the store. For an x402 snapshot carrying a schema_hash, the raw
+    schema must be supplied and must hash to it — that is the
+    fingerprint component an importer can actually prove. A web
+    snapshot's body hash cannot be recomputed without the body, so
+    web imports are validated structurally only (documented limit).
+    """
+    if kind not in ("x402", "web"):
+        raise ValueError(f"kind must be 'x402' or 'web', got {kind!r}")
+    if not isinstance(fingerprint, dict):
+        raise ValueError("fingerprint must be an object")
+    status = fingerprint.get("status_code")
+    if not isinstance(status, int):
+        raise ValueError("fingerprint.status_code must be an integer")
+    if kind == "x402":
+        for field in (
+            "amount",
+            "asset",
+            "network",
+            "payTo",
+            "description_hash",
+            "schema_hash",
+        ):
+            if field not in fingerprint:
+                raise ValueError(f"fingerprint is missing {field!r}")
+        for field in ("description_hash", "schema_hash"):
+            value = fingerprint.get(field)
+            if value is not None and not (
+                isinstance(value, str)
+                and len(value) == 64
+                and all(c in _HEX64 for c in value.lower())
+            ):
+                raise ValueError(f"fingerprint.{field} must be a sha256 hex digest or null")
+        if fingerprint.get("schema_hash") is not None:
+            if schema is None:
+                raise ValueError(
+                    "this snapshot claims a schema_hash, so the raw "
+                    "schema must be supplied to recompute it"
+                )
+            recomputed = _hash_text(json.dumps(schema, sort_keys=True))
+            if recomputed != fingerprint["schema_hash"]:
+                raise ValueError(
+                    "supplied schema does not hash to the snapshot's "
+                    "schema_hash — import refused"
+                )
+    else:
+        body_hash = fingerprint.get("body_sha256")
+        if not (
+            isinstance(body_hash, str)
+            and len(body_hash) == 64
+            and all(c in _HEX64 for c in body_hash.lower())
+        ):
+            raise ValueError("fingerprint.body_sha256 must be a sha256 hex digest")
+
+
 async def recheck(
     client: httpx.AsyncClient,
     store: WatchStore,
@@ -2436,7 +3116,10 @@ async def recheck(
     key = f"{wid}\n{url}"
     kind, fingerprint = await _probe_fingerprint(client, url)
     checked_at = _now_iso()
-    prior = store.get(key)
+    # A pinned baseline governs the diff while a pin exists; the
+    # latest state still records every check, and unpinning returns
+    # the watch to diffing against its latest state.
+    prior = store.pinned_baseline(key) or store.get(key)
     if prior is None:
         store.save(key, kind, fingerprint, checked_at)
         result = {
@@ -2445,6 +3128,7 @@ async def recheck(
             "kind": kind,
             "status": "BASELINE",
             "changes": [],
+            "field_changes": [],
             "current": fingerprint,
             "checked_at": checked_at,
             "summary": (
@@ -2459,6 +3143,19 @@ async def recheck(
         changes.insert(
             0, {"field": "kind", "before": prior["kind"], "after": kind}
         )
+    field_changes = fingerprint_field_changes(prior["fingerprint"], fingerprint)
+    if prior["kind"] != kind:
+        field_changes.insert(
+            0,
+            {
+                "path": "kind",
+                "op": "value_changed",
+                "before": prior["kind"],
+                "after": kind,
+                "severity": "medium",
+                "category": "schema",
+            },
+        )
     store.save(key, kind, fingerprint, checked_at)
     if changes:
         fields = ", ".join(c["field"] for c in changes)
@@ -2468,6 +3165,7 @@ async def recheck(
             "kind": kind,
             "status": "CHANGED",
             "changes": changes,
+            "field_changes": field_changes,
             "current": fingerprint,
             "checked_at": checked_at,
             "summary": f"Changed since the previous check: {fields}.",
@@ -2479,11 +3177,14 @@ async def recheck(
             "kind": kind,
             "status": "UNCHANGED",
             "changes": [],
+            "field_changes": field_changes,
             "current": fingerprint,
             "checked_at": checked_at,
             "summary": "No material change since the previous check.",
         }
-    store.record_check(result)
+    envelope = store.record_check(result)
+    if result["status"] == "CHANGED":
+        _fire_change_webhook(client, store, envelope)
     return result
 
 
@@ -2513,3 +3214,149 @@ async def recheck_with_pack(
     result["pack_credits_remaining"] = reserved["credits_remaining"]
     result["pack_expires_at"] = reserved["expires_at"]
     return result
+
+
+# --- change webhooks ------------------------------------------------------
+# A watch may carry one webhook (config is fleet-internal-secret
+# gated at the HTTP layer). When a check for that watch answers
+# CHANGED — never BASELINE or UNCHANGED — the recorded history
+# envelope is delivered as a signed event: HMAC-SHA256 over the
+# exact raw body bytes, keyed with the watch's secret, carried in
+# X-Recheck-Signature beside X-Recheck-Event-Id. Delivery reuses
+# the fleet's SSRF discipline (public addresses only, re-checked
+# at send time), retries on a bounded backoff, records EVERY
+# attempt, and lands in dead_letter after the final failure, where
+# the authenticated deliveries read can see it.
+
+
+def _change_webhook_backoffs() -> list[float]:
+    raw = os.environ.get("STALLROW_RECHECK_WEBHOOK_BACKOFF_S", "1,4")
+    try:
+        waits = [max(0.0, float(p)) for p in raw.split(",") if p.strip()]
+    except ValueError:
+        waits = [1.0, 4.0]
+    return waits or [0.0]
+
+
+def change_event_payload(envelope: dict) -> dict:
+    record = envelope["record"]
+    return {
+        "event_id": f"evt_{envelope['record_id'][4:]}",
+        "event": "recheck.changed",
+        "seq": envelope["seq"],
+        "record_id": envelope["record_id"],
+        "record_hash": envelope["record_hash"],
+        "watch_id": record["watch_id"],
+        "url": record["url"],
+        "checked_at": record["checked_at"],
+        "field_changes": record.get("field_changes", []),
+        "record": record,
+    }
+
+
+def queue_change_event(store: WatchStore, envelope: dict) -> int | None:
+    """Queue a CHANGED delivery if this watch has an enabled
+    webhook. Returns the delivery id, or None (no config / disabled
+    / not a change) — in which case nothing is recorded, because
+    nothing was owed."""
+    record = envelope["record"]
+    if record.get("status") != "CHANGED":
+        return None
+    key = f"{record['watch_id']}\n{record['url']}"
+    cfg = store.get_change_webhook(key)
+    if cfg is None or not cfg["enabled"]:
+        return None
+    payload = change_event_payload(envelope)
+    return store.queue_change_delivery(
+        payload["event_id"], key, envelope["seq"], record["url"], payload
+    )
+
+
+async def deliver_change_event(
+    client: httpx.AsyncClient, store: WatchStore, delivery_id: int
+) -> dict:
+    """Attempt one queued delivery under the bounded retry
+    discipline, recording every attempt on the delivery row. A
+    target the SSRF guard refuses is dead on the first attempt —
+    retrying a deterministic refusal buys nothing."""
+    delivery = store.get_change_delivery(delivery_id)
+    if delivery is None:
+        return {"delivery_id": delivery_id, "status": "missing"}
+    cfg = store.get_change_webhook(delivery["watch_key"])
+    if cfg is None:
+        store.record_change_attempt(
+            delivery_id, None, "webhook configuration removed before delivery"
+        )
+        store.finish_change_delivery(delivery_id, "dead_letter")
+        return {"delivery_id": delivery_id, "status": "dead_letter"}
+    payload = delivery["payload"]
+    body = json.dumps(payload, sort_keys=True).encode("utf-8")
+    signature = hmac.new(
+        cfg["secret"].encode("utf-8"), body, hashlib.sha256
+    ).hexdigest()
+    headers = {
+        "content-type": "application/json",
+        "x-recheck-event-id": payload["event_id"],
+        "x-recheck-signature": f"sha256={signature}",
+    }
+    url = cfg["webhook_url"]
+    try:
+        await asyncio.to_thread(fetch_svc.ssrf_check, url)
+    except Exception as exc:  # noqa: BLE001 - refusal is a recorded outcome
+        store.record_change_attempt(
+            delivery_id, None, f"target refused by the SSRF guard: {exc}"
+        )
+        store.finish_change_delivery(delivery_id, "dead_letter")
+        return {"delivery_id": delivery_id, "status": "dead_letter"}
+    waits = _change_webhook_backoffs()
+    for attempt in range(len(waits) + 1):
+        try:
+            resp = await client.post(
+                url,
+                content=body,
+                headers=headers,
+                timeout=10.0,
+                follow_redirects=False,
+            )
+            ok = 200 <= resp.status_code < 300
+            store.record_change_attempt(
+                delivery_id,
+                resp.status_code,
+                None if ok else f"HTTP {resp.status_code}",
+            )
+            if ok:
+                store.finish_change_delivery(delivery_id, "delivered")
+                return {"delivery_id": delivery_id, "status": "delivered"}
+        except Exception as exc:  # noqa: BLE001 - recorded, then retried
+            store.record_change_attempt(
+                delivery_id, None, f"{type(exc).__name__}: {exc}"
+            )
+        if attempt < len(waits):
+            await asyncio.sleep(waits[attempt])
+    store.finish_change_delivery(delivery_id, "dead_letter")
+    return {"delivery_id": delivery_id, "status": "dead_letter"}
+
+
+def _fire_change_webhook(
+    client: httpx.AsyncClient, store: WatchStore, envelope: dict
+) -> None:
+    """Queue + schedule delivery from inside recheck(). Delivery
+    health never fails the check that produced the event: queueing
+    is synchronous (so the delivery row exists before the caller
+    returns), sending is a background task on the caller's client."""
+    try:
+        delivery_id = queue_change_event(store, envelope)
+    except Exception:  # noqa: BLE001 - the check already answered
+        log.exception("change webhook queueing failed")
+        return
+    if delivery_id is None:
+        return
+    try:
+        asyncio.get_running_loop().create_task(
+            deliver_change_event(client, store, delivery_id)
+        )
+    except RuntimeError:  # no running loop — row stays pending, readable
+        log.warning(
+            "change webhook delivery %s queued without a running loop",
+            delivery_id,
+        )

@@ -1707,6 +1707,10 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `GET {base_url}/.well-known/x402` — machine-readable manifest",
         f"- `POST {base_url}/v1/recheck/pack-balance` — a pack's credits + expiry (pack id required)",
         f"- `GET {base_url}/v1/recheck/feed` — recent Recheck results as JSONL, newest first (public observatory feed)",
+        f"- `GET {base_url}/v1/recheck/feed?v=2&since_seq=N` — feed v2: each line an envelope (seq, record_id, schema_version, prev_hash, record_hash, record); since_seq is the gap-proof cursor mode (ascending), watch_id / url filter",
+        f"- `GET {base_url}/v1/recheck/history` — recorded check history as envelopes, oldest first (?watch_id=, ?url=, ?compare_seq= for a stateless baseline comparison); `GET {base_url}/v1/recheck/history/<record_id>` — one snapshot",
+        f"- `GET {base_url}/v1/resource/timeline?url=` — unified per-resource timeline: Recheck events + RouteVerdict check history + CDP catalogue snapshot state, each source named",
+        "- Recheck results carry a structured `field_changes` array (path, op, before, after, severity, category) beside the legacy `changes[]`. Watch baselines can be pinned/imported and CHANGED results pushed to a signed per-watch webhook — both mutations are fleet-internal-secret gated (`/v1/internal/recheck/*`), never public writes",
     ]
     return "\n".join(lines) + "\n"
 
@@ -1735,6 +1739,8 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/health — free liveness check",
         f"- GET {base_url}/.well-known/x402 — manifest",
         f"- POST {base_url}/v1/recheck/pack-balance — free pack balance (pack id required)",
-        f"- GET {base_url}/v1/recheck/feed — free Recheck results feed (JSONL, newest first)",
+        f"- GET {base_url}/v1/recheck/feed — free Recheck results feed (JSONL, newest first); ?v=2&since_seq=N for the hash-chained cursor mode",
+        f"- GET {base_url}/v1/recheck/history — free recorded history (envelopes); /v1/recheck/history/<record_id> for one snapshot",
+        f"- GET {base_url}/v1/resource/timeline?url= — free unified per-resource timeline (Recheck + RouteVerdict + catalogue snapshot)",
     ]
     return "\n".join(lines) + "\n"

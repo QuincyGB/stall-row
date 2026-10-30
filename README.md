@@ -55,7 +55,19 @@ Recheck responses as JSONL (one object per line, newest first, last
 100), a public observatory feed: every completed check's exact
 response object, recorded in the store at check time. Checks from
 before the history existed are seeded from the stored watch state
-and carry only the fields that state persisted. Pack semantics: minting is idempotent on
+and carry only the fields that state persisted. Feed v2 (additive):
+every history record also carries a sequence number, a record_id,
+and a hash chain over its canonical content — `GET /v1/recheck/feed?v=2&since_seq=N`
+serves envelopes in gap-proof cursor mode (filters: `watch_id`,
+`url`); `GET /v1/recheck/history[/<record_id>]` reads the same
+records as JSON; `GET /v1/resource/timeline?url=` merges Recheck
+events, RouteVerdict's check history, and the latest CDP catalogue
+snapshot state for one resource, each source named. Recheck results
+carry a structured `field_changes` array beside the legacy
+`changes[]`. Baseline pins/imports and per-watch CHANGED webhooks
+(HMAC-signed, bounded retries, dead-lettered readably) exist behind
+the fleet-internal secret at `/v1/internal/recheck/*` — there is no
+public mutation endpoint. Pack semantics: minting is idempotent on
 the payment's EIP-3009 authorization nonce, so a re-presented payment
 returns the pack it already bought; a credit is reserved atomically
 before each check and refunded when the check itself fails (our
