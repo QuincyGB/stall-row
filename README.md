@@ -67,7 +67,30 @@ carry a structured `field_changes` array beside the legacy
 `changes[]`. Baseline pins/imports and per-watch CHANGED webhooks
 (HMAC-signed, bounded retries, dead-lettered readably) exist behind
 the fleet-internal secret at `/v1/internal/recheck/*` — there is no
-public mutation endpoint. Pack semantics: minting is idempotent on
+public mutation endpoint. Improvements 6–10 (2026-10-29):
+`GET /v1/recheck/fingerprint-spec` publishes the fingerprint
+specification exactly as implemented — canonicalization rules plus
+test vectors whose expected hashes the test suite recomputes with
+the production functions, so the spec cannot drift from the code.
+Every completed check's record now also carries a `probe` object
+(latency_ms, attempts, redirect_count, error_class — null on
+success — and a flapping assessment over the watch's last 6 checks)
+and, when the catalogue index store is readable at check time, a
+`catalogue_crosscheck` frozen into the record (listed?, per-field
+match/mismatch/not_listed/unknown for amount, payTo, network,
+overall verdict). `GET /v1/sandbox/x402` is a TEST FIXTURE — not a
+priced route, never listed for sale — serving a mutable x402
+challenge whose terms move only through the gated
+`POST /v1/internal/sandbox/mutate` (set_price, flip_schema_type,
+add_required, remove_required, set_payto, reset), so integrators
+can rehearse BASELINE → CHANGED detection without spending.
+`GET /v1/recheck/corrections` serves the append-only corrections
+log: a gated `POST /v1/internal/recheck/corrections` amends a
+record's fields in a separate row linked to its record_id +
+record_hash; the original record is never mutated, the feed hash
+chain stays verifiable (corrections live outside it), and the feed,
+history, and timeline surface corrections beside the record they
+amend. Pack semantics: minting is idempotent on
 the payment's EIP-3009 authorization nonce, so a re-presented payment
 returns the pack it already bought; a credit is reserved atomically
 before each check and refunded when the check itself fails (our

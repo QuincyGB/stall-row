@@ -188,7 +188,7 @@ async def verify_agent_card(
 
     # Fetch the card under the probe's SSRF discipline.
     try:
-        status, _headers, body = await recheck_svc._get_once(client, card_url, "GET")
+        status, _headers, body, _redirs = await recheck_svc._get_once(client, card_url, "GET")
     except Exception as e:  # noqa: BLE001 — unreachable card = unsettled error
         raise UpstreamError(f"agent card unreachable: {e}") from e
     if status != 200 or not body:
@@ -226,7 +226,7 @@ async def verify_agent_card(
     for entry in endpoints:
         url = entry["url"]
         try:
-            pstatus, pheaders, pbody = await recheck_svc._probe(client, url)
+            pstatus, pheaders, pbody, _meta = await recheck_svc._probe(client, url)
             challenge = (
                 recheck_svc._parse_challenge(pheaders, pbody)
                 if pstatus == 402

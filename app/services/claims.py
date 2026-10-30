@@ -298,7 +298,7 @@ async def _fetch_public(
     except ValueError as e:
         raise ClaimError("origin_refused", str(e), 422) from e
     try:
-        status, _headers, body = await asyncio.wait_for(
+        status, _headers, body, _redirs = await asyncio.wait_for(
             recheck_svc._get_once(client, url, "GET"),
             timeout=_FETCH_TIMEOUT_S,
         )

@@ -142,7 +142,7 @@ async def _fetch_doc(client: httpx.AsyncClient, url: str) -> tuple[int | None, d
     """GET a JSON document under the probe's SSRF discipline.
     Returns (status, parsed_json_or_None); (None, None) on failure."""
     try:
-        status, _headers, body = await recheck_svc._get_once(client, url, "GET")
+        status, _headers, body, _redirs = await recheck_svc._get_once(client, url, "GET")
     except Exception:  # noqa: BLE001 — unreachable doc = data, not a crash
         return None, None
     parsed = None
@@ -198,7 +198,7 @@ async def grade_stall(
     challenge = None
     probe_status = None
     try:
-        status, headers, body = await recheck_svc._probe(client, resource_url)
+        status, headers, body, _meta = await recheck_svc._probe(client, resource_url)
         probe_status = status
         if status == 402:
             challenge = recheck_svc._parse_challenge(headers, body)

@@ -1710,7 +1710,10 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `GET {base_url}/v1/recheck/feed?v=2&since_seq=N` — feed v2: each line an envelope (seq, record_id, schema_version, prev_hash, record_hash, record); since_seq is the gap-proof cursor mode (ascending), watch_id / url filter",
         f"- `GET {base_url}/v1/recheck/history` — recorded check history as envelopes, oldest first (?watch_id=, ?url=, ?compare_seq= for a stateless baseline comparison); `GET {base_url}/v1/recheck/history/<record_id>` — one snapshot",
         f"- `GET {base_url}/v1/resource/timeline?url=` — unified per-resource timeline: Recheck events + RouteVerdict check history + CDP catalogue snapshot state, each source named",
-        "- Recheck results carry a structured `field_changes` array (path, op, before, after, severity, category) beside the legacy `changes[]`. Watch baselines can be pinned/imported and CHANGED results pushed to a signed per-watch webhook — both mutations are fleet-internal-secret gated (`/v1/internal/recheck/*`), never public writes",
+        f"- `GET {base_url}/v1/recheck/fingerprint-spec` — the Recheck fingerprint specification (canonicalization rules + test vectors), published exactly as implemented; the vectors are asserted against the production code by the test suite",
+        f"- `GET {base_url}/v1/recheck/corrections` — the append-only corrections log: amendments to history records, served beside the originals (originals are never mutated; writes are fleet-internal-secret gated)",
+        f"- `GET {base_url}/v1/sandbox/x402` — TEST FIXTURE, not a service: a mutable x402 challenge for rehearsing Recheck change detection (flip its schema/price via the gated internal mutation; nothing is sold and no payment settles)",
+        "- Recheck results carry a structured `field_changes` array (path, op, before, after, severity, category) beside the legacy `changes[]`, a `probe` object (latency_ms, attempts, redirect_count, error_class, flapping) and — when the catalogue snapshot is readable — a `catalogue_crosscheck` frozen at check time. Watch baselines can be pinned/imported and CHANGED results pushed to a signed per-watch webhook — both mutations are fleet-internal-secret gated (`/v1/internal/recheck/*`), never public writes",
     ]
     return "\n".join(lines) + "\n"
 
@@ -1742,5 +1745,8 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/v1/recheck/feed — free Recheck results feed (JSONL, newest first); ?v=2&since_seq=N for the hash-chained cursor mode",
         f"- GET {base_url}/v1/recheck/history — free recorded history (envelopes); /v1/recheck/history/<record_id> for one snapshot",
         f"- GET {base_url}/v1/resource/timeline?url= — free unified per-resource timeline (Recheck + RouteVerdict + catalogue snapshot)",
+        f"- GET {base_url}/v1/recheck/fingerprint-spec — free fingerprint spec + test vectors, exactly as implemented",
+        f"- GET {base_url}/v1/recheck/corrections — free append-only corrections log (originals never mutated)",
+        f"- GET {base_url}/v1/sandbox/x402 — TEST FIXTURE (not a service, never listed for sale): a mutable x402 challenge for Recheck ingestion rehearsal",
     ]
     return "\n".join(lines) + "\n"

@@ -30,6 +30,17 @@ Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt
         POST /v1/internal/recheck/baseline/{pin,unpin,import} and
              /v1/internal/recheck/webhooks[/deliveries] (watch
              mutations, fleet-internal secret — see services/recheck.py)
+        GET  /v1/recheck/fingerprint-spec (the fingerprint spec +
+             test vectors, exactly as implemented — see
+             services/fingerprint_spec.py)
+        GET  /v1/recheck/corrections (the append-only corrections
+             log; POST /v1/internal/recheck/corrections is the
+             fleet-internal-secret-gated write)
+        GET  /v1/sandbox/x402 (TEST FIXTURE: a mutable x402
+             challenge for ingestion rehearsal — not a priced
+             route, never listed; mutate it via the gated
+             POST /v1/internal/sandbox/mutate — see
+             services/sandbox.py)
 
 Recheck packs: POST /v1/recheck presenting a pack id (body field
 `pack_id` or X-Recheck-Pack header) spends a prepaid credit instead
@@ -61,6 +72,7 @@ for _var in ("no_proxy", "NO_PROXY"):
 
 import httpx
 import asyncio
+import base64
 import hashlib
 import hmac
 import json
@@ -99,8 +111,10 @@ from .services import orchestrate as orchestrate_svc
 from .services import pretrade as pretrade_svc
 from .services import probe as probe_svc
 from .services import reads as reads_svc
+from .services import fingerprint_spec as fingerprint_spec_svc
 from .services import recheck as recheck_svc
 from .services import rotalerts as rotalerts_svc
+from .services import sandbox as sandbox_svc
 from .services import timeline as timeline_svc
 from .services import watch as watch_svc
 from .services import scout as scout_svc
@@ -1061,7 +1075,8 @@ async def recheck(req: RecheckRequest, request: Request):
     if pack_id:
         try:
             return await recheck_svc.recheck_with_pack(
-                _fetch_client(), _recheck_store, req.url, req.watch_id, pack_id
+                _fetch_client(), _recheck_store, req.url, req.watch_id,
+                pack_id, index_store=_index_store,
             )
         except recheck_svc.PackError as e:
             return JSONResponse(
@@ -1078,7 +1093,8 @@ async def recheck(req: RecheckRequest, request: Request):
 
     async def go():
         return await recheck_svc.recheck(
-            _fetch_client(), _recheck_store, req.url, req.watch_id
+            _fetch_client(), _recheck_store, req.url, req.watch_id,
+            index_store=_index_store,
         )
 
     return await _run(go)
@@ -1276,6 +1292,61 @@ async def recheck_history_record(record_id: str):
     return envelope
 
 
+@app.get("/v1/recheck/fingerprint-spec")
+async def recheck_fingerprint_spec():
+    """Free machine-readable specification of the Recheck
+    fingerprint, exactly as implemented (improvement 6): the
+    canonicalization rules for the x402 and web fingerprints plus
+    test vectors whose expected hashes the test suite recomputes
+    with the production functions — the spec cannot drift from the
+    code without a test breaking (services/fingerprint_spec.py)."""
+    return fingerprint_spec_svc.fingerprint_spec()
+
+
+@app.get("/v1/recheck/corrections")
+async def recheck_corrections(request: Request):
+    """Free public read of the corrections log (improvement 10):
+    append-only amendments to history records. The originals are
+    never mutated — this log is where a wrong field is put right,
+    in the open. ?record_id= scopes it to one record; ?limit=
+    bounds (default 100). An empty list is a normal state."""
+    params = request.query_params
+    try:
+        limit = int(params.get("limit", 100))
+    except ValueError:
+        return JSONResponse(
+            {"error": "limit must be an integer"}, status_code=422
+        )
+    corrections = _recheck_store.list_corrections(
+        params.get("record_id"), limit
+    )
+    return {"count": len(corrections), "corrections": corrections}
+
+
+@app.get("/v1/sandbox/x402")
+async def sandbox_x402(request: Request):
+    """The Recheck sandbox: a TEST FIXTURE (improvement 7) serving a
+    proper x402 402 challenge in the fleet's normal format, whose
+    terms an operator can mutate through the internal-secret gate
+    (POST /v1/internal/sandbox/mutate) so integrators can rehearse
+    change detection — BASELINE, flip a schema type, CHANGED, raise
+    the price, CHANGED — without spending anything or waiting for a
+    real seller to move. NOT a priced route, NOT listed anywhere as
+    a sellable resource, and no payment is ever settled against it:
+    the challenge exists only to be fingerprinted."""
+    state = sandbox_svc.current_state(_recheck_store, settings.pay_to)
+    challenge = sandbox_svc.build_challenge(state, str(request.url))
+    return JSONResponse(
+        challenge,
+        status_code=402,
+        headers={
+            "payment-required": base64.b64encode(
+                json.dumps(challenge).encode("utf-8")
+            ).decode("ascii")
+        },
+    )
+
+
 @app.get("/v1/resource/timeline")
 async def resource_timeline(url: str):
     """Free unified per-resource timeline: Recheck events from this
@@ -1428,7 +1499,7 @@ async def watch_run(req: WatchIdRequest):
     reg = _recheck_store.get_watch_reg(req.watch_reg_id.strip())
     if reg is None:
         return JSONResponse({"error": "unknown watch_reg_id"}, status_code=404)
-    return await watch_svc.run_watch(_fetch_client(), _recheck_store, reg)
+    return await watch_svc.run_watch(_fetch_client(), _recheck_store, reg, index_store=_index_store)
 
 
 async def _run_rotation_alerts() -> None:
@@ -1493,7 +1564,8 @@ async def _watch_ticker() -> None:
             for reg in _recheck_store.due_watch_regs():
                 try:
                     await watch_svc.run_watch(
-                        _fetch_client(), _recheck_store, reg
+                        _fetch_client(), _recheck_store, reg,
+                        index_store=_index_store,
                     )
                 except Exception:  # noqa: BLE001 — one watch must not kill the loop
                     log.exception("watch run failed for %s", reg["watch_reg_id"])
@@ -2457,6 +2529,77 @@ async def internal_change_deliveries(request: Request):
     return {"count": len(deliveries), "deliveries": deliveries}
 
 
+class CorrectionRequest(BaseModel):
+    record_id: str | None = Field(default=None, description="The record to correct, by record_id…")
+    seq: int | None = Field(default=None, description="…or by feed seq (record_id wins when both are sent)")
+    reason: str = Field(description="Why this correction exists (stored verbatim, served publicly)")
+    corrected_fields: dict = Field(description="Object of field -> corrected value; the original record is NOT modified")
+    source: str | None = Field(default=None, description="Where the correction came from (provenance)")
+
+
+@app.post("/v1/internal/recheck/corrections")
+async def internal_recheck_correction(req: CorrectionRequest, request: Request):
+    """Append a correction to a history record (improvement 10).
+    Internal-secret gated like every watch mutation here. The
+    original record is never mutated — the correction is its own
+    row, linked to the record_id + record_hash it amends, served
+    publicly at GET /v1/recheck/corrections and surfaced beside the
+    record in the feed, history, and timeline. The feed hash chain
+    covers records as recorded and stays verifiable; corrections
+    live outside it by design."""
+    if (gate := _internal_gate(request)) is not None:
+        return gate
+    if not req.reason.strip():
+        return JSONResponse({"error": "reason is required"}, status_code=422)
+    if not req.corrected_fields:
+        return JSONResponse(
+            {"error": "corrected_fields must name at least one field"},
+            status_code=422,
+        )
+    ref: str | int | None = req.record_id or req.seq
+    if ref is None:
+        return JSONResponse(
+            {"error": "record_id or seq is required"}, status_code=422
+        )
+    correction = _recheck_store.add_correction(
+        ref, req.reason.strip(), req.corrected_fields,
+        (req.source or "").strip() or None,
+    )
+    if correction is None:
+        return JSONResponse({"error": "unknown record"}, status_code=404)
+    return {"ok": True, "correction": correction}
+
+
+class SandboxMutateRequest(BaseModel):
+    op: str = Field(description="set_price | flip_schema_type | add_required | remove_required | set_payto | reset")
+    amount: str | None = Field(default=None, description="set_price: new amount in base units")
+    field: str | None = Field(default=None, description="flip_schema_type / add_required / remove_required: schema field name")
+    pay_to: str | None = Field(default=None, description="set_payto: the new payTo address (operator-set, fleet-controlled)")
+
+
+@app.post("/v1/internal/sandbox/mutate")
+async def internal_sandbox_mutate(req: SandboxMutateRequest, request: Request):
+    """Mutate the sandbox fixture's terms (improvement 7).
+    Internal-secret gated; a refused mutation is a loud 422 and
+    stores nothing. The sandbox is a test fixture — see
+    GET /v1/sandbox/x402 — and this endpoint is the only way its
+    terms move."""
+    if (gate := _internal_gate(request)) is not None:
+        return gate
+    params = {
+        "amount": req.amount,
+        "field": req.field,
+        "pay_to": req.pay_to,
+    }
+    try:
+        view = sandbox_svc.apply_mutation(
+            _recheck_store, req.op.strip(), params, settings.pay_to
+        )
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    return {"ok": True, "op": req.op.strip(), "sandbox": view}
+
+
 # --- Human payment rail (internal mint) -------------------------------------------
 # A buyer who cannot pay via x402 sends exactly $5.00 USDC on Base
 # directly to the payTo wallet; the payment-rail watcher
@@ -2590,7 +2733,7 @@ async def _stall_pay_to(stall: str) -> str | None:
     opt-out verifier's ground truth for who controls that stall.
     Fetched under the recheck prober's SSRF discipline."""
     try:
-        status, _headers, body = await recheck_svc._get_once(
+        status, _headers, body, _redirs = await recheck_svc._get_once(
             _fetch_client(), f"{stall.rstrip('/')}/.well-known/x402", "GET"
         )
     except Exception:  # noqa: BLE001 — an unreadable doc proves nothing

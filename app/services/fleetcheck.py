@@ -171,7 +171,7 @@ async def _fetch_discovery(
     resource URLs). Any failure returns ({}, []) — a missing or
     broken declaration is data for the sweep, not an error."""
     try:
-        status, _headers, body = await recheck_svc._get_once(
+        status, _headers, body, _redirs = await recheck_svc._get_once(
             client, f"{origin}/.well-known/x402", "GET"
         )
     except Exception:  # noqa: BLE001 — unreachable doc = no declarations
@@ -209,9 +209,9 @@ async def _fetch_discovery(
 async def _attempt(client: httpx.AsyncClient, url: str):
     """POST first (x402 resources live behind POST); a 405/501 falls
     back to GET — the recheck prober's discipline, unchanged."""
-    status, headers, body = await recheck_svc._get_once(client, url, "POST")
+    status, headers, body, _redirs = await recheck_svc._get_once(client, url, "POST")
     if status in (405, 501):
-        status, headers, body = await recheck_svc._get_once(client, url, "GET")
+        status, headers, body, _redirs = await recheck_svc._get_once(client, url, "GET")
     return status, headers, body
 
 

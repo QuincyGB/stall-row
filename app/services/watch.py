@@ -159,6 +159,7 @@ async def run_watch(
     client: httpx.AsyncClient,
     store: recheck_svc.WatchStore,
     reg: dict,
+    index_store=None,
 ) -> dict:
     """One funded check for one registration, plus the push when the
     status warrants it. Funding refusals are returned (not raised) as
@@ -168,7 +169,8 @@ async def run_watch(
     try:
         if reg["funding_kind"] == "pack":
             result = await recheck_svc.recheck_with_pack(
-                client, store, url, reg["watch_reg_id"], reg["funding_id"]
+                client, store, url, reg["watch_reg_id"], reg["funding_id"],
+                index_store=index_store,
             )
         else:
             price = fleetpass_svc.price_for("stall-row", "/v1/recheck")
@@ -178,7 +180,8 @@ async def run_watch(
             )
             debit_id = debit["debit_id"]
             result = await recheck_svc.recheck(
-                client, store, url, reg["watch_reg_id"]
+                client, store, url, reg["watch_reg_id"],
+                index_store=index_store,
             )
     except recheck_svc.PackError as e:
         store.update_watch_run(reg["watch_reg_id"], "funding_failed")

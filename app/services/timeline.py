@@ -78,6 +78,9 @@ async def build_timeline(
                 "changes": record.get("changes", []),
                 "field_changes": record.get("field_changes", []),
                 "current": record.get("current"),
+                # Improvement 10: corrections surface beside the
+                # event they amend (the record itself is untouched).
+                "corrections": env.get("corrections", []),
             }
         )
     sources["recheck"] = "ok" if rows else "no_records"

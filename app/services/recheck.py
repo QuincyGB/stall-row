@@ -54,6 +54,21 @@ the legacy changes[]. A watch may register one change webhook
 UNCHANGED — are delivered as HMAC-signed events with bounded
 retries and a readable dead-letter. The unified per-resource
 timeline lives in services/timeline.py.
+
+Improvements 6–10 (2026-10-29): the fingerprint specification is
+published as implemented (services/fingerprint_spec.py, served at
+GET /v1/recheck/fingerprint-spec, test vectors asserted against
+these very functions); a mutable sandbox fixture lives in
+services/sandbox.py (state in this store, mutations internal-
+secret gated); every completed check's record carries a `probe`
+object (latency / attempts / redirects / flapping — only what the
+probe engine actually measures; failed probes still raise and are
+never recorded, so their metadata exists nowhere) and, when the
+caller supplies the catalogue index store, a `catalogue_crosscheck`
+frozen at check time; and history records can be CORRECTED through
+an append-only corrections table — the original record is never
+mutated, corrections live outside the feed hash chain, and every
+read surfaces them beside the record they amend.
 """
 
 from __future__ import annotations
@@ -594,6 +609,40 @@ class WatchStore:
                 )
                 """
             )
+            # Corrections (improvement 10): append-only amendments
+            # to history records. The original record's stored JSON
+            # is NEVER touched — a correction is its own row, linked
+            # to the record_id + record_hash it amends, and lives
+            # outside the feed hash chain (the chain commits to the
+            # records as recorded; corrections are served beside
+            # them, never inside them).
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS recheck_corrections (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    correction_id TEXT NOT NULL UNIQUE,
+                    record_id TEXT NOT NULL,
+                    seq INTEGER,
+                    record_hash TEXT,
+                    reason TEXT NOT NULL,
+                    corrected_fields_json TEXT NOT NULL,
+                    source TEXT,
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
+            # Sandbox fixture state (improvement 7): one row, the
+            # mutable terms of the clearly-labelled test resource
+            # in services/sandbox.py. Mutations are internal-secret
+            # gated at the HTTP layer.
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS sandbox_state (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    state_json TEXT NOT NULL
+                )
+                """
+            )
             cols = {
                 row[1]
                 for row in self._conn.execute(
@@ -768,8 +817,31 @@ class WatchStore:
         "seq, record_id, schema_version, prev_hash, record_hash, response_json"
     )
 
-    @classmethod
-    def _row_envelope(cls, row) -> dict | None:
+    def _corrections_for_locked(self, record_id: str) -> list[dict]:
+        """Corrections amending one record, oldest first. Caller
+        holds the store lock (every envelope read path does)."""
+        rows = self._conn.execute(
+            "SELECT correction_id, record_id, seq, record_hash, "
+            "reason, corrected_fields_json, source, created_at "
+            "FROM recheck_corrections WHERE record_id = ? "
+            "ORDER BY id ASC",
+            (record_id,),
+        ).fetchall()
+        return [
+            {
+                "correction_id": r[0],
+                "record_id": r[1],
+                "seq": r[2],
+                "record_hash": r[3],
+                "reason": r[4],
+                "corrected_fields": json.loads(r[5]),
+                "source": r[6],
+                "created_at": r[7],
+            }
+            for r in rows
+        ]
+
+    def _row_envelope(self, row) -> dict | None:
         try:
             record = json.loads(row[5])
         except ValueError:
@@ -781,6 +853,9 @@ class WatchStore:
             "prev_hash": row[3],
             "record_hash": row[4],
             "record": record,
+            # Improvement 10: amendments ride BESIDE the record in
+            # every envelope read — the record itself is untouched.
+            "corrections": self._corrections_for_locked(row[1]),
         }
 
     def record_check(self, response: dict) -> dict:
@@ -823,23 +898,32 @@ class WatchStore:
             "prev_hash": prev_hash,
             "record_hash": record_hash,
             "record": response,
+            "corrections": [],
         }
 
     def recent_checks(self, limit: int = FEED_LIMIT) -> list[dict]:
         """The feed window: the most recent recorded check
-        responses, newest first."""
+        responses, newest first. A record that carries corrections
+        surfaces them under a `corrections` key attached at serve
+        time — the stored JSON is never rewritten, and uncorrected
+        records keep the exact legacy shape."""
         with self._lock:
             rows = self._conn.execute(
-                "SELECT response_json FROM recheck_history "
+                "SELECT response_json, record_id FROM recheck_history "
                 "ORDER BY id DESC LIMIT ?",
                 (max(1, min(int(limit), 500)),),
             ).fetchall()
         out = []
-        for (raw,) in rows:
+        for raw, record_id in rows:
             try:
-                out.append(json.loads(raw))
+                record = json.loads(raw)
             except ValueError:
                 continue
+            if record_id:
+                corrections = self.corrections_for(record_id)
+                if corrections:
+                    record["corrections"] = corrections
+            out.append(record)
         return out
 
     def check_history_count(self) -> int:
@@ -1193,6 +1277,125 @@ class WatchStore:
             for d in (self.get_change_delivery(r[0]) for r in rows)
             if d is not None
         ]
+
+    # --- corrections (append-only amendments, improvement 10) --------
+    # A correction NEVER mutates the record it amends: the stored
+    # response JSON keeps its exact bytes (the feed hash chain stays
+    # verifiable), and the amendment lives in its own table, linked
+    # by record_id + the record_hash it corrects. The mutation is
+    # internal-secret gated at the HTTP layer; reads are public.
+
+    def corrections_for(self, record_id: str) -> list[dict]:
+        with self._lock:
+            return self._corrections_for_locked(record_id)
+
+    def add_correction(
+        self,
+        record_ref: str | int,
+        reason: str,
+        corrected_fields: dict,
+        source: str | None = None,
+    ) -> dict | None:
+        """Append a correction for the record named by record_id
+        (str) or seq (int). Returns the correction, or None when no
+        such record exists. The original record is not touched."""
+        if isinstance(record_ref, int) or (
+            isinstance(record_ref, str) and record_ref.isdigit()
+        ):
+            env = self.record_by_seq(int(record_ref))
+        else:
+            env = self.record_by_id(str(record_ref))
+        if env is None:
+            return None
+        created_at = _now_iso()
+        digest = hashlib.sha256(
+            (
+                f"{env['record_hash']}\n"
+                f"{_canonical_record_json(corrected_fields)}\n"
+                f"{reason}\n{created_at}"
+            ).encode("utf-8")
+        ).hexdigest()
+        correction = {
+            "correction_id": f"cor_{digest[:24]}",
+            "record_id": env["record_id"],
+            "seq": env["seq"],
+            "record_hash": env["record_hash"],
+            "reason": reason,
+            "corrected_fields": corrected_fields,
+            "source": source,
+            "created_at": created_at,
+        }
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO recheck_corrections (correction_id, "
+                "record_id, seq, record_hash, reason, "
+                "corrected_fields_json, source, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    correction["correction_id"],
+                    correction["record_id"],
+                    correction["seq"],
+                    correction["record_hash"],
+                    reason,
+                    json.dumps(corrected_fields, sort_keys=True),
+                    source,
+                    created_at,
+                ),
+            )
+            self._conn.commit()
+        return correction
+
+    def list_corrections(
+        self, record_id: str | None = None, limit: int = 100
+    ) -> list[dict]:
+        clause = "WHERE record_id = ?" if record_id else ""
+        params: tuple = (record_id,) if record_id else ()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT correction_id, record_id, seq, record_hash, "
+                "reason, corrected_fields_json, source, created_at "
+                f"FROM recheck_corrections {clause} "
+                "ORDER BY id ASC LIMIT ?",
+                (*params, max(1, min(int(limit), 1000))),
+            ).fetchall()
+        return [
+            {
+                "correction_id": r[0],
+                "record_id": r[1],
+                "seq": r[2],
+                "record_hash": r[3],
+                "reason": r[4],
+                "corrected_fields": json.loads(r[5]),
+                "source": r[6],
+                "created_at": r[7],
+            }
+            for r in rows
+        ]
+
+    # --- sandbox fixture state (improvement 7) ------------------------
+
+    def get_sandbox_state(self) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT state_json FROM sandbox_state WHERE id = 1"
+            ).fetchone()
+        if row is None:
+            return None
+        try:
+            return json.loads(row[0])
+        except ValueError:
+            return None
+
+    def set_sandbox_state(self, state: dict) -> dict:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO sandbox_state (id, state_json) "
+                "VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET "
+                "state_json = excluded.state_json",
+                (json.dumps(state, sort_keys=True),),
+            )
+            self._conn.commit()
+        return state
 
     # --- watch packs ---------------------------------------------------
     # Every pack mutation runs under the same lock as the watch state
@@ -2817,13 +3020,16 @@ async def _get_once(
     url: str,
     method: str,
     deadline: float | None = None,
-) -> tuple[int, httpx.Headers, bytes | None]:
+) -> tuple[int, httpx.Headers, bytes | None, int]:
     """One probe with manual redirect following — every hop is
     SSRF-checked BEFORE it is fetched, exactly like the page fetcher.
     The body is read (size-capped) only on 200/402, the statuses whose
     content the fingerprint needs. With a deadline, each request gets
-    min(_PROBE_REQUEST_TIMEOUT_S, remaining) as its timeout."""
+    min(_PROBE_REQUEST_TIMEOUT_S, remaining) as its timeout. Returns
+    (status, headers, body, redirect_count) — the count of redirect
+    hops actually followed (probe-quality metadata, improvement 8)."""
     current = url
+    redirects = 0
     for hop in range(fetch_svc._MAX_REDIRECTS + 1):
         kwargs: dict = {}
         if deadline is not None:
@@ -2851,6 +3057,7 @@ async def _get_once(
                 else:
                     await _ssrf_checked(target, deadline)
                 current = target
+                redirects += 1
                 if resp.status_code == 303:
                     method = "GET"
                 continue
@@ -2859,7 +3066,7 @@ async def _get_once(
                 if resp.status_code in _PROBE_STATUSES
                 else None
             )
-            return resp.status_code, resp.headers, body
+            return resp.status_code, resp.headers, body, redirects
     raise UpstreamError("target redirected too many times")  # pragma: no cover
 
 
@@ -2869,26 +3076,37 @@ async def _attempt(
     """One probe attempt. x402 resources live behind POST; some web
     servers refuse POST outright, so a 405/501 falls back to GET —
     under a deadline only when a real attempt's worth of budget is
-    still left."""
-    status, headers, body = await _get_once(client, url, "POST", deadline)
+    still left. Returns (status, headers, body, redirect_count)
+    summed across the POST and any GET fallback leg."""
+    status, headers, body, redirects = await _get_once(
+        client, url, "POST", deadline
+    )
     if status in (405, 501) and (
         deadline is None or _remaining(deadline) >= _PROBE_MIN_ATTEMPT_S
     ):
-        status, headers, body = await _get_once(client, url, "GET", deadline)
-    return status, headers, body
+        status, headers, body, more = await _get_once(
+            client, url, "GET", deadline
+        )
+        redirects += more
+    return status, headers, body, redirects
 
 
 async def _probe(
     client: httpx.AsyncClient, url: str, deadline: float | None = None
 ):
     """Probe with the fetcher's retry discipline. Returns
-    (status, headers, body) for a 200 or 402; anything else that
-    survives the retries raises UpstreamError. With a deadline, the
-    retries share the one budget: an attempt only starts while at
-    least _PROBE_MIN_ATTEMPT_S remains, and backoff sleeps are capped
-    so the next attempt still gets its minimum."""
+    (status, headers, body, meta) for a 200 or 402, where meta is
+    the probe-quality record {attempts, redirect_count} — attempts
+    actually started (1 = no retry was needed) and redirect hops
+    followed across all attempts. Anything else that survives the
+    retries raises UpstreamError. With a deadline, the retries
+    share the one budget: an attempt only starts while at least
+    _PROBE_MIN_ATTEMPT_S remains, and backoff sleeps are capped so
+    the next attempt still gets its minimum."""
     await _ssrf_checked(url, deadline)
     last_error = "target probe failed"
+    attempts = 0
+    redirect_count = 0
     for attempt in range(_ATTEMPTS):
         if attempt:
             backoff = _BACKOFF_S[attempt - 1]
@@ -2900,13 +3118,20 @@ async def _probe(
             await asyncio.sleep(backoff)
             if deadline is not None and _remaining(deadline) < _PROBE_MIN_ATTEMPT_S:
                 break
+        attempts += 1
         try:
-            status, headers, body = await _attempt(client, url, deadline)
+            status, headers, body, redirects = await _attempt(
+                client, url, deadline
+            )
+            redirect_count += redirects
         except httpx.HTTPError as e:
             last_error = f"target fetch failed: {e}"
             continue
         if status in _PROBE_STATUSES:
-            return status, headers, body
+            return status, headers, body, {
+                "attempts": attempts,
+                "redirect_count": redirect_count,
+            }
         last_error = f"target returned HTTP {status}"
         if status in _RETRY_STATUSES:
             continue
@@ -2968,18 +3193,123 @@ def _web_fingerprint(status: int, headers: httpx.Headers, body: bytes | None) ->
 
 async def _probe_fingerprint(
     client: httpx.AsyncClient, url: str
-) -> tuple[str, dict]:
+) -> tuple[str, dict, dict]:
     # The recheck execution path — per-call checks and pack spends —
     # always probes under the hard budget (see the probing section).
-    deadline = time.monotonic() + _PROBE_BUDGET_S
-    status, headers, body = await _probe(client, url, deadline=deadline)
+    # Returns (kind, fingerprint, probe) where probe is the
+    # probe-quality metadata (improvement 8): latency measured
+    # around the whole probe, attempts/redirects from the probe
+    # itself, error_class None — a FAILED probe raises and is never
+    # recorded, so probe metadata exists only for completed checks.
+    started = time.monotonic()
+    deadline = started + _PROBE_BUDGET_S
+    status, headers, body, meta = await _probe(client, url, deadline=deadline)
+    probe = {
+        "latency_ms": int(round((time.monotonic() - started) * 1000)),
+        "attempts": meta["attempts"],
+        "redirect_count": meta["redirect_count"],
+        "error_class": None,
+    }
     if status == 402:
         challenge = _parse_challenge(headers, body)
         if challenge is not None:
-            return "x402", _x402_fingerprint(status, challenge)
+            return "x402", _x402_fingerprint(status, challenge), probe
         # A 402 with no parseable challenge is fingerprinted as a page:
         # status + body hash still detect change honestly.
-    return "web", _web_fingerprint(status, headers, body)
+    return "web", _web_fingerprint(status, headers, body), probe
+
+
+# --- probe-quality: flapping (improvement 8) --------------------------------
+# A target whose fingerprint oscillates (A -> B -> A) is a different
+# operational fact from one that changed once: the flapping flag
+# lets a consumer tell "the seller's server blinks" from "the
+# seller changed their terms". Computed over the watch's recent
+# history — the last FLAPPING_WINDOW completed checks INCLUDING the
+# current one — from the fingerprints the store already keeps.
+
+FLAPPING_WINDOW = 6
+
+
+def assess_flapping(fingerprints: list[dict]) -> dict:
+    """{flapping, window, alternations} over the given fingerprint
+    sequence (oldest first, current last). flapping is True when
+    some value recurs after a different value intervened (an A->B->A
+    pattern anywhere in the window); alternations counts the
+    positions where the value returns to one seen before the
+    immediately preceding position."""
+    window = fingerprints[-FLAPPING_WINDOW:]
+    keys = [json.dumps(fp, sort_keys=True) for fp in window]
+    alternations = 0
+    for i in range(2, len(keys)):
+        if keys[i] != keys[i - 1] and keys[i] in keys[: i - 1]:
+            alternations += 1
+    return {
+        "flapping": alternations > 0,
+        "window": len(window),
+        "alternations": alternations,
+    }
+
+
+# --- catalogue cross-check (improvement 9) -----------------------------------
+# Frozen into each new record at check time: what the newest CDP
+# index snapshot held for this resource when the check ran, and how
+# its listed terms compare with the terms the live probe just
+# observed. Sources are limited to snapshots StallRow actually
+# holds locally (the same IndexStore the timeline reads) — a source
+# that cannot be read answers "unknown", never a guess. Seeded /
+# legacy records predate the crosscheck and simply lack the field.
+
+_CROSSCHECK_FIELDS = ("amount", "payTo", "network")
+
+
+def catalogue_crosscheck(
+    index_store, url: str, kind: str, fingerprint: dict
+) -> dict:
+    base: dict = {
+        "source": "cdp_index_snapshot",
+        "snapshot_id": None,
+        "captured_at": None,
+        "listed": "unknown",
+        "fields": {f: "unknown" for f in _CROSSCHECK_FIELDS},
+        "verdict": "unknown",
+    }
+    try:
+        snapshots = index_store.snapshots()
+    except Exception:  # noqa: BLE001 - unreadable store = unknown
+        return base
+    if not snapshots:
+        return base
+    newest = snapshots[-1]
+    base["snapshot_id"] = newest["id"]
+    base["captured_at"] = newest["captured_at"]
+    try:
+        entry = index_store.entries(newest["id"]).get(url)
+    except Exception:  # noqa: BLE001
+        return base
+    if entry is None:
+        base["listed"] = False
+        base["fields"] = {f: "not_listed" for f in _CROSSCHECK_FIELDS}
+        base["verdict"] = "not_listed"
+        return base
+    base["listed"] = True
+    if kind == "x402":
+        for field in _CROSSCHECK_FIELDS:
+            listed_value = entry.get(field)
+            observed_value = fingerprint.get(field)
+            if listed_value is None or observed_value is None:
+                base["fields"][field] = "unknown"
+            elif str(listed_value) == str(observed_value):
+                base["fields"][field] = "match"
+            else:
+                base["fields"][field] = "mismatch"
+    verdicts = set(base["fields"].values())
+    if "mismatch" in verdicts:
+        base["verdict"] = "mismatch"
+    elif verdicts == {"match"}:
+        base["verdict"] = "match"
+    else:
+        base["verdict"] = "unknown"
+    return base
 
 
 # --- diff + the check itself ------------------------------------------------------
@@ -3106,16 +3436,35 @@ async def recheck(
     store: WatchStore,
     url: str,
     watch_id: str | None = None,
+    index_store=None,
 ) -> dict:
     """Probe one target and diff it against the watch's stored state.
     Raises ValueError for a refused URL (SSRF guard) and UpstreamError
     for a failed probe — in both cases the stored state is untouched,
-    because the save only happens after a successful fingerprint."""
+    because the save only happens after a successful fingerprint.
+    When index_store is supplied (the HTTP layer passes the service's
+    catalogue index store), the result also carries the catalogue
+    cross-check frozen at check time (improvement 9)."""
     url = url.strip()
     wid = (watch_id or "").strip() or default_watch_id(url)
     key = f"{wid}\n{url}"
-    kind, fingerprint = await _probe_fingerprint(client, url)
+    kind, fingerprint, probe = await _probe_fingerprint(client, url)
     checked_at = _now_iso()
+    # Flapping: this watch's recent fingerprints (history order,
+    # oldest first) with the new one appended — the assessment the
+    # record carries is computed over that window, current included.
+    recent = store.feed_rows(watch_id=wid, url=url, limit=1000, ascending=True)
+    recent_fps = [
+        env["record"]["current"]
+        for env in recent
+        if isinstance(env["record"].get("current"), dict)
+    ]
+    probe["flapping"] = assess_flapping([*recent_fps, fingerprint])
+    crosscheck = (
+        catalogue_crosscheck(index_store, url, kind, fingerprint)
+        if index_store is not None
+        else None
+    )
     # A pinned baseline governs the diff while a pin exists; the
     # latest state still records every check, and unpinning returns
     # the watch to diffing against its latest state.
@@ -3136,6 +3485,9 @@ async def recheck(
                 "for this watch reports what changed against it."
             ),
         }
+        result["probe"] = probe
+        if crosscheck is not None:
+            result["catalogue_crosscheck"] = crosscheck
         store.record_check(result)
         return result
     changes = _diff(prior["fingerprint"], fingerprint)
@@ -3182,6 +3534,9 @@ async def recheck(
             "checked_at": checked_at,
             "summary": "No material change since the previous check.",
         }
+    result["probe"] = probe
+    if crosscheck is not None:
+        result["catalogue_crosscheck"] = crosscheck
     envelope = store.record_check(result)
     if result["status"] == "CHANGED":
         _fire_change_webhook(client, store, envelope)
@@ -3194,6 +3549,7 @@ async def recheck_with_pack(
     url: str,
     watch_id: str | None,
     pack_id: str,
+    index_store=None,
 ) -> dict:
     """One change-check paid from a pack instead of per-call.
 
@@ -3206,7 +3562,7 @@ async def recheck_with_pack(
     url = url.strip()
     reserved = store.reserve_credit(pack_id, url)
     try:
-        result = await recheck(client, store, url, watch_id)
+        result = await recheck(client, store, url, watch_id, index_store)
     except Exception:
         store.refund_credit(pack_id)
         raise
