@@ -520,6 +520,6 @@ def test_hosted_paths_are_not_priced_and_discovery_unmoved(http_env):
     ):
         assert path not in PRICE_UNITS
     body = http_env.get("/.well-known/x402").json()
-    assert len(body["resources"]) == 29  # 28 priced + the free /quote
+    assert len(body["resources"]) == 31  # 30 priced + the free /quote
     urls = [e.get("resource") or "" for e in body["resources"]]
     assert not any("hosted-inbox" in u for u in urls)

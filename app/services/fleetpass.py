@@ -60,6 +60,8 @@ FLEET_ROUTES: dict[tuple[str, str], int] = {
     ("stall-row", "/v1/sign-read"): 10_000,
     ("stall-row", "/v1/score-book"): 10_000,
     ("stall-row", "/v1/guard"): 10_000,
+    ("stall-row", "/v1/ledger-dataset"): 100_000,
+    ("stall-row", "/v1/ledger-dataset/full"): 1_000_000,
 }
 
 

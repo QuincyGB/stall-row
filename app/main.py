@@ -117,6 +117,7 @@ from .services import recheck as recheck_svc
 from .services import signread as signread_svc
 from .services import scorebook as scorebook_svc
 from .services import guard as guard_svc
+from .services import ledger as ledger_svc
 from .services import rotalerts as rotalerts_svc
 from .services import sandbox as sandbox_svc
 from .services import timeline as timeline_svc
@@ -1071,6 +1072,41 @@ async def guard(req: GuardRequest):
     async def go():
         return await guard_svc.guard(
             _fetch_client(), _recheck_store, _index_store, req.url
+        )
+
+    return await _run(go)
+
+
+class LedgerDatasetRequest(BaseModel):
+    pass
+
+
+@app.post("/v1/ledger-dataset")
+async def ledger_dataset(req: LedgerDatasetRequest):
+    """Ledger Dataset (summary): the observation ledger rolled up
+    per origin — routes, checks, changes, recoveries, derived
+    defect classes — with provenance. Built only from this
+    service's own stores (Recheck history + held CDP snapshots);
+    observation data only, no operator contacts."""
+
+    async def go():
+        return ledger_svc.summary_view(
+            ledger_svc.build_dataset(_recheck_store, _index_store)
+        )
+
+    return await _run(go)
+
+
+@app.post("/v1/ledger-dataset/full")
+async def ledger_dataset_full(req: LedgerDatasetRequest):
+    """Ledger Dataset (full): every tracked route's current state
+    from the same build as the summary tier — observed/listed
+    terms, status, counts, defect class, listing and usage
+    counters — plus the rollup and provenance."""
+
+    async def go():
+        return ledger_svc.full_view(
+            ledger_svc.build_dataset(_recheck_store, _index_store)
         )
 
     return await _run(go)

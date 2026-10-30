@@ -1626,6 +1626,230 @@ ROUTES: dict[str, dict] = {
             "limits": "One unpaid probe plus this service's own records, at call time.",
         },
     },
+    "/v1/ledger-dataset": {
+        "description": (
+            "Ledger Dataset (summary) — per-origin rollup of the "
+            "fleet's x402 observation ledger (Recheck history + held "
+            "CDP catalogue snapshots): routes tracked, checks, change "
+            "and recovery counts, derived defect classes, last-seen "
+            "times, and full provenance (source counts, snapshot id). "
+            "Observation data only — no operator contacts. Use this "
+            "when you want the town-wide state of the x402 catalogue "
+            "before buying the full per-route pull."
+        ),
+        "tags": ["x402", "inspector", "dataset", "catalogue", "monitoring"],
+        "input_schema": _obj({}, []),
+        "input_example": {},
+        "output_schema": _obj(
+            {
+                "tier": _S,
+                "provenance": _obj(
+                    {
+                        "generated_at": _N,
+                        "snapshot_id": _S,
+                        "sources": _obj(
+                            {
+                                "recheck_records": _I,
+                                "index_snapshots": {"type": "array", "items": {"type": "object"}},
+                                "routes_from_recheck": _I,
+                                "routes_from_index": _I,
+                            },
+                            ["recheck_records", "index_snapshots", "routes_from_recheck", "routes_from_index"],
+                        ),
+                        "limits": _S,
+                    },
+                    ["generated_at", "snapshot_id", "sources", "limits"],
+                ),
+                "totals": _obj(
+                    {
+                        "routes": _I,
+                        "origins": _I,
+                        "checks": _I,
+                        "changes": _I,
+                        "recoveries": _I,
+                        "defective_routes": _I,
+                    },
+                    ["routes", "origins", "checks", "changes", "recoveries", "defective_routes"],
+                ),
+                "origins": {
+                    "type": "array",
+                    "items": _obj(
+                        {
+                            "origin": _S,
+                            "routes": _I,
+                            "checks": _I,
+                            "changes": _I,
+                            "recoveries": _I,
+                            "defect_classes": {"type": "array", "items": _S},
+                            "last_seen": _N,
+                        },
+                        ["origin", "routes", "checks", "changes", "recoveries", "defect_classes", "last_seen"],
+                    ),
+                },
+            },
+            ["tier", "provenance", "totals", "origins"],
+        ),
+        "output_example": {
+            "tier": "summary",
+            "provenance": {
+                "generated_at": "2026-10-30T00:00:00Z",
+                "snapshot_id": "9f2c1a4b5e6d7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7",
+                "sources": {
+                    "recheck_records": 1204,
+                    "index_snapshots": [
+                        {"id": 12, "captured_at": "2026-10-29T00:00:00Z", "resource_count": 9012}
+                    ],
+                    "routes_from_recheck": 87,
+                    "routes_from_index": 9012,
+                },
+                "limits": "Observation data only: the Recheck history records answered checks; the catalogue side is limited to the snapshots this service holds.",
+            },
+            "totals": {
+                "routes": 9050,
+                "origins": 2400,
+                "checks": 1204,
+                "changes": 133,
+                "recoveries": 4,
+                "defective_routes": 61,
+            },
+            "origins": [
+                {
+                    "origin": "https://example.com",
+                    "routes": 3,
+                    "checks": 12,
+                    "changes": 2,
+                    "recoveries": 0,
+                    "defect_classes": ["catalogue_mismatch"],
+                    "last_seen": "2026-10-29T00:00:00Z",
+                }
+            ],
+        },
+    },
+    "/v1/ledger-dataset/full": {
+        "description": (
+            "Ledger Dataset (full) — every route in the fleet's x402 "
+            "observation ledger with its current state: observed and "
+            "listed terms, latest status, check/change/recovery "
+            "counts, derived defect class, catalogue listing and "
+            "usage counters, plus the per-origin rollup and full "
+            "provenance. Built from the Recheck history and the CDP "
+            "snapshots this service holds; observation data only. "
+            "Use this when you need route-level state for "
+            "monitoring, grading, or dataset work."
+        ),
+        "tags": ["x402", "inspector", "dataset", "catalogue", "monitoring"],
+        "input_schema": _obj({}, []),
+        "input_example": {},
+        "output_schema": _obj(
+            {
+                "tier": _S,
+                "provenance": {"type": "object"},
+                "totals": {"type": "object"},
+                "origins": {"type": "array", "items": {"type": "object"}},
+                "records": {
+                    "type": "array",
+                    "items": _obj(
+                        {
+                            "url": _S,
+                            "origin": _S,
+                            "sources": {"type": "array", "items": _S},
+                            "first_seen": _N,
+                            "last_seen": _N,
+                            "checks": _I,
+                            "latest_status": _N,
+                            "changes": _I,
+                            "recheck_changes": _I,
+                            "catalogue_changes": _I,
+                            "recoveries": _I,
+                            "defect_class": _N,
+                            "defect_detail": {"type": ["object", "null"]},
+                            "terms": {"type": ["object", "null"]},
+                            "catalogue": {"type": ["object", "null"]},
+                        },
+                        [
+                            "url", "origin", "sources", "first_seen", "last_seen",
+                            "checks", "latest_status", "changes", "recheck_changes",
+                            "catalogue_changes", "recoveries", "defect_class",
+                            "defect_detail", "terms", "catalogue",
+                        ],
+                    ),
+                },
+            },
+            ["tier", "provenance", "totals", "origins", "records"],
+        ),
+        "output_example": {
+            "tier": "full",
+            "provenance": {
+                "generated_at": "2026-10-30T00:00:00Z",
+                "snapshot_id": "9f2c1a4b5e6d7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7",
+                "sources": {
+                    "recheck_records": 1204,
+                    "index_snapshots": [
+                        {"id": 12, "captured_at": "2026-10-29T00:00:00Z", "resource_count": 9012}
+                    ],
+                    "routes_from_recheck": 87,
+                    "routes_from_index": 9012,
+                },
+                "limits": "Observation data only: the Recheck history records answered checks; the catalogue side is limited to the snapshots this service holds.",
+            },
+            "totals": {
+                "routes": 9050,
+                "origins": 2400,
+                "checks": 1204,
+                "changes": 133,
+                "recoveries": 4,
+                "defective_routes": 61,
+            },
+            "origins": [
+                {
+                    "origin": "https://example.com",
+                    "routes": 3,
+                    "checks": 12,
+                    "changes": 2,
+                    "recoveries": 0,
+                    "defect_classes": ["catalogue_mismatch"],
+                    "last_seen": "2026-10-29T00:00:00Z",
+                }
+            ],
+            "records": [
+                {
+                    "url": "https://example.com/v1/verdict",
+                    "origin": "https://example.com",
+                    "sources": ["cdp_index", "recheck"],
+                    "first_seen": "2026-10-24T00:00:00Z",
+                    "last_seen": "2026-10-29T00:00:00Z",
+                    "checks": 5,
+                    "latest_status": "CHANGED",
+                    "changes": 2,
+                    "recheck_changes": 1,
+                    "catalogue_changes": 1,
+                    "recoveries": 0,
+                    "defect_class": "catalogue_mismatch",
+                    "defect_detail": {"via": "snapshot_vs_latest_observed", "fields": ["payTo"]},
+                    "terms": {
+                        "status_code": 402,
+                        "amount": "10000",
+                        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+                        "network": "eip155:8453",
+                        "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+                    },
+                    "catalogue": {
+                        "listed": True,
+                        "service_name": "Example",
+                        "amount": "10000",
+                        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+                        "network": "eip155:8453",
+                        "payTo": "0x0000000000000000000000000000000000000000",
+                        "last_updated": "2026-10-28T00:00:00Z",
+                        "calls30d": 12,
+                        "payers30d": 3,
+                        "snapshots_seen": 2,
+                        "present_in_latest": True,
+                    },
+                }
+            ],
+        },
+    },
 }
 
 for _path, _r in ROUTES.items():

@@ -82,6 +82,8 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/sign-read": 10_000,           # $0.01 — Sign Reader: parse + SDK-compat verdict for one 402 challenge (price card 2026-10-30)
     "/v1/score-book": 10_000,          # $0.01 — Score Book: one resource/origin/payTo track record from our stores
     "/v1/guard": 10_000,               # $0.01 — Guard: one composed pay/caution/avoid verdict for one endpoint
+    "/v1/ledger-dataset": 100_000,     # $0.10 — Ledger Dataset (summary): per-origin rollup of the observation ledger
+    "/v1/ledger-dataset/full": 1_000_000,  # $1.00 — Ledger Dataset (full): per-route records (dataset band, price card 2026-10-30)
 }
 
 

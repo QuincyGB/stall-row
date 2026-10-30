@@ -44,6 +44,8 @@ BODIES = {
     "/v1/sign-read": {"url": "https://www.x402.org/"},
     "/v1/score-book": {"url": "https://www.x402.org/"},
     "/v1/guard": {"url": "https://www.x402.org/"},
+    "/v1/ledger-dataset": {},
+    "/v1/ledger-dataset/full": {},
 }
 
 
