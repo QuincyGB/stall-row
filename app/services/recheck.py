@@ -85,7 +85,7 @@ import sqlite3
 import threading
 import time
 from datetime import datetime, timezone
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 
@@ -606,6 +606,20 @@ class WatchStore:
                     epoch REAL NOT NULL,
                     http_status INTEGER,
                     error TEXT
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS recheck_webhook_subs (
+                    sub_id TEXT PRIMARY KEY,
+                    callback_url TEXT NOT NULL,
+                    secret TEXT NOT NULL,
+                    filter_url TEXT,
+                    filter_origin TEXT,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    created_epoch REAL NOT NULL,
+                    updated_epoch REAL NOT NULL
                 )
                 """
             )
@@ -1277,6 +1291,133 @@ class WatchStore:
             for d in (self.get_change_delivery(r[0]) for r in rows)
             if d is not None
         ]
+
+    # --- self-serve change webhook subscriptions ----------------------
+    # The self-serve counterpart of the per-watch webhooks above
+    # (services/hooksubs.py is the validation layer): anyone may
+    # register a callback for Recheck CHANGED events — feed-wide or
+    # filtered to one resource URL / one origin — with NO fleet
+    # operator gate. The caller's secret is the management
+    # credential (list/delete present it) AND the HMAC signing key
+    # for deliveries, which is why it is stored — exactly like the
+    # per-watch table. Deliveries ride the same queue: a
+    # subscription's deliveries carry watch_key "sub:<sub_id>" and
+    # event_id "<event>@<sub_id>" (the deliveries table's event_id
+    # is UNIQUE, and one event can fan out to many subscribers).
+
+    def add_webhook_sub(
+        self,
+        sub_id: str,
+        callback_url: str,
+        secret: str,
+        filter_url: str | None,
+        filter_origin: str | None,
+    ) -> dict:
+        now = time.time()
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO recheck_webhook_subs (sub_id, "
+                "callback_url, secret, filter_url, filter_origin, "
+                "enabled, created_epoch, updated_epoch) VALUES "
+                "(?, ?, ?, ?, ?, 1, ?, ?)",
+                (sub_id, callback_url, secret, filter_url, filter_origin, now, now),
+            )
+            self._conn.commit()
+        return self.get_webhook_sub(sub_id) or {}
+
+    def get_webhook_sub(self, sub_id: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT sub_id, callback_url, secret, filter_url, "
+                "filter_origin, enabled, created_epoch FROM "
+                "recheck_webhook_subs WHERE sub_id = ?",
+                (sub_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "sub_id": row[0],
+            "callback_url": row[1],
+            "secret": row[2],
+            "filter_url": row[3],
+            "filter_origin": row[4],
+            "enabled": bool(row[5]),
+            "created_epoch": row[6],
+        }
+
+    def list_webhook_subs(self, secret: str) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT sub_id FROM recheck_webhook_subs WHERE "
+                "secret = ? ORDER BY created_epoch",
+                (secret,),
+            ).fetchall()
+        return [
+            s
+            for s in (self.get_webhook_sub(r[0]) for r in rows)
+            if s is not None
+        ]
+
+    def delete_webhook_sub(self, sub_id: str, secret: str) -> bool:
+        with self._lock:
+            cur = self._conn.execute(
+                "DELETE FROM recheck_webhook_subs WHERE sub_id = ? "
+                "AND secret = ?",
+                (sub_id, secret),
+            )
+            self._conn.commit()
+        return cur.rowcount > 0
+
+    def count_webhook_subs(
+        self, secret: str | None = None, callback_host: str | None = None
+    ) -> int:
+        with self._lock:
+            if secret is not None:
+                row = self._conn.execute(
+                    "SELECT COUNT(*) FROM recheck_webhook_subs "
+                    "WHERE secret = ?",
+                    (secret,),
+                ).fetchone()
+                return int(row[0])
+            if callback_host is not None:
+                rows = self._conn.execute(
+                    "SELECT callback_url FROM recheck_webhook_subs"
+                ).fetchall()
+                return sum(
+                    1
+                    for (u,) in rows
+                    if urlsplit(u).netloc == callback_host
+                )
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM recheck_webhook_subs"
+            ).fetchone()
+            return int(row[0])
+
+    def enabled_webhook_subs(self) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT sub_id FROM recheck_webhook_subs WHERE "
+                "enabled = 1 ORDER BY created_epoch"
+            ).fetchall()
+        return [
+            s
+            for s in (self.get_webhook_sub(r[0]) for r in rows)
+            if s is not None
+        ]
+
+    def get_sub_webhook(self, watch_key: str) -> dict | None:
+        """Delivery-time config for a subscription delivery row,
+        in the same shape get_change_webhook returns."""
+        if not watch_key.startswith("sub:"):
+            return None
+        sub = self.get_webhook_sub(watch_key[4:])
+        if sub is None:
+            return None
+        return {
+            "webhook_url": sub["callback_url"],
+            "secret": sub["secret"],
+            "enabled": sub["enabled"],
+        }
 
     # --- corrections (append-only amendments, improvement 10) --------
     # A correction NEVER mutates the record it amends: the stored
@@ -3628,6 +3769,49 @@ def queue_change_event(store: WatchStore, envelope: dict) -> int | None:
     )
 
 
+def subscription_matches(sub: dict, url: str) -> bool:
+    """A subscription fires feed-wide, or on its one filter: exact
+    resource URL, or origin (scheme://host) of the changed URL."""
+    if sub.get("filter_url"):
+        return sub["filter_url"] == url
+    if sub.get("filter_origin"):
+        parts = urlsplit(url)
+        return (
+            bool(parts.scheme and parts.netloc)
+            and f"{parts.scheme}://{parts.netloc}" == sub["filter_origin"]
+        )
+    return True
+
+
+def queue_subscription_events(store: WatchStore, envelope: dict) -> list[int]:
+    """Queue a CHANGED delivery for every enabled self-serve
+    subscription whose filter matches (services/hooksubs.py
+    registers them). Delivery ids returned; a subscription removed
+    or disabled before send dead-letters readably at delivery time,
+    exactly like a removed per-watch config."""
+    record = envelope["record"]
+    if record.get("status") != "CHANGED":
+        return []
+    payload = change_event_payload(envelope)
+    out: list[int] = []
+    for sub in store.enabled_webhook_subs():
+        if not subscription_matches(sub, record["url"]):
+            continue
+        sub_payload = dict(payload)
+        sub_payload["event_id"] = f"{payload['event_id']}@{sub['sub_id']}"
+        sub_payload["subscription_id"] = sub["sub_id"]
+        out.append(
+            store.queue_change_delivery(
+                sub_payload["event_id"],
+                f"sub:{sub['sub_id']}",
+                envelope["seq"],
+                record["url"],
+                sub_payload,
+            )
+        )
+    return out
+
+
 async def deliver_change_event(
     client: httpx.AsyncClient, store: WatchStore, delivery_id: int
 ) -> dict:
@@ -3639,6 +3823,8 @@ async def deliver_change_event(
     if delivery is None:
         return {"delivery_id": delivery_id, "status": "missing"}
     cfg = store.get_change_webhook(delivery["watch_key"])
+    if cfg is None:
+        cfg = store.get_sub_webhook(delivery["watch_key"])
     if cfg is None:
         store.record_change_attempt(
             delivery_id, None, "webhook configuration removed before delivery"
@@ -3699,20 +3885,27 @@ def _fire_change_webhook(
     """Queue + schedule delivery from inside recheck(). Delivery
     health never fails the check that produced the event: queueing
     is synchronous (so the delivery row exists before the caller
-    returns), sending is a background task on the caller's client."""
+    returns), sending is a background task on the caller's client.
+    Both webhook families are served: the per-watch config
+    (fleet-internal) and self-serve subscriptions (hooksubs)."""
+    delivery_ids: list[int] = []
     try:
         delivery_id = queue_change_event(store, envelope)
+        if delivery_id is not None:
+            delivery_ids.append(delivery_id)
     except Exception:  # noqa: BLE001 - the check already answered
         log.exception("change webhook queueing failed")
-        return
-    if delivery_id is None:
-        return
     try:
-        asyncio.get_running_loop().create_task(
-            deliver_change_event(client, store, delivery_id)
-        )
-    except RuntimeError:  # no running loop — row stays pending, readable
-        log.warning(
-            "change webhook delivery %s queued without a running loop",
-            delivery_id,
-        )
+        delivery_ids.extend(queue_subscription_events(store, envelope))
+    except Exception:  # noqa: BLE001 - the check already answered
+        log.exception("subscription webhook queueing failed")
+    for did in delivery_ids:
+        try:
+            asyncio.get_running_loop().create_task(
+                deliver_change_event(client, store, did)
+            )
+        except RuntimeError:  # no running loop — row stays pending, readable
+            log.warning(
+                "change webhook delivery %s queued without a running loop",
+                did,
+            )

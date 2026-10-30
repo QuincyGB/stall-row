@@ -31,6 +31,11 @@ Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt,
         POST /v1/internal/recheck/baseline/{pin,unpin,import} and
              /v1/internal/recheck/webhooks[/deliveries] (watch
              mutations, fleet-internal secret — see services/recheck.py)
+        POST /v1/recheck/webhooks{,/list,/delete,/deliveries}
+             (SELF-SERVE change-webhook subscriptions: anyone can
+             register a signed callback for Recheck CHANGED events,
+             managed by the caller's own secret — see
+             services/hooksubs.py)
         GET  /v1/recheck/fingerprint-spec (the fingerprint spec +
              test vectors, exactly as implemented — see
              services/fingerprint_spec.py)
@@ -122,6 +127,7 @@ from .services import rotalerts as rotalerts_svc
 from .services import sandbox as sandbox_svc
 from .services import timeline as timeline_svc
 from .services import watch as watch_svc
+from .services import hooksubs as hooksubs_svc
 from .services import scout as scout_svc
 from .services import seller as seller_svc
 from .services import verdict as verdict_svc
@@ -2649,6 +2655,73 @@ async def internal_change_deliveries(request: Request):
         )
     deliveries = _recheck_store.list_change_deliveries(key, limit)
     return {"count": len(deliveries), "deliveries": deliveries}
+
+
+class HookSubRegisterRequest(BaseModel):
+    callback_url: str = Field(description="Public https URL that receives signed change events")
+    secret: str = Field(description="Your secret: management credential AND the HMAC-SHA256 key deliveries are signed with (16+ chars; never echoed back)")
+    url: str | None = Field(default=None, description="Optional filter: only this exact resource URL's changes")
+    origin: str | None = Field(default=None, description="Optional filter: only changes under this origin (https://host); ignored when url is set — send one or neither")
+
+
+class HookSubSecretRequest(BaseModel):
+    secret: str = Field(description="The secret the subscriptions were registered with")
+
+
+class HookSubDeleteRequest(BaseModel):
+    secret: str = Field(description="The secret the subscription was registered with")
+    sub_id: str = Field(description="The subscription id to remove")
+
+
+class HookSubDeliveriesRequest(BaseModel):
+    secret: str = Field(description="The secret the subscriptions were registered with")
+    sub_id: str | None = Field(default=None, description="Optional: one subscription's deliveries only")
+    limit: int | None = Field(default=None, description="Max deliveries to return (default 50, cap 500)")
+
+
+@app.post("/v1/recheck/webhooks")
+async def hooksub_register(req: HookSubRegisterRequest):
+    """Self-serve Recheck change webhook: register a callback for
+    CHANGED events — feed-wide, one resource URL, or one origin.
+    No operator gate; the callback is SSRF-checked before storing
+    and again at send time, deliveries are HMAC-SHA256 signed with
+    your secret and ride the same bounded retry / dead-letter
+    pipeline as the fleet's own watch webhooks. Registration is
+    free; abuse caps live in services/hooksubs.py."""
+    try:
+        view = await hooksubs_svc.register(
+            _recheck_store, req.callback_url, req.secret, req.url, req.origin
+        )
+    except hooksubs_svc.SubsError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+    return {"subscription": view}
+
+
+@app.post("/v1/recheck/webhooks/list")
+async def hooksub_list(req: HookSubSecretRequest):
+    subs = hooksubs_svc.list_subs(_recheck_store, req.secret)
+    return {"count": len(subs), "subscriptions": subs}
+
+
+@app.post("/v1/recheck/webhooks/delete")
+async def hooksub_delete(req: HookSubDeleteRequest):
+    removed = hooksubs_svc.delete_sub(_recheck_store, req.secret, req.sub_id)
+    if not removed:
+        return JSONResponse(
+            {"error": "unknown subscription for this secret"}, status_code=404
+        )
+    return {"ok": True, "removed": req.sub_id.strip()}
+
+
+@app.post("/v1/recheck/webhooks/deliveries")
+async def hooksub_deliveries(req: HookSubDeliveriesRequest):
+    try:
+        rows = hooksubs_svc.deliveries(
+            _recheck_store, req.secret, req.sub_id, req.limit or 50
+        )
+    except hooksubs_svc.SubsError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+    return {"count": len(rows), "deliveries": rows}
 
 
 class CorrectionRequest(BaseModel):
