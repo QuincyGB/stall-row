@@ -1985,7 +1985,7 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
         # nudges (app/services/nudge.py; spec in x402-loop-kits).
         # A top-level extension, NOT a resource — inbound mail is
         # free and the priced route count does not move.
-        "extensions": {"nudge": nudge_extension(base_url)},
+        "extensions": {"nudge": nudge_extension(base_url), "mcp": dict(MCP_SERVER)},
         "resources": resources,
     }
 
@@ -2003,6 +2003,21 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
 
 CARD_NAME = "StallRow"
 CARD_PROVIDER = {"organization": "Verdict Row", "url": "https://github.com/QuincyGB", "email": "patrol@verdictrow.com"}
+
+# The MCP server for this stall: a stdio wrapper (source-only — it is
+# run by the caller's own MCP host, not hosted here). The canonical
+# reference is the repo and its server.json manifest; linked from the
+# manifest, the agent card, skill.md and llms.txt so MCP hosts and
+# registries can find it. Tools wrap the priced routes (the inspector
+# toolkit — sign-read / score-book / guard — included) plus the free
+# Recheck feed v2 read.
+MCP_SERVER = {
+    "name": "io.github.QuincyGB/stall-row-mcp",
+    "title": "StallRow MCP server",
+    "transport": "stdio",
+    "repository": "https://github.com/QuincyGB/stall-row-mcp",
+    "manifest": "https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json",
+}
 
 
 def _skill_name(path: str) -> str:
@@ -2067,6 +2082,7 @@ def agent_card(settings: Settings, base_url: str) -> dict:
             "network": settings.network,
             "asset": USDC_ASSET,
         },
+        "mcp": dict(MCP_SERVER),
     }
 
 
@@ -2165,6 +2181,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `GET {base_url}/.well-known/x402` — machine-readable manifest",
         f"- `GET {base_url}/.well-known/agent-card.json` — A2A agent card (skills mirror the priced routes; derived from the manifest)",
         f"- `GET {base_url}/.well-known/stability-manifest.json` — signed pinned-route stability manifest (prices + schema fingerprints, pinned under an agent-wallet signature)",
+        f"- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp — manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json — tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
         f"- `POST {base_url}/v1/recheck/pack-balance` — a pack's credits + expiry (pack id required)",
         f"- `GET {base_url}/v1/recheck/feed` — recent Recheck results as JSONL, newest first (public observatory feed)",
         f"- `GET {base_url}/v1/recheck/feed?v=2&since_seq=N` — feed v2: each line an envelope (seq, record_id, schema_version, prev_hash, record_hash, record); since_seq is the gap-proof cursor mode (ascending), watch_id / url filter",
@@ -2205,6 +2222,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/.well-known/x402 — manifest",
         f"- GET {base_url}/.well-known/agent-card.json — A2A agent card (skills mirror the priced routes)",
         f"- GET {base_url}/.well-known/stability-manifest.json — signed pinned-route stability manifest (prices + schema fingerprints)",
+        f"- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp — manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json — tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
         f"- POST {base_url}/v1/recheck/pack-balance — free pack balance (pack id required)",
         f"- GET {base_url}/v1/recheck/feed — free Recheck results feed (JSONL, newest first); ?v=2&since_seq=N for the hash-chained cursor mode",
         f"- GET {base_url}/v1/recheck/history — free recorded history (envelopes); /v1/recheck/history/<record_id> for one snapshot",
