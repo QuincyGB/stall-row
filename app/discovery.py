@@ -1985,7 +1985,7 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
         # nudges (app/services/nudge.py; spec in x402-loop-kits).
         # A top-level extension, NOT a resource — inbound mail is
         # free and the priced route count does not move.
-        "extensions": {"nudge": nudge_extension(base_url), "mcp": dict(MCP_SERVER), "quickstart": dict(QUICKSTART)},
+        "extensions": {"nudge": nudge_extension(base_url), "mcp": dict(MCP_SERVER), "quickstart": dict(QUICKSTART), "gradeability": gradeability_extension(base_url)},
         "resources": resources,
     }
 
@@ -2031,6 +2031,22 @@ QUICKSTART = {
     "python": "https://stall-row-production.up.railway.app/quickstart/python",
     "typescript": "https://stall-row-production.up.railway.app/quickstart/typescript",
 }
+
+# The Gradeability Self-Test Report: a free public page publishing this
+# stall's latest self-test (listed price vs live 402 amount per priced
+# route, challenge parse, spec checks, last standing-checker result).
+# Committed at app/data/gradeability-report.json, served verbatim at
+# /.well-known/gradeability-report.json; linked from the manifest
+# extensions, the agent card, skill.md and llms.txt.
+GRADEABILITY_REPORT_PATH = "/.well-known/gradeability-report.json"
+
+
+def gradeability_extension(base_url: str) -> dict:
+    return {
+        "title": "Gradeability Self-Test Report",
+        "report": f"{base_url}{GRADEABILITY_REPORT_PATH}",
+    }
+
 
 
 def _skill_name(path: str) -> str:
@@ -2097,6 +2113,7 @@ def agent_card(settings: Settings, base_url: str) -> dict:
         },
         "mcp": dict(MCP_SERVER),
         "quickstart": dict(QUICKSTART),
+        "gradeability": gradeability_extension(base_url),
     }
 
 
@@ -2195,6 +2212,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `GET {base_url}/.well-known/x402` — machine-readable manifest",
         f"- `GET {base_url}/.well-known/agent-card.json` — A2A agent card (skills mirror the priced routes; derived from the manifest)",
         f"- `GET {base_url}/.well-known/stability-manifest.json` — signed pinned-route stability manifest (prices + schema fingerprints, pinned under an agent-wallet signature)",
+        f"- `GET {base_url}/.well-known/gradeability-report.json` — Gradeability Self-Test Report (latest self-test: listed price vs live 402 per priced route, challenge parse, spec checks, standing-checker result; signed, free)",
         f"- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp — manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json — tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
         "- Inspector Quickstart Pack (curl / Python / TypeScript): https://stall-row-production.up.railway.app/quickstart/curl · https://stall-row-production.up.railway.app/quickstart/python · https://stall-row-production.up.railway.app/quickstart/typescript — one-page integration path: pin Recheck + RouteVerdict, read the feed, register a watch, fund a pack",
         f"- `POST {base_url}/v1/recheck/pack-balance` — a pack's credits + expiry (pack id required)",
@@ -2237,6 +2255,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/.well-known/x402 — manifest",
         f"- GET {base_url}/.well-known/agent-card.json — A2A agent card (skills mirror the priced routes)",
         f"- GET {base_url}/.well-known/stability-manifest.json — signed pinned-route stability manifest (prices + schema fingerprints)",
+        f"- GET {base_url}/.well-known/gradeability-report.json — Gradeability Self-Test Report (latest self-test: listed vs live 402 per priced route; signed, free)",
         f"- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp — manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json — tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
         "- Inspector Quickstart Pack (curl / Python / TypeScript): https://stall-row-production.up.railway.app/quickstart/curl · https://stall-row-production.up.railway.app/quickstart/python · https://stall-row-production.up.railway.app/quickstart/typescript — one-page integration path: pin Recheck + RouteVerdict, read the feed, register a watch, fund a pack",
         f"- POST {base_url}/v1/recheck/pack-balance — free pack balance (pack id required)",

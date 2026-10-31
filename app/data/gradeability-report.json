@@ -1,0 +1,821 @@
+{
+  "base_url": "https://stall-row-production.up.railway.app",
+  "checker_state": {
+    "last_run": "2026-10-31T08:48:50.567242+00:00",
+    "routes": {
+      "/v1/agent-card-verify": {
+        "class": "OK",
+        "detail": "402, Base accept OK (5000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/allowance-audit": {
+        "class": "OK",
+        "detail": "402, Base accept OK (5000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/card-smith": {
+        "class": "OK",
+        "detail": "402, Base accept OK (100000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/counterparty-report": {
+        "class": "OK",
+        "detail": "402, Base accept OK (1000000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/flagged-paytos": {
+        "class": "OK",
+        "detail": "402, Base accept OK (5000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/fleet-check": {
+        "class": "OK",
+        "detail": "402, Base accept OK (100000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/fleet-check/pack": {
+        "class": "OK",
+        "detail": "402, Base accept OK (5000000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/fleet-pass": {
+        "class": "OK",
+        "detail": "402, Base accept OK (5000000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/fleet-pass-20": {
+        "class": "OK",
+        "detail": "402, Base accept OK (20000000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/gas-oracle": {
+        "class": "OK",
+        "detail": "402, Base accept OK (1000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/grade-my-stall": {
+        "class": "OK",
+        "detail": "402, Base accept OK (5000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/guard": {
+        "class": "OK",
+        "detail": "402, Base accept OK (10000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/index/changes": {
+        "class": "OK",
+        "detail": "402, Base accept OK (100000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/job-scout": {
+        "class": "OK",
+        "detail": "402, Base accept OK (50000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/ledger-dataset": {
+        "class": "OK",
+        "detail": "402, Base accept OK (100000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/ledger-dataset/full": {
+        "class": "OK",
+        "detail": "402, Base accept OK (1000000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/orchestrate": {
+        "class": "OK",
+        "detail": "402, Base accept OK (750000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/page-to-markdown": {
+        "class": "OK",
+        "detail": "402, Base accept OK (10000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/pre-trade-guard": {
+        "class": "OK",
+        "detail": "402, Base accept OK (5000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/price-check": {
+        "class": "OK",
+        "detail": "402, Base accept OK (50000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/receipt-verify": {
+        "class": "OK",
+        "detail": "402, Base accept OK (2000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/recheck": {
+        "class": "OK",
+        "detail": "402, Base accept OK (5000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/recheck/pack": {
+        "class": "OK",
+        "detail": "402, Base accept OK (1000000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/repo-vitals": {
+        "class": "OK",
+        "detail": "402, Base accept OK (5000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/score-book": {
+        "class": "OK",
+        "detail": "402, Base accept OK (10000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/sign-read": {
+        "class": "OK",
+        "detail": "402, Base accept OK (10000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/tube-search": {
+        "class": "OK",
+        "detail": "402, Base accept OK (10000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/tx-decoder": {
+        "class": "OK",
+        "detail": "402, Base accept OK (2000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/wallet-snapshot": {
+        "class": "OK",
+        "detail": "402, Base accept OK (5000 units to payTo)",
+        "status": "ok"
+      },
+      "/v1/wallet-verdict": {
+        "class": "OK",
+        "detail": "402, Base accept OK (20000 units to payTo)",
+        "status": "ok"
+      }
+    },
+    "service": {
+      "class": "OK",
+      "detail": "health/openapi/discovery OK",
+      "status": "ok"
+    },
+    "source": "fleet-checker state.json (check.py), quoted read-only",
+    "summary": "37/37 routes OK, 5/5 services OK"
+  },
+  "generated_at": "2026-10-31T12:11:18Z",
+  "generated_by": "Ren, Verdict Row Patrol — patrol@verdictrow.com",
+  "generator_run": {
+    "run_at": "2026-10-31T12:11:18Z",
+    "source": "fresh unpaid probes by gradeability_report.py build — the generator's own run, NOT the standing checker's"
+  },
+  "overall_pass": true,
+  "report": "verdict-row-gradeability/v1",
+  "routes": [
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "5000",
+      "live_402_amount_units": "5000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.005",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/wallet-snapshot",
+      "route": "/v1/wallet-snapshot",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "5000",
+      "live_402_amount_units": "5000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.005",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/allowance-audit",
+      "route": "/v1/allowance-audit",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "2000",
+      "live_402_amount_units": "2000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.002",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/tx-decoder",
+      "route": "/v1/tx-decoder",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "1000",
+      "live_402_amount_units": "1000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.001",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/gas-oracle",
+      "route": "/v1/gas-oracle",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "20000",
+      "live_402_amount_units": "20000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.02",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+      "route": "/v1/wallet-verdict",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "5000",
+      "live_402_amount_units": "5000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.005",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/pre-trade-guard",
+      "route": "/v1/pre-trade-guard",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "1000000",
+      "live_402_amount_units": "1000000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$1",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/counterparty-report",
+      "route": "/v1/counterparty-report",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "5000",
+      "live_402_amount_units": "5000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.005",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/grade-my-stall",
+      "route": "/v1/grade-my-stall",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "2000",
+      "live_402_amount_units": "2000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.002",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/receipt-verify",
+      "route": "/v1/receipt-verify",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "5000",
+      "live_402_amount_units": "5000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.005",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/flagged-paytos",
+      "route": "/v1/flagged-paytos",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "5000",
+      "live_402_amount_units": "5000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.005",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/agent-card-verify",
+      "route": "/v1/agent-card-verify",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "10000",
+      "live_402_amount_units": "10000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.01",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/tube-search",
+      "route": "/v1/tube-search",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "10000",
+      "live_402_amount_units": "10000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.01",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/page-to-markdown",
+      "route": "/v1/page-to-markdown",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "5000",
+      "live_402_amount_units": "5000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.005",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/repo-vitals",
+      "route": "/v1/repo-vitals",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "50000",
+      "live_402_amount_units": "50000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.05",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/price-check",
+      "route": "/v1/price-check",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "100000",
+      "live_402_amount_units": "100000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.1",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/card-smith",
+      "route": "/v1/card-smith",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "50000",
+      "live_402_amount_units": "50000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.05",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/job-scout",
+      "route": "/v1/job-scout",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "5000",
+      "live_402_amount_units": "5000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.005",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/recheck",
+      "route": "/v1/recheck",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "100000",
+      "live_402_amount_units": "100000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.1",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/index/changes",
+      "route": "/v1/index/changes",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "750000",
+      "live_402_amount_units": "750000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.75",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/orchestrate",
+      "route": "/v1/orchestrate",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "1000000",
+      "live_402_amount_units": "1000000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$1",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/recheck/pack",
+      "route": "/v1/recheck/pack",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "100000",
+      "live_402_amount_units": "100000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.1",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/fleet-check",
+      "route": "/v1/fleet-check",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "5000000",
+      "live_402_amount_units": "5000000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$5",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/fleet-check/pack",
+      "route": "/v1/fleet-check/pack",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "5000000",
+      "live_402_amount_units": "5000000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$5",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/fleet-pass",
+      "route": "/v1/fleet-pass",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "20000000",
+      "live_402_amount_units": "20000000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$20",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/fleet-pass-20",
+      "route": "/v1/fleet-pass-20",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "10000",
+      "live_402_amount_units": "10000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.01",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/sign-read",
+      "route": "/v1/sign-read",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "10000",
+      "live_402_amount_units": "10000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.01",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/score-book",
+      "route": "/v1/score-book",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "10000",
+      "live_402_amount_units": "10000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.01",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/guard",
+      "route": "/v1/guard",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "100000",
+      "live_402_amount_units": "100000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$0.1",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/ledger-dataset",
+      "route": "/v1/ledger-dataset",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    },
+    {
+      "asset_match": true,
+      "challenge_decodable": true,
+      "challenge_source": "header",
+      "detail": "402, challenge decodes, Base accept matches listed price/payTo/asset",
+      "http_status": 402,
+      "listed_amount_units": "1000000",
+      "live_402_amount_units": "1000000",
+      "network_match": true,
+      "pass": true,
+      "payto_match": true,
+      "price": "$1",
+      "price_match": true,
+      "resource": "https://stall-row-production.up.railway.app/v1/ledger-dataset/full",
+      "route": "/v1/ledger-dataset/full",
+      "sdk_parse": {
+        "basis": "installed x402 SDK challenge model (PaymentRequired/PaymentRequiredV1), run locally in the generator over the unpaid 402 challenge — the same parse Sign Reader performs server-side, replicated so no paid call is made",
+        "failures": [],
+        "parses": true
+      }
+    }
+  ],
+  "signature": "0x1a5c8c311a50f94c4b6068c6d0a73a0b86489a4175756a0ccb438d0108cec34f016077351d9ccbea9e4fc69f884b8c4d7e2a2259c3c65605cf6a86274fe0e5281b",
+  "signer": "0xa4f183a6799F0310FcCC545B07F2DcC960223de2",
+  "spec_checks": {
+    "base_asset_usdc": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "base_network": "eip155:8453",
+    "discovery_payto": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+    "discovery_payto_is_fleet_wallet": true,
+    "discovery_served_and_parses": true,
+    "method": "listed side from the stall's live /.well-known/x402; live side from fresh unpaid POST {} probes (HTTP 402, payment-required challenge decoded locally); SDK parse run locally with the installed x402 SDK models — no paid call is ever made"
+  },
+  "stall": "stall-row",
+  "summary": {
+    "routes_failed": 0,
+    "routes_passed": 30,
+    "routes_tested": 30
+  }
+}

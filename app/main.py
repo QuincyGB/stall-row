@@ -3193,6 +3193,22 @@ async def stability_manifest_document():
         return JSONResponse({"detail": "Not Found"}, status_code=404)
     return Response(content=payload, media_type="application/json")
 
+@app.get("/.well-known/gradeability-report.json")
+async def gradeability_report_document():
+    # The Gradeability Self-Test Report, served VERBATIM as committed
+    # at app/data/gradeability-report.json (generated + signed VM-side
+    # by the fleet's gradeability_report.py from live discovery, fresh
+    # unpaid probes, and the standing checker's state). Absent file ->
+    # 404, never fabricated.
+    path = os.path.join(os.path.dirname(__file__), "data", "gradeability-report.json")
+    try:
+        with open(path, "rb") as f:
+            payload = f.read()
+    except OSError:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    return Response(content=payload, media_type="application/json")
+
+
 
 def _serve_data_text(filename: str):
     # Committed text served VERBATIM (same pattern as the stability
