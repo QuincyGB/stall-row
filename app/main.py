@@ -1354,17 +1354,50 @@ async def recheck_feed(request: Request):
     ?limit= (default FEED_LIMIT, max 1000); seq continuity across
     pages proves nothing was silently dropped. X-Recheck-Feed-
     Latest-Seq and X-Recheck-Feed-Count headers ride on every
-    response so a poller can see the chain head either way."""
+    response so a poller can see the chain head either way.
+
+    Feed v2 filters (additive): ?origin= (one origin like
+    https://host[:port], or a comma-separated set), ?pay_to= (the
+    records' current payTo, case-insensitive) and ?route= (a full
+    resource URL, or its absolute path such as /v1/verdict) select
+    a SUBSET of the same chain and combine with each other and
+    with ?watch_id= / ?url= / the cursors. Filtering NEVER rewrites
+    seq or hashes — envelopes are served exactly as recorded, so
+    seq gaps in a filtered view are expected: they are the records
+    the filter excluded, not records dropped from the chain (the
+    unfiltered chain still verifies end to end). A filter that
+    matches nothing returns a valid empty page (200, empty body)
+    with the chain headers still set.
+
+    Backfill: the history store is append-only (nothing is pruned),
+    so the retained history runs from X-Recheck-Feed-Earliest-Seq
+    to X-Recheck-Feed-Latest-Seq — both headers ride on every
+    response, and no older history exists to promise. A new reader
+    loads it either forwards (?since_seq=0, then advance the cursor
+    page by page) or backwards (?before_seq=N: records with seq < N,
+    newest first; the next page is before_seq=<smallest seq seen>,
+    and X-Recheck-Feed-Next-Before-Seq names it while older
+    matching records remain). since_seq and before_seq are
+    alternative cursors — passing both is a 422."""
     params = request.query_params
     v2 = (
         params.get("v") == "2"
         or "watch_id" in params
         or "url" in params
         or "since_seq" in params
+        or "before_seq" in params
+        or "origin" in params
+        or "pay_to" in params
+        or "route" in params
     )
     headers = {
         "X-Recheck-Feed-Latest-Seq": str(_recheck_store.latest_seq()),
+        "X-Recheck-Feed-Earliest-Seq": str(_recheck_store.earliest_seq()),
         "X-Recheck-Feed-Count": str(_recheck_store.check_history_count()),
+        "X-Recheck-Feed-Retention": (
+            "full retained history (append-only, never pruned); "
+            "floor is X-Recheck-Feed-Earliest-Seq"
+        ),
     }
     if not v2:
         records = _recheck_store.recent_checks()
@@ -1376,22 +1409,108 @@ async def recheck_feed(request: Request):
         since_seq = (
             int(params["since_seq"]) if "since_seq" in params else None
         )
+        before_seq = (
+            int(params["before_seq"]) if "before_seq" in params else None
+        )
         limit = int(params.get("limit", recheck_svc.FEED_LIMIT))
     except ValueError:
         return JSONResponse(
-            {"error": "since_seq and limit must be integers"},
+            {"error": "since_seq, before_seq and limit must be integers"},
             status_code=422,
         )
+    if since_seq is not None and before_seq is not None:
+        return JSONResponse(
+            {
+                "error": "since_seq and before_seq are alternative "
+                "cursors; pass only one"
+            },
+            status_code=422,
+        )
+    if before_seq is not None and before_seq < 0:
+        return JSONResponse(
+            {"error": "before_seq must be >= 0"}, status_code=422
+        )
+    origins = None
+    if "origin" in params:
+        origins = []
+        for raw in params["origin"].split(","):
+            candidate = raw.strip().rstrip("/")
+            parts = urlsplit(candidate)
+            if (
+                parts.scheme not in ("http", "https")
+                or not parts.netloc
+                or parts.path
+                or parts.query
+                or parts.fragment
+            ):
+                return JSONResponse(
+                    {
+                        "error": "origin must be an http(s) origin "
+                        "like https://host[:port] (comma-separated "
+                        "for several)"
+                    },
+                    status_code=422,
+                )
+            origins.append(
+                f"{parts.scheme.lower()}://{parts.netloc.lower()}"
+            )
+    pay_to = None
+    if "pay_to" in params:
+        pay_to = params["pay_to"].strip()
+        if not pay_to:
+            return JSONResponse(
+                {"error": "pay_to must not be empty"}, status_code=422
+            )
+    route = None
+    if "route" in params:
+        route = params["route"].strip()
+        if not route or ("://" not in route and not route.startswith("/")):
+            return JSONResponse(
+                {
+                    "error": "route must be a full resource URL or "
+                    "an absolute path starting with /"
+                },
+                status_code=422,
+            )
     envelopes = _recheck_store.feed_rows(
         watch_id=params.get("watch_id"),
         url=params.get("url"),
         since_seq=since_seq,
         limit=limit,
         ascending=since_seq is not None,
+        origins=origins,
+        pay_to=pay_to,
+        route=route,
+        before_seq=before_seq,
     )
     if envelopes:
         headers["X-Recheck-Feed-First-Seq"] = str(envelopes[0]["seq"])
         headers["X-Recheck-Feed-Last-Seq"] = str(envelopes[-1]["seq"])
+    filtered = (
+        origins is not None or pay_to is not None or route is not None
+    )
+    if filtered or before_seq is not None:
+        total_matched = _recheck_store.feed_match_count(
+            watch_id=params.get("watch_id"),
+            url=params.get("url"),
+            since_seq=since_seq,
+            before_seq=before_seq,
+            origins=origins,
+            pay_to=pay_to,
+            route=route,
+        )
+        headers["X-Recheck-Feed-Total-Matched"] = str(total_matched)
+        if (
+            since_seq is None
+            and envelopes
+            and total_matched > len(envelopes)
+        ):
+            # Newest-first page with older matches remaining: the
+            # next backfill page starts strictly below the smallest
+            # seq just served.
+            headers["X-Recheck-Feed-Next-Before-Seq"] = str(
+                envelopes[-1]["seq"]
+            )
     body = "".join(json.dumps(e, sort_keys=True) + "\n" for e in envelopes)
     return PlainTextResponse(
         body, media_type="application/x-ndjson", headers=headers

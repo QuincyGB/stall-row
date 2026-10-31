@@ -994,11 +994,57 @@ class WatchStore:
             ).fetchone()
         return int(row[0]) if row and row[0] is not None else 0
 
+    def earliest_seq(self) -> int:
+        """The oldest seq the store still retains (0 when empty).
+        The history table is append-only — nothing prunes it — so
+        this is the floor a backfill can honestly promise: seqs
+        below it do not exist, seqs at or above it all do."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT MIN(seq) FROM recheck_history"
+            ).fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
     @staticmethod
     def _like_escape(text: str) -> str:
         return (
             text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         )
+
+    @staticmethod
+    def _origin_of(url: str) -> str | None:
+        """scheme://netloc of a record's URL, lowercased — the
+        origin a feed filter compares against."""
+        try:
+            parts = urlsplit(url)
+        except ValueError:
+            return None
+        if not parts.scheme or not parts.netloc:
+            return None
+        return f"{parts.scheme.lower()}://{parts.netloc.lower()}"
+
+    @classmethod
+    def _record_matches(cls, record: dict, origins, pay_to, route) -> bool:
+        """Feed v2 record filters (origin / pay_to / route), applied
+        to the record itself — these fields live inside the stored
+        response JSON, not in SQL columns. A record that does not
+        carry the filtered field (a web check has no payTo) never
+        matches that filter; nothing is inferred."""
+        url = record.get("url") or ""
+        if origins is not None and cls._origin_of(url) not in origins:
+            return False
+        if pay_to is not None:
+            current = record.get("current") or {}
+            seen = current.get("payTo")
+            if not isinstance(seen, str) or seen.lower() != pay_to.lower():
+                return False
+        if route is not None:
+            if "://" in route:
+                if url != route:
+                    return False
+            elif urlsplit(url).path != route:
+                return False
+        return True
 
     def feed_rows(
         self,
@@ -1007,12 +1053,24 @@ class WatchStore:
         since_seq: int | None = None,
         limit: int = FEED_LIMIT,
         ascending: bool = False,
+        origins: list[str] | None = None,
+        pay_to: str | None = None,
+        route: str | None = None,
+        before_seq: int | None = None,
     ) -> list[dict]:
         """History envelopes, filtered. Cursor mode (since_seq set)
         is ascending by construction — the caller advances its
         cursor to the last seq seen; continuity of seq across pages
-        is the no-silent-gap proof. Default order is newest first,
-        like the legacy feed."""
+        is the no-silent-gap proof. Backfill mode (before_seq set)
+        is the mirror: records with seq < before_seq, newest first,
+        so a caller pages backwards through the retained history.
+        Default order is newest first, like the legacy feed.
+
+        origin / pay_to / route filters select a SUBSET of the same
+        hash chain: envelopes are served exactly as recorded (seq,
+        prev_hash, record_hash untouched), so seq gaps in a filtered
+        view are expected — they are the records the filter excluded,
+        not records dropped from the chain."""
         clauses: list[str] = []
         params: list = []
         if watch_id is not None and url is not None:
@@ -1028,20 +1086,91 @@ class WatchStore:
             clauses.append("seq > ?")
             params.append(int(since_seq))
             ascending = True
+        if before_seq is not None:
+            clauses.append("seq < ?")
+            params.append(int(before_seq))
+            ascending = False
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         order = "ASC" if ascending else "DESC"
+        bounded = max(1, min(int(limit), 1000))
+        record_filtered = (
+            origins is not None or pay_to is not None or route is not None
+        )
         with self._lock:
-            rows = self._conn.execute(
-                f"SELECT {self._HISTORY_COLS} FROM recheck_history "
-                f"{where} ORDER BY seq {order} LIMIT ?",
-                (*params, max(1, min(int(limit), 1000))),
-            ).fetchall()
+            if record_filtered:
+                # The record filters live in the stored JSON, so the
+                # page limit must apply AFTER filtering — fetch the
+                # seq/watch-bounded rows in order, filter, then cut.
+                rows = self._conn.execute(
+                    f"SELECT {self._HISTORY_COLS} FROM recheck_history "
+                    f"{where} ORDER BY seq {order}",
+                    params,
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    f"SELECT {self._HISTORY_COLS} FROM recheck_history "
+                    f"{where} ORDER BY seq {order} LIMIT ?",
+                    (*params, bounded),
+                ).fetchall()
         out = []
         for row in rows:
             env = self._row_envelope(row)
-            if env is not None:
-                out.append(env)
+            if env is None:
+                continue
+            if record_filtered and not self._record_matches(
+                env["record"], origins, pay_to, route
+            ):
+                continue
+            out.append(env)
+            if record_filtered and len(out) >= bounded:
+                break
         return out
+
+    def feed_match_count(
+        self,
+        watch_id: str | None = None,
+        url: str | None = None,
+        since_seq: int | None = None,
+        before_seq: int | None = None,
+        origins: list[str] | None = None,
+        pay_to: str | None = None,
+        route: str | None = None,
+    ) -> int:
+        """How many retained records match the same bounds/filters
+        feed_rows serves — the total behind a filtered or backfill
+        page, so a caller can tell a partial page from the end of
+        the retained history."""
+        page = self.feed_rows(
+            watch_id=watch_id,
+            url=url,
+            since_seq=since_seq,
+            before_seq=before_seq,
+            limit=1000,
+            origins=origins,
+            pay_to=pay_to,
+            route=route,
+        )
+        total = len(page)
+        # feed_rows caps a page at 1000; walk the remainder in the
+        # page's own direction while pages come back full. Cursor
+        # mode walks forward (since_seq = last seq seen); every
+        # other mode here is newest-first and walks backwards
+        # (before_seq = smallest seq seen).
+        while len(page) == 1000:
+            if since_seq is not None:
+                page = self.feed_rows(
+                    watch_id=watch_id, url=url,
+                    since_seq=page[-1]["seq"], limit=1000,
+                    origins=origins, pay_to=pay_to, route=route,
+                )
+            else:
+                page = self.feed_rows(
+                    watch_id=watch_id, url=url,
+                    before_seq=page[-1]["seq"], limit=1000,
+                    origins=origins, pay_to=pay_to, route=route,
+                )
+            total += len(page)
+        return total
 
     def record_by_seq(self, seq: int) -> dict | None:
         with self._lock:
