@@ -8,15 +8,26 @@ $0.10 for the rollup and $1.00 for the full data pull (PulseFeed's
 /trust/dataset $0.10 and /data/full $1.00 are the named comps), and
 this dataset's per-route change history exists in no directory.
 
-Sources — ONLY stores this service already keeps, all public
-endpoint observation data (no operator contacts, no private data):
+Sources — the stores this service already keeps, plus the one
+committed patrol export, all public endpoint observation data
+(no operator contacts, no private data):
 
   * the Recheck history: every recorded check of an x402 resource
     or web page (terms observed, CHANGED/BASELINE status, the
     catalogue crosscheck frozen at check time);
   * the CDP Index snapshots this service holds (the newest
     KEEP_SNAPSHOTS captures): listing state, listed terms, and
-    usage counters exactly as the catalogue published them.
+    usage counters exactly as the catalogue published them;
+  * the patrol snapshot committed at app/data/patrol-snapshot.json
+    (kind verdict-row-patrol-snapshot/v1, exported VM-side from
+    Dima's PC patrol ledger by patrol_snapshot.py and read here
+    through services/patrolsnap.py): per-route open defects by
+    class with first/last seen, and recoveries carrying their
+    signed-receipt ids. It is a point-in-time export — provenance
+    names its id, generation time and the patrol run it reflects;
+    between exports the patrol side is exactly that old, never
+    fresher, and a missing snapshot folds in as no patrol side
+    (provenance says so) rather than an invented one.
 
 Honesty rules, in line with the rest of the fleet:
 
@@ -32,11 +43,19 @@ Honesty rules, in line with the rest of the fleet:
   * change counts keep their components separate (Recheck CHANGED
     events vs catalogue tracked-field changes across the held
     snapshot pairs) so the sum is never mistaken for either;
-  * recovery means one thing here: a resource that disappears from
-    the catalogue and later reappears across the held snapshots.
-    The patrol defect ledger on the operator's PC is NOT in these
-    stores and is not part of this product (same scope note the
-    Score Book carries).
+  * recovery keeps its two meanings separate: `recoveries` counts
+    a resource that disappears from the catalogue and later
+    reappears across the held snapshots, while a route's `patrol`
+    block carries the patrol's own recovery (status "recovered"
+    with the signed receipt id) — the two are never summed into
+    one number (totals keep patrol_open_defects /
+    patrol_recoveries apart from the catalogue figures);
+  * the patrol defect class lives in the route's `patrol` block
+    under its own patrol vocabulary (unexpected_status,
+    amount_mismatch, payto_mismatch, server_error,
+    challenge_undecodable, unreachable, no_402) and never
+    overwrites the derived `defect_class`, which stays a
+    Recheck/catalogue derivation only.
 """
 
 from __future__ import annotations
@@ -48,6 +67,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
 from . import indexfeed as indexfeed_svc
+from . import patrolsnap as patrolsnap_svc
 
 LIMITS = (
     "Observation data only: the Recheck history records ANSWERED "
@@ -57,8 +77,13 @@ LIMITS = (
     "them). Defect classes are derived from stored observations — "
     "catalogue_mismatch (listed terms disagree with observed terms) "
     "and not_listed (observed live, absent from the newest "
-    "catalogue snapshot) — never asserted beyond the data. No "
-    "operator contacts or private data are included."
+    "catalogue snapshot) — never asserted beyond the data. The "
+    "patrol side is a point-in-time export of the PC patrol ledger "
+    "(provenance names the snapshot id and the patrol run it "
+    "reflects): patrol defects and recoveries are exactly as fresh "
+    "as that export, and patrol coverage is the origins the patrol "
+    "has walked — a route with no patrol block was not necessarily "
+    "patrolled. No operator contacts or private data are included."
 )
 
 
@@ -106,6 +131,9 @@ def _empty_route(url: str) -> dict:
         "latest_terms": None,
         "latest_crosscheck": None,
         "catalogue": None,
+        "patrol": None,
+        "patrol_first_epoch": None,
+        "patrol_last_epoch": None,
         "_cat_seen": [],  # snapshot indexes the resource appears in
         "_cat_entries": {},  # snapshot index -> entry
     }
@@ -255,6 +283,59 @@ def _fold_index(index_store, routes: dict[str, dict]) -> tuple[list[dict], set[s
     return provenance, newest_urls
 
 
+def _fold_patrol(snapshot: dict | None, routes: dict[str, dict]) -> dict | None:
+    """Fold the committed patrol snapshot into route rows. Returns
+    the patrol provenance block (None when no snapshot is held).
+    Patrol rows are facts only, copied field by field — nothing
+    derived. A route can carry BOTH rows (recovered once, defective
+    again since): they merge into one block whose status is the
+    current one ("open") while the recovery fact (receipt id +
+    recovered_at) is kept alongside."""
+    provenance = patrolsnap_svc.provenance_of(snapshot)
+    if provenance is None:
+        return None
+    for row in snapshot.get("routes") or []:
+        if not isinstance(row, dict) or not row.get("url"):
+            continue
+        url = row["url"]
+        rec = routes.setdefault(url, _empty_route(url))
+        rec["sources"].add("patrol")
+        block = rec["patrol"] or {
+            "status": None,
+            "defect_class": None,
+            "first_seen": None,
+            "last_seen": None,
+            "recovered_at": None,
+            "receipt_id": None,
+        }
+        first_seen = row.get("first_seen")
+        if first_seen and (block["first_seen"] is None or first_seen < block["first_seen"]):
+            block["first_seen"] = first_seen
+        if row.get("status") == "open":
+            block["status"] = "open"
+            block["defect_class"] = row.get("defect_class")
+            block["last_seen"] = row.get("last_seen")
+        elif row.get("status") == "recovered":
+            block["recovered_at"] = row.get("recovered_at")
+            block["receipt_id"] = row.get("receipt_id")
+            if block["status"] != "open":
+                block["status"] = "recovered"
+                block["defect_class"] = row.get("defect_class")
+        rec["patrol"] = block
+        first = _epoch_of(block["first_seen"])
+        if first is not None and (
+            rec["patrol_first_epoch"] is None or first < rec["patrol_first_epoch"]
+        ):
+            rec["patrol_first_epoch"] = first
+        for stamp in (block["last_seen"], block["recovered_at"]):
+            last = _epoch_of(stamp)
+            if last is not None and (
+                rec["patrol_last_epoch"] is None or last > rec["patrol_last_epoch"]
+            ):
+                rec["patrol_last_epoch"] = last
+    return provenance
+
+
 def _defect_of(rec: dict, newest_urls: set[str] | None) -> tuple[str | None, dict | None]:
     """Derive the defect class from stored observations only."""
     cross = rec["latest_crosscheck"] or {}
@@ -285,22 +366,53 @@ def _defect_of(rec: dict, newest_urls: set[str] | None) -> tuple[str | None, dic
     return None, None
 
 
-def build_dataset(recheck_store, index_store) -> dict:
-    """The full dataset build (both tiers shape from this)."""
+def build_dataset(recheck_store, index_store, patrol_snapshot="default") -> dict:
+    """The full dataset build (both tiers shape from this).
+
+    patrol_snapshot: "default" loads the committed snapshot via
+    patrolsnap; None builds without the patrol side; a dict is
+    used as-is (tests)."""
+    if patrol_snapshot == "default":
+        patrol_snapshot = patrolsnap_svc.load_snapshot()
     routes: dict[str, dict] = {}
     records_read = _fold_recheck(recheck_store, routes)
     snap_provenance, newest_urls = _fold_index(index_store, routes)
+    patrol_provenance = _fold_patrol(patrol_snapshot, routes)
 
     records: list[dict] = []
     origins: dict[str, dict] = {}
     total_changes = 0
     total_recoveries = 0
+    patrol_open = 0
+    patrol_recovered = 0
     for url in sorted(routes):
         rec = routes[url]
-        firsts = [e for e in (rec["recheck_first_epoch"], rec["catalogue_first_epoch"]) if e]
+        firsts = [
+            e
+            for e in (
+                rec["recheck_first_epoch"],
+                rec["catalogue_first_epoch"],
+                rec["patrol_first_epoch"],
+            )
+            if e
+        ]
         rec["first_seen_epoch"] = min(firsts) if firsts else None
-        lasts = [e for e in (rec["recheck_last_epoch"], rec["catalogue_last_epoch"]) if e]
+        lasts = [
+            e
+            for e in (
+                rec["recheck_last_epoch"],
+                rec["catalogue_last_epoch"],
+                rec["patrol_last_epoch"],
+            )
+            if e
+        ]
         rec["last_seen_epoch"] = max(lasts) if lasts else None
+        patrol = rec["patrol"]
+        if patrol is not None:
+            if patrol["status"] == "open":
+                patrol_open += 1
+            if patrol["receipt_id"] is not None:
+                patrol_recovered += 1
         defect, defect_detail = _defect_of(rec, newest_urls)
         changes = rec["recheck_changes"] + rec["catalogue_changes"]
         total_changes += changes
@@ -321,6 +433,7 @@ def build_dataset(recheck_store, index_store) -> dict:
             "defect_detail": defect_detail,
             "terms": rec["latest_terms"],
             "catalogue": rec["catalogue"],
+            "patrol": patrol,
         }
         records.append(record)
         org = origins.setdefault(
@@ -332,6 +445,9 @@ def build_dataset(recheck_store, index_store) -> dict:
                 "changes": 0,
                 "recoveries": 0,
                 "defect_classes": set(),
+                "patrol_open": 0,
+                "patrol_recovered": 0,
+                "patrol_defect_classes": set(),
                 "last_seen_epoch": None,
             },
         )
@@ -341,6 +457,13 @@ def build_dataset(recheck_store, index_store) -> dict:
         org["recoveries"] += rec["recoveries"]
         if defect:
             org["defect_classes"].add(defect)
+        if patrol is not None:
+            if patrol["status"] == "open":
+                org["patrol_open"] += 1
+                if patrol["defect_class"]:
+                    org["patrol_defect_classes"].add(patrol["defect_class"])
+            if patrol["receipt_id"] is not None:
+                org["patrol_recovered"] += 1
         if rec["last_seen_epoch"] and (
             org["last_seen_epoch"] is None or rec["last_seen_epoch"] > org["last_seen_epoch"]
         ):
@@ -354,6 +477,9 @@ def build_dataset(recheck_store, index_store) -> dict:
             "changes": o["changes"],
             "recoveries": o["recoveries"],
             "defect_classes": sorted(o["defect_classes"]),
+            "patrol_open": o["patrol_open"],
+            "patrol_recovered": o["patrol_recovered"],
+            "patrol_defect_classes": sorted(o["patrol_defect_classes"]),
             "last_seen": _iso(o["last_seen_epoch"]),
         }
         for o in (origins[k] for k in sorted(origins))
@@ -367,8 +493,10 @@ def build_dataset(recheck_store, index_store) -> dict:
         "sources": {
             "recheck_records": records_read,
             "index_snapshots": snap_provenance,
+            "patrol_snapshot": patrol_provenance,
             "routes_from_recheck": sum(1 for r in records if "recheck" in r["sources"]),
             "routes_from_index": sum(1 for r in records if "cdp_index" in r["sources"]),
+            "routes_from_patrol": sum(1 for r in records if "patrol" in r["sources"]),
         },
         "limits": LIMITS,
     }
@@ -379,6 +507,8 @@ def build_dataset(recheck_store, index_store) -> dict:
         "changes": total_changes,
         "recoveries": total_recoveries,
         "defective_routes": sum(1 for r in records if r["defect_class"]),
+        "patrol_open_defects": patrol_open,
+        "patrol_recoveries": patrol_recovered,
     }
     return {"provenance": provenance, "totals": totals, "origins": origin_rows, "records": records}
 

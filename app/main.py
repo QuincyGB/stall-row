@@ -1106,9 +1106,10 @@ class LedgerDatasetRequest(BaseModel):
 async def ledger_dataset(req: LedgerDatasetRequest):
     """Ledger Dataset (summary): the observation ledger rolled up
     per origin — routes, checks, changes, recoveries, derived
-    defect classes — with provenance. Built only from this
-    service's own stores (Recheck history + held CDP snapshots);
-    observation data only, no operator contacts."""
+    defect classes, patrol open defects/recoveries — with
+    provenance. Built from this service's own stores (Recheck
+    history + held CDP snapshots) plus the committed patrol
+    snapshot; observation data only, no operator contacts."""
 
     async def go():
         return ledger_svc.summary_view(
@@ -1123,7 +1124,8 @@ async def ledger_dataset_full(req: LedgerDatasetRequest):
     """Ledger Dataset (full): every tracked route's current state
     from the same build as the summary tier — observed/listed
     terms, status, counts, defect class, listing and usage
-    counters — plus the rollup and provenance."""
+    counters, and the route's patrol block (open defect or signed-
+    receipt recovery) — plus the rollup and provenance."""
 
     async def go():
         return ledger_svc.full_view(

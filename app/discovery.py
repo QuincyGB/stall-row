@@ -1630,9 +1630,9 @@ ROUTES: dict[str, dict] = {
         "description": (
             "Ledger Dataset (summary) — per-origin rollup of the "
             "fleet's x402 observation ledger (Recheck history + held "
-            "CDP catalogue snapshots): routes tracked, checks, change "
-            "and recovery counts, derived defect classes, last-seen "
-            "times, and full provenance (source counts, snapshot id). "
+            "CDP snapshots + the committed patrol snapshot): routes, "
+            "checks, change/recovery counts, patrol open defects and "
+            "recoveries by class, last-seen times, provenance. "
             "Observation data only — no operator contacts. Use this "
             "when you want the town-wide state of the x402 catalogue "
             "before buying the full per-route pull."
@@ -1651,10 +1651,12 @@ ROUTES: dict[str, dict] = {
                             {
                                 "recheck_records": _I,
                                 "index_snapshots": {"type": "array", "items": {"type": "object"}},
+                                "patrol_snapshot": {"type": ["object", "null"]},
                                 "routes_from_recheck": _I,
                                 "routes_from_index": _I,
+                                "routes_from_patrol": _I,
                             },
-                            ["recheck_records", "index_snapshots", "routes_from_recheck", "routes_from_index"],
+                            ["recheck_records", "index_snapshots", "patrol_snapshot", "routes_from_recheck", "routes_from_index", "routes_from_patrol"],
                         ),
                         "limits": _S,
                     },
@@ -1668,8 +1670,10 @@ ROUTES: dict[str, dict] = {
                         "changes": _I,
                         "recoveries": _I,
                         "defective_routes": _I,
+                        "patrol_open_defects": _I,
+                        "patrol_recoveries": _I,
                     },
-                    ["routes", "origins", "checks", "changes", "recoveries", "defective_routes"],
+                    ["routes", "origins", "checks", "changes", "recoveries", "defective_routes", "patrol_open_defects", "patrol_recoveries"],
                 ),
                 "origins": {
                     "type": "array",
@@ -1681,9 +1685,12 @@ ROUTES: dict[str, dict] = {
                             "changes": _I,
                             "recoveries": _I,
                             "defect_classes": {"type": "array", "items": _S},
+                            "patrol_open": _I,
+                            "patrol_recovered": _I,
+                            "patrol_defect_classes": {"type": "array", "items": _S},
                             "last_seen": _N,
                         },
-                        ["origin", "routes", "checks", "changes", "recoveries", "defect_classes", "last_seen"],
+                        ["origin", "routes", "checks", "changes", "recoveries", "defect_classes", "patrol_open", "patrol_recovered", "patrol_defect_classes", "last_seen"],
                     ),
                 },
             },
@@ -1699,10 +1706,20 @@ ROUTES: dict[str, dict] = {
                     "index_snapshots": [
                         {"id": 12, "captured_at": "2026-10-29T00:00:00Z", "resource_count": 9012}
                     ],
+                    "patrol_snapshot": {
+                        "id": "9f2c1a4b5e6d7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7",
+                        "generated_at": "2026-10-30T00:00:00Z",
+                        "patrol_run_id": "20261030T000000Z",
+                        "patrol_as_of": "2026-10-30T00:00:00Z",
+                        "patrol_runs_total": 150,
+                        "open_defects": 700,
+                        "recoveries": 80,
+                    },
                     "routes_from_recheck": 87,
                     "routes_from_index": 9012,
+                    "routes_from_patrol": 780,
                 },
-                "limits": "Observation data only: the Recheck history records answered checks; the catalogue side is limited to the snapshots this service holds.",
+                "limits": "Observation data only: the Recheck history records answered checks; the catalogue side is limited to the snapshots this service holds; the patrol side is a point-in-time export of the PC patrol ledger.",
             },
             "totals": {
                 "routes": 9050,
@@ -1711,6 +1728,8 @@ ROUTES: dict[str, dict] = {
                 "changes": 133,
                 "recoveries": 4,
                 "defective_routes": 61,
+                "patrol_open_defects": 700,
+                "patrol_recoveries": 80,
             },
             "origins": [
                 {
@@ -1720,6 +1739,9 @@ ROUTES: dict[str, dict] = {
                     "changes": 2,
                     "recoveries": 0,
                     "defect_classes": ["catalogue_mismatch"],
+                    "patrol_open": 1,
+                    "patrol_recovered": 1,
+                    "patrol_defect_classes": ["unexpected_status"],
                     "last_seen": "2026-10-29T00:00:00Z",
                 }
             ],
@@ -1728,14 +1750,15 @@ ROUTES: dict[str, dict] = {
     "/v1/ledger-dataset/full": {
         "description": (
             "Ledger Dataset (full) — every route in the fleet's x402 "
-            "observation ledger with its current state: observed and "
-            "listed terms, latest status, check/change/recovery "
-            "counts, derived defect class, catalogue listing and "
-            "usage counters, plus the per-origin rollup and full "
-            "provenance. Built from the Recheck history and the CDP "
-            "snapshots this service holds; observation data only. "
-            "Use this when you need route-level state for "
-            "monitoring, grading, or dataset work."
+            "observation ledger: observed/listed terms, latest "
+            "status, check/change/recovery counts, derived defect "
+            "class, catalogue listing + usage counters, and its "
+            "patrol block (open defect by class, first/last seen; "
+            "or recovery + receipt id), plus the per-origin rollup "
+            "and provenance. Sources: Recheck history, held CDP + "
+            "patrol snapshots; observation data only. Use this when "
+            "you need route-level state for monitoring, grading, "
+            "or dataset work."
         ),
         "tags": ["x402", "inspector", "dataset", "catalogue", "monitoring"],
         "input_schema": _obj({}, []),
@@ -1765,12 +1788,13 @@ ROUTES: dict[str, dict] = {
                             "defect_detail": {"type": ["object", "null"]},
                             "terms": {"type": ["object", "null"]},
                             "catalogue": {"type": ["object", "null"]},
+                            "patrol": {"type": ["object", "null"]},
                         },
                         [
                             "url", "origin", "sources", "first_seen", "last_seen",
                             "checks", "latest_status", "changes", "recheck_changes",
                             "catalogue_changes", "recoveries", "defect_class",
-                            "defect_detail", "terms", "catalogue",
+                            "defect_detail", "terms", "catalogue", "patrol",
                         ],
                     ),
                 },
@@ -1787,10 +1811,20 @@ ROUTES: dict[str, dict] = {
                     "index_snapshots": [
                         {"id": 12, "captured_at": "2026-10-29T00:00:00Z", "resource_count": 9012}
                     ],
+                    "patrol_snapshot": {
+                        "id": "9f2c1a4b5e6d7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7",
+                        "generated_at": "2026-10-30T00:00:00Z",
+                        "patrol_run_id": "20261030T000000Z",
+                        "patrol_as_of": "2026-10-30T00:00:00Z",
+                        "patrol_runs_total": 150,
+                        "open_defects": 700,
+                        "recoveries": 80,
+                    },
                     "routes_from_recheck": 87,
                     "routes_from_index": 9012,
+                    "routes_from_patrol": 780,
                 },
-                "limits": "Observation data only: the Recheck history records answered checks; the catalogue side is limited to the snapshots this service holds.",
+                "limits": "Observation data only: the Recheck history records answered checks; the catalogue side is limited to the snapshots this service holds; the patrol side is a point-in-time export of the PC patrol ledger.",
             },
             "totals": {
                 "routes": 9050,
@@ -1799,6 +1833,8 @@ ROUTES: dict[str, dict] = {
                 "changes": 133,
                 "recoveries": 4,
                 "defective_routes": 61,
+                "patrol_open_defects": 700,
+                "patrol_recoveries": 80,
             },
             "origins": [
                 {
@@ -1808,6 +1844,9 @@ ROUTES: dict[str, dict] = {
                     "changes": 2,
                     "recoveries": 0,
                     "defect_classes": ["catalogue_mismatch"],
+                    "patrol_open": 1,
+                    "patrol_recovered": 1,
+                    "patrol_defect_classes": ["unexpected_status"],
                     "last_seen": "2026-10-29T00:00:00Z",
                 }
             ],
@@ -1845,6 +1884,14 @@ ROUTES: dict[str, dict] = {
                         "payers30d": 3,
                         "snapshots_seen": 2,
                         "present_in_latest": True,
+                    },
+                    "patrol": {
+                        "status": "open",
+                        "defect_class": "unexpected_status",
+                        "first_seen": "2026-10-28T00:00:00Z",
+                        "last_seen": "2026-10-29T00:00:00Z",
+                        "recovered_at": None,
+                        "receipt_id": None,
                     },
                 }
             ],

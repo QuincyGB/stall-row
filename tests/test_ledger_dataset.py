@@ -77,7 +77,7 @@ def test_summary_rolls_up_recheck_history(store, index_store):
     _record(store, status="BASELINE")
     _record(store, status="CHANGED")
     _record(store, url=URL2, status="UNCHANGED")
-    ds = ledger.build_dataset(store, index_store)
+    ds = ledger.build_dataset(store, index_store, patrol_snapshot=None)
     view = ledger.summary_view(ds)
     assert view["tier"] == "summary"
     assert "records" not in view
@@ -97,15 +97,15 @@ def test_summary_rolls_up_recheck_history(store, index_store):
 
 def test_snapshot_id_is_stable_for_same_data(store, index_store):
     _record(store)
-    first = ledger.build_dataset(store, index_store)["provenance"]["snapshot_id"]
-    second = ledger.build_dataset(store, index_store)["provenance"]["snapshot_id"]
+    first = ledger.build_dataset(store, index_store, patrol_snapshot=None)["provenance"]["snapshot_id"]
+    second = ledger.build_dataset(store, index_store, patrol_snapshot=None)["provenance"]["snapshot_id"]
     assert first == second
 
 
 def test_defect_mismatch_from_snapshot_vs_observed(store, index_store):
     _record(store, pay_to=OWNER)
     _snapshot(index_store, [(URL, OTHER)])  # catalogue lists another payTo
-    ds = ledger.build_dataset(store, index_store)
+    ds = ledger.build_dataset(store, index_store, patrol_snapshot=None)
     rec = ds["records"][0]
     assert rec["defect_class"] == "catalogue_mismatch"
     assert rec["defect_detail"]["via"] == "snapshot_vs_latest_observed"
@@ -117,7 +117,7 @@ def test_defect_mismatch_from_snapshot_vs_observed(store, index_store):
 def test_defect_not_listed_when_absent_from_newest_snapshot(store, index_store):
     _record(store)
     _snapshot(index_store, [(URL2, OWNER)])  # catalogue holds only the other route
-    ds = ledger.build_dataset(store, index_store)
+    ds = ledger.build_dataset(store, index_store, patrol_snapshot=None)
     by_url = {r["url"]: r for r in ds["records"]}
     assert by_url[URL]["defect_class"] == "not_listed"
     assert by_url[URL2]["defect_class"] is None  # listed, never rechecked
@@ -126,7 +126,7 @@ def test_defect_not_listed_when_absent_from_newest_snapshot(store, index_store):
 def test_no_defect_claim_without_evidence(store, index_store):
     _record(store, pay_to=OWNER)
     _snapshot(index_store, [(URL, OWNER)])  # listed terms agree with observed
-    ds = ledger.build_dataset(store, index_store)
+    ds = ledger.build_dataset(store, index_store, patrol_snapshot=None)
     assert ds["records"][0]["defect_class"] is None
     assert ds["totals"]["defective_routes"] == 0
 
@@ -135,7 +135,7 @@ def test_catalogue_changes_and_recovery_across_snapshots(store, index_store):
     _snapshot(index_store, [(URL, OWNER, "5000")])
     _snapshot(index_store, [(URL2, OWNER, "5000")])          # URL vanishes
     _snapshot(index_store, [(URL, OWNER, "6000"), (URL2, OWNER, "5000")])  # URL returns, repriced
-    ds = ledger.build_dataset(store, index_store)
+    ds = ledger.build_dataset(store, index_store, patrol_snapshot=None)
     by_url = {r["url"]: r for r in ds["records"]}
     assert by_url[URL]["recoveries"] == 1
     assert by_url[URL]["catalogue"]["present_in_latest"] is True
@@ -146,7 +146,7 @@ def test_catalogue_changes_and_recovery_across_snapshots(store, index_store):
 
 def test_full_view_carries_records_and_terms(store, index_store):
     _record(store, status="CHANGED", amount="5000")
-    ds = ledger.build_dataset(store, index_store)
+    ds = ledger.build_dataset(store, index_store, patrol_snapshot=None)
     view = ledger.full_view(ds)
     assert view["tier"] == "full"
     rec = view["records"][0]
@@ -155,6 +155,131 @@ def test_full_view_carries_records_and_terms(store, index_store):
     assert rec["terms"]["payTo"] == OWNER
     assert rec["catalogue"] is None  # no snapshots held: unknown, not "not listed"
     assert rec["defect_class"] is None
+
+
+PATROL_URL = "https://93.184.216.34/v1/patrolled"
+RECOVERED_URL = "https://93.184.216.34/v1/fixed"
+
+
+def _patrol_snapshot():
+    return {
+        "kind": "verdict-row-patrol-snapshot/v1",
+        "generated_at": "2026-10-31T12:42:27Z",
+        "snapshot_id": "a" * 64,
+        "source": {
+            "patrol": "Dima (PC patrol walker)",
+            "patrol_run_id": "20261031T120333Z",
+            "patrol_as_of": "2026-10-31T12:03:33Z",
+            "patrol_runs_total": 179,
+            "patrol_stalls_scanned_total": 11272,
+            "patrol_resources_probed_total": 11351,
+            "open_defects": 1,
+            "recoveries": 1,
+            "receipts_index": "recovery-receipts/index.json",
+        },
+        "routes": [
+            {
+                "url": PATROL_URL,
+                "origin": "https://93.184.216.34",
+                "status": "open",
+                "defect_class": "unexpected_status",
+                "first_seen": "2026-10-30T17:31:18Z",
+                "last_seen": "2026-10-31T08:02:59Z",
+            },
+            {
+                "url": RECOVERED_URL,
+                "origin": "https://93.184.216.34",
+                "status": "recovered",
+                "defect_class": "unreachable",
+                "first_seen": "2026-10-28T10:47:09Z",
+                "recovered_at": "2026-10-30T09:18:15Z",
+                "receipt_id": "rr-0123456789abcdef0123",
+            },
+        ],
+    }
+
+
+def test_patrol_open_defect_and_recovery_fold_in(store, index_store):
+    ds = ledger.build_dataset(store, index_store, patrol_snapshot=_patrol_snapshot())
+    by_url = {r["url"]: r for r in ds["records"]}
+    open_rec = by_url[PATROL_URL]
+    assert open_rec["sources"] == ["patrol"]
+    assert open_rec["patrol"] == {
+        "status": "open",
+        "defect_class": "unexpected_status",
+        "first_seen": "2026-10-30T17:31:18Z",
+        "last_seen": "2026-10-31T08:02:59Z",
+        "recovered_at": None,
+        "receipt_id": None,
+    }
+    # The patrol vocabulary never overwrites the derived class.
+    assert open_rec["defect_class"] is None
+    assert open_rec["first_seen"] == "2026-10-30T17:31:18Z"
+    assert open_rec["last_seen"] == "2026-10-31T08:02:59Z"
+    fixed = by_url[RECOVERED_URL]
+    assert fixed["patrol"]["status"] == "recovered"
+    assert fixed["patrol"]["receipt_id"] == "rr-0123456789abcdef0123"
+    assert fixed["patrol"]["recovered_at"] == "2026-10-30T09:18:15Z"
+    # Patrol recoveries stay apart from catalogue recoveries.
+    assert ds["totals"]["patrol_open_defects"] == 1
+    assert ds["totals"]["patrol_recoveries"] == 1
+    assert ds["totals"]["recoveries"] == 0
+    prov = ds["provenance"]["sources"]
+    assert prov["routes_from_patrol"] == 2
+    assert prov["patrol_snapshot"]["id"] == "a" * 64
+    assert prov["patrol_snapshot"]["patrol_run_id"] == "20261031T120333Z"
+    assert prov["patrol_snapshot"]["open_defects"] == 1
+    origin = ds["origins"][0]
+    assert origin["patrol_open"] == 1
+    assert origin["patrol_recovered"] == 1
+    assert origin["patrol_defect_classes"] == ["unexpected_status"]
+    assert "point-in-time export" in ds["provenance"]["limits"]
+
+
+def test_patrol_facts_merge_with_recheck_route(store, index_store):
+    _record(store, url=PATROL_URL, status="UNCHANGED", at="2026-10-29T00:00:00Z")
+    ds = ledger.build_dataset(store, index_store, patrol_snapshot=_patrol_snapshot())
+    rec = {r["url"]: r for r in ds["records"]}[PATROL_URL]
+    assert rec["sources"] == ["patrol", "recheck"]
+    assert rec["checks"] == 1
+    assert rec["patrol"]["defect_class"] == "unexpected_status"
+    # first_seen is the earlier Recheck sighting; last_seen the patrol's.
+    assert rec["first_seen"] == "2026-10-29T00:00:00Z"
+    assert rec["last_seen"] == "2026-10-31T08:02:59Z"
+
+
+def test_unknown_origin_unchanged_by_patrol(store, index_store):
+    _record(store, status="BASELINE")
+    ds = ledger.build_dataset(store, index_store, patrol_snapshot=_patrol_snapshot())
+    rec = {r["url"]: r for r in ds["records"]}[URL]
+    assert rec["patrol"] is None
+    assert "patrol" not in rec["sources"]
+    origin = {o["origin"]: o for o in ds["origins"]}["https://93.184.216.34"]
+    # The fixture origin also carries the two patrol-only routes.
+    assert origin["patrol_open"] == 1 and origin["patrol_recovered"] == 1
+
+
+def test_no_patrol_snapshot_means_no_patrol_side(store, index_store):
+    _record(store)
+    ds = ledger.build_dataset(store, index_store, patrol_snapshot=None)
+    assert ds["provenance"]["sources"]["patrol_snapshot"] is None
+    assert ds["provenance"]["sources"]["routes_from_patrol"] == 0
+    assert ds["totals"]["patrol_open_defects"] == 0
+    assert ds["records"][0]["patrol"] is None
+
+
+def test_patrol_payload_is_redacted(store, index_store):
+    import json as _json
+
+    ds = ledger.build_dataset(store, index_store, patrol_snapshot=_patrol_snapshot())
+    for view in (ledger.summary_view(ds), ledger.full_view(ds)):
+        blob = _json.dumps(view).lower()
+        for forbidden in (
+            "signature", "signer", "inbox", "nudge",
+            "source_note", "challenge_summary", "defect_observed",
+            "0xa4f183a6799f0310fcc545b07f2dcc960223de2",
+        ):
+            assert forbidden not in blob, forbidden
 
 
 def test_http_surface_charges_dataset_prices():
