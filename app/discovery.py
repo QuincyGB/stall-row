@@ -2304,6 +2304,18 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "your webhook on BASELINE/CHANGED. Run one check now via POST "
         "/v1/watch/run; read state via POST /v1/watch/status.",
         "",
+        "Contract Watch: the schema-focused form of Webhook Watch — "
+        "register POST /v1/watch/register with watch_focus=\"schema\" "
+        "(recheck leg; same funding: one pack credit or one $0.005 "
+        "Fleet Pass recheck debit per run, no separate price). Each "
+        "run keys only on the target's output-schema fingerprint "
+        "(the hash of the output schema declared in its 402 "
+        "challenge): the first run pushes BASELINE, and any later "
+        "fingerprint change pushes SCHEMA_CHANGED with the "
+        "before/after fingerprints and the schema field-level diff — "
+        "even when price, payTo and score are flat — while changes "
+        "to other fields alone push nothing.",
+        "",
         "Rotation Alerts: register POST /v1/rotation-alerts/register "
         "(free) with a payTo and/or a resource URL, a webhook, and a "
         "Fleet Pass — each new Verdict Index catalog snapshot (about "
@@ -2445,6 +2457,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/v1/recheck/fingerprint-spec — free fingerprint spec + test vectors, exactly as implemented",
         f"- GET {base_url}/v1/recheck/corrections — free append-only corrections log (originals never mutated)",
         f"- POST {base_url}/v1/recheck/webhooks — free self-serve change-webhook registration (signed callbacks for CHANGED events; /list, /delete, /deliveries beside it, managed by your own secret)",
+        f"- POST {base_url}/v1/watch/register — free watch registration; watch_focus=\"schema\" is Contract Watch: SCHEMA_CHANGED pushes on output-schema fingerprint change only, runs funded at the listed $0.005 Recheck price from a pack or Fleet Pass (no separate price, no new priced route)",
         f"- POST {base_url}/v1/recheck/batch — Survey Batch Recheck (Fleet-Pass-funded ONLY, not a priced route): up to 100 unique URLs at $0.005/check from a Fleet Pass, 20% off a full 100 ($0.40 total); Recheck packs cannot fund a survey",
         f"- GET {base_url}/v1/verdict-read?url= — free public verdict read over RECORDED state only (latest recorded check, recorded terms, Score Book aggregates, last_change_at; verdict only when recorded by a standing RouteVerdict watch or honestly derived from recorded checks — verdict_source says which; Guard verdicts are not persisted and none is invented). Never probes/fetches/pays the target, never triggers a paid call; unrecorded URL answers found=false",
         f"- GET {base_url}/widget/verdict.js — free embeddable verdict widget: <script src=\"{base_url}/widget/verdict.js\" data-target=\"https://example.com/v1/your-route\" async></script> renders the recorded verdict + last-change (shadow DOM, no global CSS); iframe form: GET {base_url}/widget/verdict.html?url= (self-contained, server-rendered). Branding: Verdict Row Patrol, patrol@verdictrow.com",

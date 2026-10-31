@@ -747,6 +747,13 @@ class WatchStore:
             for col, decl in (
                 ("check_kind", "TEXT NOT NULL DEFAULT 'recheck'"),
                 ("last_summary", "TEXT"),
+                # Contract Watch (Next-20 #14): watch_focus selects
+                # the change detector ('all' default — every
+                # fingerprint field; 'schema' — the output-schema
+                # fingerprint only). For a schema-focused row,
+                # last_summary doubles as its baseline memory,
+                # holding {"schema_fingerprint": <hash or null>}.
+                ("watch_focus", "TEXT NOT NULL DEFAULT 'all'"),
             ):
                 if col not in reg_cols:
                     self._conn.execute(
@@ -3165,6 +3172,7 @@ class WatchStore:
         funding_id: str,
         now_epoch: float | None = None,
         check_kind: str = "recheck",
+        watch_focus: str = "all",
     ) -> dict:
         now = time.time() if now_epoch is None else now_epoch
         watch_reg_id = "watch_" + secrets.token_hex(8)
@@ -3173,8 +3181,8 @@ class WatchStore:
                 "INSERT INTO watch_regs "
                 "(watch_reg_id, url, webhook_url, email, interval_s, "
                 "funding_kind, funding_id, created_epoch, active, "
-                "check_kind) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
+                "check_kind, watch_focus) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
                 (
                     watch_reg_id,
                     url,
@@ -3185,6 +3193,7 @@ class WatchStore:
                     funding_id,
                     now,
                     check_kind,
+                    watch_focus,
                 ),
             )
             self._conn.commit()
@@ -3195,7 +3204,7 @@ class WatchStore:
             row = self._conn.execute(
                 "SELECT watch_reg_id, url, webhook_url, email, interval_s, "
                 "funding_kind, funding_id, created_epoch, last_run_epoch, "
-                "last_status, active, check_kind, last_summary "
+                "last_status, active, check_kind, last_summary, watch_focus "
                 "FROM watch_regs WHERE watch_reg_id = ?",
                 (watch_reg_id,),
             ).fetchone()
@@ -3222,6 +3231,7 @@ class WatchStore:
             "active": bool(row[10]),
             "check_kind": row[11] or "recheck",
             "last_summary": last_summary,
+            "watch_focus": row[13] or "all",
         }
 
     def route_verdict_summaries_for_url(self, url: str) -> list[dict]:

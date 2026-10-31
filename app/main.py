@@ -2080,6 +2080,7 @@ class WatchRegisterRequest(BaseModel):
     pack_id: str | None = Field(default=None, description="Fund runs with this recheck pack (bound to the watched URL)")
     fleet_pass_id: str | None = Field(default=None, description="Fund runs with this Fleet Pass ($0.005 per recheck run)")
     check_kind: str = Field(default="recheck", description="Which standing check to run: 'recheck' (default) or 'route_verdict' (RouteVerdict check of the watched URL; Fleet Pass only, $0.05 per run debited by RouteVerdict via X-Fleet-Pass)")
+    watch_focus: str = Field(default="all", description="Change-detector focus (recheck leg): 'all' (default; any fingerprint field) or 'schema' — Contract Watch: alert only on output-schema fingerprint change, as SCHEMA_CHANGED, at the same $0.005 recheck run price funded from the pack/pass")
 
 
 class WatchIdRequest(BaseModel):
@@ -2090,7 +2091,11 @@ class WatchIdRequest(BaseModel):
 async def watch_register(req: WatchRegisterRequest):
     """Register a webhook watch. Free to register; every run spends
     from the named funding credential. Both URLs are SSRF-checked and
-    the credential must actually cover this watch."""
+    the credential must actually cover this watch. With
+    watch_focus="schema" the registration is a Contract Watch: runs
+    cost the same listed Recheck price ($0.005 from the pack/pass —
+    no separate Contract Watch price) and push SCHEMA_CHANGED only
+    when the target's declared output-schema fingerprint changes."""
     try:
         return await watch_svc.register(
             _recheck_store,
@@ -2101,6 +2106,7 @@ async def watch_register(req: WatchRegisterRequest):
             req.pack_id,
             req.fleet_pass_id,
             check_kind=req.check_kind,
+            watch_focus=req.watch_focus,
         )
     except watch_svc.WatchError as e:
         return JSONResponse({"error": e.message}, status_code=e.http_status)

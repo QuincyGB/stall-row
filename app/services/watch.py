@@ -22,6 +22,26 @@ standing form of a RouteVerdict check, funded Fleet-Pass-only and
 run through RouteVerdict (see the leg's section below). The
 recheck leg above is the default and is unchanged by it.
 
+Contract Watch (Next-20 #14) is a registration option on the
+recheck leg, watch_focus="schema": the change detector keys ONLY
+on the target's output-schema fingerprint — the recheck
+fingerprint's schema_hash, i.e. the sha256 of the canonical
+serialization of the output schema the target DECLARES in its
+unpaid 402 challenge (extensions.bazaar.info.output.schema; see
+services/fingerprint_spec.py). It is not a hash of an observed
+paid response — Recheck never pays the targets it probes. Any
+fingerprint change pushes a SCHEMA_CHANGED alert (before/after
+fingerprints + the schema field-level diff) even when price,
+payTo, verdict and score are all flat; changes to any OTHER field
+alone push nothing on this focus. The generic recheck leg already
+diffed schema_hash as one field among many (a schema-only drift
+did produce a generic CHANGED push); Contract Watch makes schema
+drift a first-class, schema-only alert with its own event name.
+Funding is identical to the recheck leg: one pack credit or one
+$0.005 Fleet Pass recheck debit per run. The RouteVerdict leg has
+no schema-fingerprint machinery, so watch_focus="schema" is
+recheck-leg only and registration refuses it with route_verdict.
+
 SSRF discipline (2026-10-25 audit) applies to BOTH URLs: the watched
 URL is checked by the recheck probe itself, the webhook URL is
 checked at registration AND again at delivery time (DNS can move),
@@ -64,6 +84,8 @@ PUSH_STATUSES = ("BASELINE", "CHANGED")
 # changes, a payment term (amount / pay_to / network) changes, or
 # the score moves by at least SCORE_CHANGE_THRESHOLD points.
 CHECK_KINDS = ("recheck", "route_verdict")
+WATCH_FOCI = ("all", "schema")
+SCHEMA_CHANGED = "SCHEMA_CHANGED"
 SCORE_CHANGE_THRESHOLD = 10
 _ROUTE_VERDICT_DEFAULT_BASE = "https://route-verdict-production.up.railway.app"
 
@@ -99,6 +121,7 @@ async def register(
     pack_id: str | None,
     fleet_pass_id: str | None,
     check_kind: str = "recheck",
+    watch_focus: str = "all",
 ) -> dict:
     """Validate everything BEFORE storing: both URLs SSRF-checked,
     the funding credential must exist and actually cover this watch.
@@ -114,6 +137,17 @@ async def register(
     if check_kind not in CHECK_KINDS:
         raise WatchError(
             f"check_kind must be one of {', '.join(CHECK_KINDS)}"
+        )
+    watch_focus = (watch_focus or "all").strip()
+    if watch_focus not in WATCH_FOCI:
+        raise WatchError(
+            f"watch_focus must be one of {', '.join(WATCH_FOCI)}"
+        )
+    if watch_focus == "schema" and check_kind == "route_verdict":
+        raise WatchError(
+            "watch_focus=schema (Contract Watch) is recheck-leg only: "
+            "the RouteVerdict leg carries no output-schema fingerprint "
+            "to key on — register with check_kind=recheck"
         )
     if check_kind == "route_verdict" and pack_id:
         raise WatchError(
@@ -155,7 +189,7 @@ async def register(
         kind, funding_id = "fleet_pass", fleet_pass_id.strip()
     reg = store.register_watch(
         url, webhook_url, email, interval, kind, funding_id,
-        check_kind=check_kind,
+        check_kind=check_kind, watch_focus=watch_focus,
     )
     reg["email_delivery"] = (
         "stored only — StallRow has no mail transport; the webhook is "
@@ -172,6 +206,18 @@ async def register(
             "runs push to the webhook; UNCHANGED pushes nothing. A "
             f"score move of at least {SCORE_CHANGE_THRESHOLD} points "
             "counts as CHANGED."
+        )
+    elif watch_focus == "schema":
+        reg["note"] = (
+            "Contract Watch (watch_focus=schema): each run spends from "
+            "the funding credential (one pack credit, or one $0.005 "
+            "fleet-pass recheck debit — the listed Recheck price; there "
+            "is no separate Contract Watch price). The first run pushes "
+            "BASELINE with the recorded output-schema fingerprint; a "
+            "later run pushes SCHEMA_CHANGED only when that fingerprint "
+            "(the declared output schema's hash) changes — regardless "
+            "of price/payTo/score movement — and pushes nothing when "
+            "only other fields change."
         )
     else:
         reg["note"] = (
@@ -202,6 +248,12 @@ async def _deliver(
         "checked_at": result["checked_at"],
         "summary": result["summary"],
     }
+    if "schema_fingerprint" in result:
+        # Contract Watch pushes name the schema change explicitly:
+        # before/after fingerprints + the schema field-level diff.
+        payload["watch_focus"] = result.get("watch_focus", "schema")
+        payload["schema_fingerprint"] = result["schema_fingerprint"]
+        payload["field_changes"] = result.get("field_changes", [])
     try:
         await asyncio.to_thread(fetch_svc.ssrf_check, webhook)
         resp = await client.post(webhook, json=payload, follow_redirects=False)
@@ -366,6 +418,118 @@ async def _run_route_verdict_watch(
     }
 
 
+async def _run_schema_focus(
+    client: httpx.AsyncClient,
+    store: recheck_svc.WatchStore,
+    reg: dict,
+    result: dict,
+) -> dict:
+    """Contract Watch detector, applied to one COMPLETED funded
+    recheck result (funding failures never reach here — run_watch's
+    existing funding_failed / probe_failed paths return first, with
+    the debit/refund discipline unchanged and the stored baseline
+    untouched). The registration's own baseline fingerprint lives in
+    its last_summary ({"schema_fingerprint": ...}); a target with no
+    declared output schema fingerprints as None, and a later
+    appearance/disappearance of a schema is a change like any
+    other. Every successful run refreshes the stored baseline."""
+    fresh = store.get_watch_reg(reg["watch_reg_id"])
+    if fresh is not None:
+        reg = fresh
+    current_fp = result["current"].get("schema_hash")
+    stored = reg.get("last_summary")
+    has_baseline = isinstance(stored, dict) and "schema_fingerprint" in stored
+    before_fp = stored.get("schema_fingerprint") if has_baseline else None
+    schema_changes = [
+        c for c in result.get("changes", []) if c.get("field") == "schema_hash"
+    ]
+    schema_field_changes = [
+        c
+        for c in result.get("field_changes", [])
+        if c.get("path") == "schema_hash"
+    ]
+    if not has_baseline:
+        status = "BASELINE"
+        summary_text = (
+            "Contract Watch baseline recorded: output-schema "
+            f"fingerprint {current_fp}."
+        )
+        schema_changes, schema_field_changes = [], []
+    elif current_fp != before_fp:
+        status = SCHEMA_CHANGED
+        if not schema_changes:
+            schema_changes = [
+                {"field": "schema_hash", "before": before_fp, "after": current_fp}
+            ]
+        if not schema_field_changes:
+            schema_field_changes = [
+                {
+                    "path": "schema_hash",
+                    "op": "value_changed",
+                    "before": before_fp,
+                    "after": current_fp,
+                    "severity": "medium",
+                    "category": "schema",
+                }
+            ]
+        summary_text = (
+            "Contract Watch: the target's declared output schema "
+            f"changed (fingerprint {before_fp} -> {current_fp}); "
+            "alerting on the schema change regardless of price, "
+            "payTo, verdict or score movement."
+        )
+    else:
+        status = "UNCHANGED"
+        summary_text = (
+            "Contract Watch: output-schema fingerprint unchanged "
+            f"({current_fp}); other-field changes alone do not push "
+            "on a schema-focused watch."
+        )
+    store.update_watch_run(
+        reg["watch_reg_id"],
+        status,
+        last_summary={"schema_fingerprint": current_fp},
+    )
+    delivered = False
+    if status in ("BASELINE", SCHEMA_CHANGED) and reg.get("webhook_url"):
+        await _deliver(
+            client,
+            store,
+            reg,
+            {
+                "watch_id": result["watch_id"],
+                "url": reg["url"],
+                "kind": result["kind"],
+                "status": status,
+                "changes": schema_changes,
+                "field_changes": schema_field_changes,
+                "current": result["current"],
+                "checked_at": result["checked_at"],
+                "summary": summary_text,
+                "watch_focus": "schema",
+                "schema_fingerprint": {
+                    "before": before_fp if has_baseline else None,
+                    "after": current_fp,
+                },
+            },
+        )
+        delivered = True
+    return {
+        "watch_reg_id": reg["watch_reg_id"],
+        "watch_focus": "schema",
+        "status": status,
+        "changes": schema_changes,
+        "field_changes": schema_field_changes,
+        "schema_fingerprint": {
+            "before": before_fp if has_baseline else None,
+            "after": current_fp,
+        },
+        "recheck_status": result["status"],
+        "checked_at": result["checked_at"],
+        "webhook_push_attempted": delivered,
+    }
+
+
 async def run_watch(
     client: httpx.AsyncClient,
     store: recheck_svc.WatchStore,
@@ -413,6 +577,8 @@ async def run_watch(
             "status": "probe_failed",
             "error": str(e),
         }
+    if reg.get("watch_focus") == "schema":
+        return await _run_schema_focus(client, store, reg, result)
     store.update_watch_run(reg["watch_reg_id"], result["status"])
     delivered = False
     if result["status"] in PUSH_STATUSES and reg.get("webhook_url"):
