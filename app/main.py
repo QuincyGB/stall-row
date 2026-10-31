@@ -3870,6 +3870,21 @@ async def tools_index_json():
     return _serve_data_file("tools-index.json", "application/json")
 
 
+@app.get("/changelog.atom")
+async def changelog_atom():
+    # Public changelog feed (Batch 2 #8): committed files served
+    # VERBATIM, generated VM-side by the fleet's changelog_feed.py
+    # from live stability manifests + checker history + build-log
+    # backfill. Docs surface only — no priced route, no discovery
+    # entry, /health's route count does not move.
+    return _serve_data_file("changelog.atom", "application/atom+xml; charset=utf-8")
+
+
+@app.get("/changelog.json")
+async def changelog_json():
+    return _serve_data_file("changelog.json", "application/json")
+
+
 @app.get("/quickstart/curl")
 async def quickstart_curl():
     return _serve_data_text("quickstart-curl.txt")

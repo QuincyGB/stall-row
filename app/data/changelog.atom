@@ -1,0 +1,580 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Verdict Row — Public Changelog</title>
+  <subtitle>Route, price and stability-manifest changes across the Verdict Row x402 fleet (StallRow, RouteVerdict, Token Verdict, ListSmith, LockSmith).</subtitle>
+  <link rel="self" type="application/atom+xml" href="https://stall-row-production.up.railway.app/changelog.atom"/>
+  <link rel="alternate" type="application/json" href="https://stall-row-production.up.railway.app/changelog.json"/>
+  <id>urn:verdict-row:changelog</id>
+  <updated>2026-10-31T00:00:00Z</updated>
+  <author><name>Ren, Verdict Row Patrol</name><email>patrol@verdictrow.com</email></author>
+  <generator>changelog_feed.py (fleet-checker)</generator>
+  <entry>
+    <title>Verdict Row Tools Index published on StallRow: GET /tools + /tools.json — every stall, every priced route + price, key surfaces.</title>
+    <id>urn:verdict-row:changelog:fdc346cc6a5df3dd1dd6</id>
+    <published>2026-10-31T00:00:00Z</published>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <category term="service_version"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Verdict Row Tools Index published on StallRow: GET /tools + /tools.json — every stall, every priced route + price, key surfaces.
+
+{
+  "after": null,
+  "at_precision": "date",
+  "before": null,
+  "kind": "service_version",
+  "route": null,
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Contract Watch productized: Webhook Watch registrations accept watch_focus=schema and push SCHEMA_CHANGED on any output-schema fingerprint change, funded at the listed Recheck run price.</title>
+    <id>urn:verdict-row:changelog:dd3672adc32dd9b09f2e</id>
+    <published>2026-10-31T00:00:00Z</published>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <category term="service_version"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Contract Watch productized: Webhook Watch registrations accept watch_focus=schema and push SCHEMA_CHANGED on any output-schema fingerprint change, funded at the listed Recheck run price.
+
+{
+  "after": null,
+  "at_precision": "date",
+  "before": null,
+  "kind": "service_version",
+  "route": null,
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Ledger Dataset tiers folded in Dima's patrol ledger via a committed, redacted patrol snapshot (both tiers' prices unchanged).</title>
+    <id>urn:verdict-row:changelog:cbff1601ce7e72f79722</id>
+    <published>2026-10-31T00:00:00Z</published>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <category term="service_version"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Ledger Dataset tiers folded in Dima's patrol ledger via a committed, redacted patrol snapshot (both tiers' prices unchanged).
+
+{
+  "after": null,
+  "at_precision": "date",
+  "before": null,
+  "kind": "service_version",
+  "route": null,
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Inspector Quickstart Pack published: /quickstart/curl, /quickstart/python and /quickstart/typescript served verbatim by StallRow, linked fleet-wide.</title>
+    <id>urn:verdict-row:changelog:c650d21eac04ed5fbad3</id>
+    <published>2026-10-31T00:00:00Z</published>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <category term="service_version"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Inspector Quickstart Pack published: /quickstart/curl, /quickstart/python and /quickstart/typescript served verbatim by StallRow, linked fleet-wide.
+
+{
+  "after": null,
+  "at_precision": "date",
+  "before": null,
+  "kind": "service_version",
+  "route": null,
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Graceful-Failure Pass landed on all five stalls: fleet-shaped validation errors naming fields, a 502 backstop, and Fleet-Pass debit refunds on the handler-exception path. No price changed anywhere.</title>
+    <id>urn:verdict-row:changelog:b807a671fd90c7e88d3d</id>
+    <published>2026-10-31T00:00:00Z</published>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <category term="service_version"/>
+    <category term="stall:fleet"/>
+    <content type="text">Graceful-Failure Pass landed on all five stalls: fleet-shaped validation errors naming fields, a 502 backstop, and Fleet-Pass debit refunds on the handler-exception path. No price changed anywhere.
+
+{
+  "after": null,
+  "at_precision": "date",
+  "before": null,
+  "kind": "service_version",
+  "route": null,
+  "source": "build-log",
+  "stall": "fleet"
+}</content>
+  </entry>
+  <entry>
+    <title>Gradeability Self-Test Report published on all five stalls at /.well-known/gradeability-report.json (listed price vs live 402 per route).</title>
+    <id>urn:verdict-row:changelog:9e08865cd164715b21d7</id>
+    <published>2026-10-31T00:00:00Z</published>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <category term="service_version"/>
+    <category term="stall:fleet"/>
+    <content type="text">Gradeability Self-Test Report published on all five stalls at /.well-known/gradeability-report.json (listed price vs live 402 per route).
+
+{
+  "after": null,
+  "at_precision": "date",
+  "before": null,
+  "kind": "service_version",
+  "route": null,
+  "source": "build-log",
+  "stall": "fleet"
+}</content>
+  </entry>
+  <entry>
+    <title>MCP Exposure Pack: every stall's discovery doc, agent card, skill.md and llms.txt now link its MCP server (repo + server.json manifest, stdio).</title>
+    <id>urn:verdict-row:changelog:6c01ecb46c1520894b55</id>
+    <published>2026-10-31T00:00:00Z</published>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <category term="service_version"/>
+    <category term="stall:fleet"/>
+    <content type="text">MCP Exposure Pack: every stall's discovery doc, agent card, skill.md and llms.txt now link its MCP server (repo + server.json manifest, stdio).
+
+{
+  "after": null,
+  "at_precision": "date",
+  "before": null,
+  "kind": "service_version",
+  "route": null,
+  "source": "build-log",
+  "stall": "fleet"
+}</content>
+  </entry>
+  <entry>
+    <title>Recheck Feed v2 gained ?origin= / ?pay_to= / ?route= subset filters on the same hash chain, ?before_seq= backwards backfill paging, and earliest-seq/retention headers.</title>
+    <id>urn:verdict-row:changelog:68b30abb05f69edbad2a</id>
+    <published>2026-10-31T00:00:00Z</published>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <category term="service_version"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Recheck Feed v2 gained ?origin= / ?pay_to= / ?route= subset filters on the same hash chain, ?before_seq= backwards backfill paging, and earliest-seq/retention headers.
+
+{
+  "after": null,
+  "at_precision": "date",
+  "before": null,
+  "kind": "service_version",
+  "route": null,
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Embeddable Verdict Widget published: free GET /v1/verdict-read (recorded state only) plus /widget/verdict.js and /widget/verdict.html embeds.</title>
+    <id>urn:verdict-row:changelog:621e64ef7093e01c64d2</id>
+    <published>2026-10-31T00:00:00Z</published>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <category term="service_version"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Embeddable Verdict Widget published: free GET /v1/verdict-read (recorded state only) plus /widget/verdict.js and /widget/verdict.html embeds.
+
+{
+  "after": null,
+  "at_precision": "date",
+  "before": null,
+  "kind": "service_version",
+  "route": null,
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Pass Balance &amp; Debit API launched: free POST /v1/fleet-pass/balance holder read (balance, tier, expiry, debit history).</title>
+    <id>urn:verdict-row:changelog:5a0eed92ceacfaa9c5a7</id>
+    <published>2026-10-31T00:00:00Z</published>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <category term="route_added"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Pass Balance &amp; Debit API launched: free POST /v1/fleet-pass/balance holder read (balance, tier, expiry, debit history).
+
+{
+  "after": {
+    "price": "free"
+  },
+  "at_precision": "date",
+  "before": null,
+  "kind": "route_added",
+  "route": "/v1/fleet-pass/balance",
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Toolkit Pack launched: POST /v1/toolkit/pack at $1.00 (1000000 units) — 125 prepaid credits for the Sign Reader / Score Book / Guard family.</title>
+    <id>urn:verdict-row:changelog:2eee09f4c76c44a15eaa</id>
+    <published>2026-10-31T00:00:00Z</published>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <category term="route_added"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Toolkit Pack launched: POST /v1/toolkit/pack at $1.00 (1000000 units) — 125 prepaid credits for the Sign Reader / Score Book / Guard family.
+
+{
+  "after": {
+    "amount_units": "1000000",
+    "price": "$1.00"
+  },
+  "at_precision": "date",
+  "before": null,
+  "kind": "route_added",
+  "route": "/v1/toolkit/pack",
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Inspector Physical launched: POST /v1/physical at $0.05 (50000 units) — Sign Reader + Score Book + Guard + Recheck in one call.</title>
+    <id>urn:verdict-row:changelog:1ea11ef70a97344e4d6c</id>
+    <published>2026-10-31T00:00:00Z</published>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <category term="route_added"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Inspector Physical launched: POST /v1/physical at $0.05 (50000 units) — Sign Reader + Score Book + Guard + Recheck in one call.
+
+{
+  "after": {
+    "amount_units": "50000",
+    "price": "$0.05"
+  },
+  "at_precision": "date",
+  "before": null,
+  "kind": "route_added",
+  "route": "/v1/physical",
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>PayTo Pin verify launched: POST /v1/payto-pin/verify at $0.01 (10000 units); free pin creation captures a route's first-seen payTo set, hash-committed.</title>
+    <id>urn:verdict-row:changelog:118675c69eeeccef36b5</id>
+    <published>2026-10-31T00:00:00Z</published>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <category term="route_added"/>
+    <category term="stall:stall-row"/>
+    <content type="text">PayTo Pin verify launched: POST /v1/payto-pin/verify at $0.01 (10000 units); free pin creation captures a route's first-seen payTo set, hash-committed.
+
+{
+  "after": {
+    "amount_units": "10000",
+    "price": "$0.01"
+  },
+  "at_precision": "date",
+  "before": null,
+  "kind": "route_added",
+  "route": "/v1/payto-pin/verify",
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>lock-smith: stability manifest 2026-10-30.1 is the changelog's genesis pin for this stall — 2 priced routes pinned (payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, manifest core sha256:630f44118402870037ebc208101fb544b4e798817767087016ee02d4f51e32d9). Later manifest diffs append from here.</title>
+    <id>urn:verdict-row:changelog:6b400684ebe3128c3756</id>
+    <published>2026-10-30T20:57:56Z</published>
+    <updated>2026-10-30T20:57:56Z</updated>
+    <category term="manifest_changed"/>
+    <category term="stall:lock-smith"/>
+    <content type="text">lock-smith: stability manifest 2026-10-30.1 is the changelog's genesis pin for this stall — 2 priced routes pinned (payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, manifest core sha256:630f44118402870037ebc208101fb544b4e798817767087016ee02d4f51e32d9). Later manifest diffs append from here.
+
+{
+  "after": {
+    "core_sha256": "sha256:630f44118402870037ebc208101fb544b4e798817767087016ee02d4f51e32d9",
+    "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+    "routes": 2,
+    "version": "2026-10-30.1"
+  },
+  "at_precision": "exact",
+  "before": null,
+  "kind": "manifest_changed",
+  "route": null,
+  "source": "live-manifest",
+  "stall": "lock-smith"
+}</content>
+  </entry>
+  <entry>
+    <title>list-smith: stability manifest 2026-10-30.1 is the changelog's genesis pin for this stall — 3 priced routes pinned (payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, manifest core sha256:8b97fcaf303470a539d310812d8aeea9998df6b3e8a933228e7acb3e2fd9328c). Later manifest diffs append from here.</title>
+    <id>urn:verdict-row:changelog:666a2fc1e21b13079cc8</id>
+    <published>2026-10-30T20:57:55Z</published>
+    <updated>2026-10-30T20:57:55Z</updated>
+    <category term="manifest_changed"/>
+    <category term="stall:list-smith"/>
+    <content type="text">list-smith: stability manifest 2026-10-30.1 is the changelog's genesis pin for this stall — 3 priced routes pinned (payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, manifest core sha256:8b97fcaf303470a539d310812d8aeea9998df6b3e8a933228e7acb3e2fd9328c). Later manifest diffs append from here.
+
+{
+  "after": {
+    "core_sha256": "sha256:8b97fcaf303470a539d310812d8aeea9998df6b3e8a933228e7acb3e2fd9328c",
+    "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+    "routes": 3,
+    "version": "2026-10-30.1"
+  },
+  "at_precision": "exact",
+  "before": null,
+  "kind": "manifest_changed",
+  "route": null,
+  "source": "live-manifest",
+  "stall": "list-smith"
+}</content>
+  </entry>
+  <entry>
+    <title>token-verdict: stability manifest 2026-10-30.1 is the changelog's genesis pin for this stall — 4 priced routes pinned (payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, manifest core sha256:f7bd79246b9e1bfc69bbaa210ef240d92a4643fc47c9b0228df5ba5de1d7a311). Later manifest diffs append from here.</title>
+    <id>urn:verdict-row:changelog:8dcf5e9127087adc1ad5</id>
+    <published>2026-10-30T20:57:53Z</published>
+    <updated>2026-10-30T20:57:53Z</updated>
+    <category term="manifest_changed"/>
+    <category term="stall:token-verdict"/>
+    <content type="text">token-verdict: stability manifest 2026-10-30.1 is the changelog's genesis pin for this stall — 4 priced routes pinned (payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, manifest core sha256:f7bd79246b9e1bfc69bbaa210ef240d92a4643fc47c9b0228df5ba5de1d7a311). Later manifest diffs append from here.
+
+{
+  "after": {
+    "core_sha256": "sha256:f7bd79246b9e1bfc69bbaa210ef240d92a4643fc47c9b0228df5ba5de1d7a311",
+    "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+    "routes": 4,
+    "version": "2026-10-30.1"
+  },
+  "at_precision": "exact",
+  "before": null,
+  "kind": "manifest_changed",
+  "route": null,
+  "source": "live-manifest",
+  "stall": "token-verdict"
+}</content>
+  </entry>
+  <entry>
+    <title>route-verdict: stability manifest 2026-10-30.1 is the changelog's genesis pin for this stall — 2 priced routes pinned (payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, manifest core sha256:d7b0e809adc8167bf5701c9c0a78e334dc49ad07517bf7881700bf64ea2e5bd5). Later manifest diffs append from here.</title>
+    <id>urn:verdict-row:changelog:19c877b5d80032a63c5e</id>
+    <published>2026-10-30T20:57:52Z</published>
+    <updated>2026-10-30T20:57:52Z</updated>
+    <category term="manifest_changed"/>
+    <category term="stall:route-verdict"/>
+    <content type="text">route-verdict: stability manifest 2026-10-30.1 is the changelog's genesis pin for this stall — 2 priced routes pinned (payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, manifest core sha256:d7b0e809adc8167bf5701c9c0a78e334dc49ad07517bf7881700bf64ea2e5bd5). Later manifest diffs append from here.
+
+{
+  "after": {
+    "core_sha256": "sha256:d7b0e809adc8167bf5701c9c0a78e334dc49ad07517bf7881700bf64ea2e5bd5",
+    "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+    "routes": 2,
+    "version": "2026-10-30.1"
+  },
+  "at_precision": "exact",
+  "before": null,
+  "kind": "manifest_changed",
+  "route": null,
+  "source": "live-manifest",
+  "stall": "route-verdict"
+}</content>
+  </entry>
+  <entry>
+    <title>stall-row: stability manifest 2026-10-30.1 is the changelog's genesis pin for this stall — 31 priced routes pinned (payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, manifest core sha256:c938e94fa260af4f7a385e31a5c2877da1b5b0175508c2e81eea7fff875464fd). Later manifest diffs append from here.</title>
+    <id>urn:verdict-row:changelog:6bf067400a7609b925fc</id>
+    <published>2026-10-30T20:57:51Z</published>
+    <updated>2026-10-30T20:57:51Z</updated>
+    <category term="manifest_changed"/>
+    <category term="stall:stall-row"/>
+    <content type="text">stall-row: stability manifest 2026-10-30.1 is the changelog's genesis pin for this stall — 31 priced routes pinned (payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, manifest core sha256:c938e94fa260af4f7a385e31a5c2877da1b5b0175508c2e81eea7fff875464fd). Later manifest diffs append from here.
+
+{
+  "after": {
+    "core_sha256": "sha256:c938e94fa260af4f7a385e31a5c2877da1b5b0175508c2e81eea7fff875464fd",
+    "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+    "routes": 31,
+    "version": "2026-10-30.1"
+  },
+  "at_precision": "exact",
+  "before": null,
+  "kind": "manifest_changed",
+  "route": null,
+  "source": "live-manifest",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Agent cards published on all five stalls at /.well-known/agent-card.json, carrying the patrol@verdictrow.com contact.</title>
+    <id>urn:verdict-row:changelog:f454889c6eba2dbbc442</id>
+    <published>2026-10-30T00:00:00Z</published>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <category term="service_version"/>
+    <category term="stall:fleet"/>
+    <content type="text">Agent cards published on all five stalls at /.well-known/agent-card.json, carrying the patrol@verdictrow.com contact.
+
+{
+  "after": null,
+  "at_precision": "date",
+  "before": null,
+  "kind": "service_version",
+  "route": null,
+  "source": "build-log",
+  "stall": "fleet"
+}</content>
+  </entry>
+  <entry>
+    <title>Ledger Dataset full tier launched: POST /v1/ledger-dataset/full at $1.00 (1000000 units) on StallRow.</title>
+    <id>urn:verdict-row:changelog:e215df66268eee44d432</id>
+    <published>2026-10-30T00:00:00Z</published>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <category term="route_added"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Ledger Dataset full tier launched: POST /v1/ledger-dataset/full at $1.00 (1000000 units) on StallRow.
+
+{
+  "after": {
+    "amount_units": "1000000",
+    "price": "$1.00"
+  },
+  "at_precision": "date",
+  "before": null,
+  "kind": "route_added",
+  "route": "/v1/ledger-dataset/full",
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Survey Batch Recheck launched: POST /v1/recheck/batch — Fleet-Pass-funded at $0.005/check (5000 units), 20% off a full batch of exactly 100 unique URLs.</title>
+    <id>urn:verdict-row:changelog:b9afaad247009b60b539</id>
+    <published>2026-10-30T00:00:00Z</published>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <category term="route_added"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Survey Batch Recheck launched: POST /v1/recheck/batch — Fleet-Pass-funded at $0.005/check (5000 units), 20% off a full batch of exactly 100 unique URLs.
+
+{
+  "after": {
+    "funding": "fleet_pass",
+    "per_check_units": "5000"
+  },
+  "at_precision": "date",
+  "before": null,
+  "kind": "route_added",
+  "route": "/v1/recheck/batch",
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Sign Reader launched: POST /v1/sign-read at $0.01 (10000 units) on StallRow.</title>
+    <id>urn:verdict-row:changelog:97d664262dd8fe9b3e9f</id>
+    <published>2026-10-30T00:00:00Z</published>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <category term="route_added"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Sign Reader launched: POST /v1/sign-read at $0.01 (10000 units) on StallRow.
+
+{
+  "after": {
+    "amount_units": "10000",
+    "price": "$0.01"
+  },
+  "at_precision": "date",
+  "before": null,
+  "kind": "route_added",
+  "route": "/v1/sign-read",
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Score Book launched: POST /v1/score-book at $0.01 (10000 units) on StallRow.</title>
+    <id>urn:verdict-row:changelog:5fe417eb090eea319446</id>
+    <published>2026-10-30T00:00:00Z</published>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <category term="route_added"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Score Book launched: POST /v1/score-book at $0.01 (10000 units) on StallRow.
+
+{
+  "after": {
+    "amount_units": "10000",
+    "price": "$0.01"
+  },
+  "at_precision": "date",
+  "before": null,
+  "kind": "route_added",
+  "route": "/v1/score-book",
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Self-serve Recheck change webhooks launched: POST /v1/recheck/webhooks (+ /list, /delete, /deliveries), caller-secret managed, no operator gate.</title>
+    <id>urn:verdict-row:changelog:4b7cd26ea6d40469a50e</id>
+    <published>2026-10-30T00:00:00Z</published>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <category term="route_added"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Self-serve Recheck change webhooks launched: POST /v1/recheck/webhooks (+ /list, /delete, /deliveries), caller-secret managed, no operator gate.
+
+{
+  "after": {
+    "price": "free"
+  },
+  "at_precision": "date",
+  "before": null,
+  "kind": "route_added",
+  "route": "/v1/recheck/webhooks",
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Standing Watch gained its RouteVerdict leg: watch registrations accept check_kind=route_verdict (Fleet-Pass-funded at RouteVerdict's $0.05/run).</title>
+    <id>urn:verdict-row:changelog:390b6ffeec1c4118f3cb</id>
+    <published>2026-10-30T00:00:00Z</published>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <category term="service_version"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Standing Watch gained its RouteVerdict leg: watch registrations accept check_kind=route_verdict (Fleet-Pass-funded at RouteVerdict's $0.05/run).
+
+{
+  "after": null,
+  "at_precision": "date",
+  "before": null,
+  "kind": "service_version",
+  "route": null,
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Ledger Dataset summary tier launched: POST /v1/ledger-dataset at $0.10 (100000 units) on StallRow.</title>
+    <id>urn:verdict-row:changelog:2bcb12001efb77af1edd</id>
+    <published>2026-10-30T00:00:00Z</published>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <category term="route_added"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Ledger Dataset summary tier launched: POST /v1/ledger-dataset at $0.10 (100000 units) on StallRow.
+
+{
+  "after": {
+    "amount_units": "100000",
+    "price": "$0.10"
+  },
+  "at_precision": "date",
+  "before": null,
+  "kind": "route_added",
+  "route": "/v1/ledger-dataset",
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+  <entry>
+    <title>Pre-Trade Guard launched: POST /v1/guard at $0.01 (10000 units) on StallRow.</title>
+    <id>urn:verdict-row:changelog:0c381d521e89d5b93adf</id>
+    <published>2026-10-30T00:00:00Z</published>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <category term="route_added"/>
+    <category term="stall:stall-row"/>
+    <content type="text">Pre-Trade Guard launched: POST /v1/guard at $0.01 (10000 units) on StallRow.
+
+{
+  "after": {
+    "amount_units": "10000",
+    "price": "$0.01"
+  },
+  "at_precision": "date",
+  "before": null,
+  "kind": "route_added",
+  "route": "/v1/guard",
+  "source": "build-log",
+  "stall": "stall-row"
+}</content>
+  </entry>
+</feed>
