@@ -47,6 +47,7 @@ BODIES = {
     "/v1/guard": {"url": "https://www.x402.org/"},
     "/v1/ledger-dataset": {},
     "/v1/ledger-dataset/full": {},
+    "/v1/physical": {"url": "https://www.x402.org/"},
 }
 
 

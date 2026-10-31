@@ -1627,6 +1627,52 @@ ROUTES: dict[str, dict] = {
             "limits": "One unpaid probe plus this service's own records, at call time.",
         },
     },
+    "/v1/physical": {
+        "description": (
+            "Inspector Physical — the full pre-pay workup for one x402 "
+            "resource in ONE $0.05 call (the singles sum to $0.075): "
+            "Sign Reader's challenge report, Score Book's track "
+            "record, Guard's PROCEED/CAUTION/ABORT verdict as the "
+            "headline, and a Recheck that probes and records the "
+            "target (BASELINE/UNCHANGED/CHANGED, in the public feed). "
+            "No RouteVerdict leg. Bad targets are delivered reports; "
+            "only SSRF refusals are 422. Use this when your agent "
+            "wants one endpoint's complete picture before paying it."
+        ),
+        "tags": ["x402", "inspector", "bundle", "pre-pay", "monitoring"],
+        "input_schema": _obj(
+            {"url": _S, "watch_id": _N},
+            ["url"],
+        ),
+        "input_example": {"url": "https://example.com/v1/verdict"},
+        "output_schema": _obj(
+            {
+                "url": _S,
+                "verdict": _S,
+                "summary": {"type": "object"},
+                "sign": {"type": "object"},
+                "book": {"type": "object"},
+                "guard": {"type": "object"},
+                "recheck": {"type": "object"},
+                "limits": _S,
+            },
+            ["url", "verdict", "sign", "book", "guard", "recheck"],
+        ),
+        "output_example": {
+            "url": "https://example.com/v1/verdict",
+            "verdict": "CAUTION",
+            "summary": {
+                "verdict": "CAUTION",
+                "recheck_status": "BASELINE",
+                "headline": "Guard verdict CAUTION; recheck BASELINE (recorded).",
+            },
+            "sign": {"challenge_found": True, "x402_version": 2},
+            "book": {"found": False},
+            "guard": {"verdict": "CAUTION", "reasons": []},
+            "recheck": {"status": "BASELINE", "recorded": True},
+            "limits": "One call, four legs, at call time.",
+        },
+    },
     "/v1/toolkit/pack": {
         "description": (
             "Toolkit Pack — the prepaid form of the inspector toolkit: "

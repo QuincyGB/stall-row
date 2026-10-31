@@ -62,6 +62,13 @@ POST /v1/toolkit/pack — the pack binds to the toolkit route family,
 not to one target URL, because the tools take a different target
 per call. Same middleware bypass, same handler-side validation.
 
+Inspector Physical: POST /v1/physical ($0.05) composes Sign
+Reader + Score Book + Guard + Recheck on one target in one call
+(see services/physical.py). It is a separate bundle — toolkit and
+recheck pack credits do NOT fund it; a presented pack id is
+refused cleanly by the handler (the middleware lets such requests
+through for exactly that refusal). Fleet Pass debits apply.
+
 Survey Batch Recheck: POST /v1/recheck/batch (Fleet-Pass-funded
 only, NOT a priced x402 route — see services/recheck_batch.py)
 
@@ -134,6 +141,7 @@ from .services import recheck_batch as recheck_batch_svc
 from .services import signread as signread_svc
 from .services import scorebook as scorebook_svc
 from .services import guard as guard_svc
+from .services import physical as physical_svc
 from .services import ledger as ledger_svc
 from .services import rotalerts as rotalerts_svc
 from .services import sandbox as sandbox_svc
@@ -338,6 +346,14 @@ async def x402_middleware(request: Request, call_next):
     # store before any work runs — an invalid pack delivers nothing
     # and never falls back to a per-call (or Fleet Pass) charge.
     if request.method == "POST" and request.url.path in TOOLKIT_PATHS:
+        if await _request_toolkit_pack_id(request):
+            return await call_next(request)
+    # The Inspector Physical is a separate bundle, NOT one of the
+    # toolkit three: pack credits never fund it. A call presenting a
+    # pack id skips the paywall only so the handler can refuse it
+    # cleanly (422, nothing delivered, nothing charged) instead of
+    # the caller paying per call AND presenting a pack.
+    if request.method == "POST" and request.url.path == "/v1/physical":
         if await _request_toolkit_pack_id(request):
             return await call_next(request)
     # A call presenting a Fleet Pass id is paid from the pass: debit
@@ -1202,6 +1218,59 @@ async def guard(req: GuardRequest, request: Request):
     pack_id = _presented_toolkit_pack_id(req, request)
     if pack_id:
         return await _run_pack_funded(pack_id, go)
+    return await _run(go)
+
+
+class PhysicalRequest(BaseModel):
+    url: str = Field(description="Public http(s) URL of the x402 resource to examine")
+    watch_id: str | None = Field(
+        default=None,
+        description="Optional watch id for the recheck leg (defaults to the URL-derived watch)",
+    )
+    pack_id: str | None = Field(
+        default=None,
+        description=(
+            "NOT accepted on this route: pack credits (toolkit or recheck) "
+            "do not fund the Inspector Physical — presenting one is refused "
+            "cleanly (422) with nothing charged. Pay per call or with a "
+            "Fleet Pass instead."
+        ),
+    )
+
+
+@app.post("/v1/physical")
+async def physical(req: PhysicalRequest, request: Request):
+    """Inspector Physical: Sign Reader + Score Book + Guard +
+    Recheck on ONE target in one $0.05 call. The headline verdict
+    is Guard's, verbatim; the recheck leg probes and records
+    through the single route's own path (it lands in the feed).
+    Sign/book/guard are computed over the records held when the
+    call arrived — the recheck runs last so its fresh record can't
+    retune them. Bad targets are delivered reports; only an SSRF
+    refusal is a 422. Toolkit/recheck pack credits do NOT fund
+    this bundle and are refused cleanly; a Fleet Pass debits the
+    listed $0.05 via the standard middleware path."""
+    pack_id = _presented_toolkit_pack_id(req, request)
+    if pack_id:
+        return JSONResponse(
+            {
+                "error": (
+                    "pack credits do not fund POST /v1/physical — the "
+                    "physical is a separate bundle, not one of the "
+                    "toolkit tools; pay per call ($0.05) or with a "
+                    "Fleet Pass"
+                ),
+                "code": "pack_not_accepted",
+                "pack_id": pack_id,
+            },
+            status_code=422,
+        )
+
+    async def go():
+        return await physical_svc.physical(
+            _fetch_client(), _recheck_store, _index_store, req.url, req.watch_id
+        )
+
     return await _run(go)
 
 
