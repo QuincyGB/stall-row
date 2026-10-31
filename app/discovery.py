@@ -1627,6 +1627,55 @@ ROUTES: dict[str, dict] = {
             "limits": "One unpaid probe plus this service's own records, at call time.",
         },
     },
+    "/v1/toolkit/pack": {
+        "description": (
+            "Toolkit Pack — the prepaid form of the inspector toolkit: "
+            "one $1.00 payment buys 125 checks spendable on Sign Reader, "
+            "Score Book, or Guard in any mix ($0.008/check instead of "
+            "the $0.01 singles), good for 90 days. Spend credits via "
+            "POST /v1/sign-read, /v1/score-book, or /v1/guard (body "
+            "pack_id or X-Toolkit-Pack header); read the balance free "
+            "at POST /v1/toolkit/pack-balance. An exhausted pack "
+            "returns 402 rather than charging per call. Use this when "
+            "your agent runs the toolkit regularly."
+        ),
+        "tags": ["x402", "inspector", "prepaid", "agents", "toolkit"],
+        "input_schema": _obj({}, []),
+        "input_example": {},
+        # Generated from a real local run of the buy handler (payment
+        # identity stubbed with a fixed authorization nonce, the way
+        # tests/test_toolkit_pack.py drives it) — kept under the
+        # ≤1,450-byte Settled sample cap like the other pack examples.
+        "output_schema": _obj(
+            {
+                "pack_id": _S,
+                "family": _S,
+                "routes": {"type": "array", "items": _S},
+                "credits_total": _I,
+                "credits_remaining": _I,
+                "created_at": _S,
+                "expires_at": _S,
+                "expired": _B,
+                "expiry_days": _I,
+                "price_units": _I,
+                "note": _S,
+            },
+            ["pack_id", "family", "credits_total", "credits_remaining", "expires_at"],
+        ),
+        "output_example": {
+            "pack_id": "tkpack_9c73fa7ea40a6411b6517bd8cb3465a6",
+            "family": "toolkit",
+            "routes": ["/v1/sign-read", "/v1/score-book", "/v1/guard"],
+            "credits_total": 125,
+            "credits_remaining": 125,
+            "created_at": "2026-10-31T13:00:00Z",
+            "expires_at": "2027-01-29T13:00:00Z",
+            "expired": False,
+            "expiry_days": 90,
+            "price_units": 1000000,
+            "note": "Spend credits with POST /v1/sign-read, /v1/score-book or /v1/guard: send this pack_id in the body or the X-Toolkit-Pack header. Read the balance free at POST /v1/toolkit/pack-balance.",
+        },
+    },
     "/v1/ledger-dataset": {
         "description": (
             "Ledger Dataset (summary) — per-origin rollup of the "
@@ -2182,6 +2231,14 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "call. Check a pack's balance free at POST "
         "/v1/recheck/pack-balance.",
         "",
+        "Toolkit Pack: buy POST /v1/toolkit/pack once ($1.00 = 125 "
+        "checks spendable on Sign Reader, Score Book, or Guard in any "
+        "mix — the pack binds to the toolkit family, not one target — "
+        "90-day expiry), then call those routes with the pack id in "
+        "the body (pack_id) or the X-Toolkit-Pack header to spend "
+        "credits instead of paying per call. Check the balance free "
+        "at POST /v1/toolkit/pack-balance.",
+        "",
         "Fleet Pass: buy POST /v1/fleet-pass once ($5.00 = a $5.00 "
         "USD balance, 90-day expiry) and spend it on ANY paid route "
         "across all five fleet services (Token Verdict, RouteVerdict, "
@@ -2264,6 +2321,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp — manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json — tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
         "- Inspector Quickstart Pack (curl / Python / TypeScript): https://stall-row-production.up.railway.app/quickstart/curl · https://stall-row-production.up.railway.app/quickstart/python · https://stall-row-production.up.railway.app/quickstart/typescript — one-page integration path: pin Recheck + RouteVerdict, read the feed, register a watch, fund a pack",
         f"- `POST {base_url}/v1/recheck/pack-balance` — a pack's credits + expiry (pack id required)",
+        f"- `POST {base_url}/v1/toolkit/pack-balance` — a toolkit pack's credits + expiry (pack id required)",
         f"- `GET {base_url}/v1/recheck/feed` — recent Recheck results as JSONL, newest first (public observatory feed)",
         f"- `GET {base_url}/v1/recheck/feed?v=2&since_seq=N` — feed v2: each line an envelope (seq, record_id, schema_version, prev_hash, record_hash, record); since_seq is the gap-proof cursor mode (ascending), watch_id / url filter",
         f"- Feed v2 filters + backfill on the same endpoint: ?origin= (one http(s) origin or a comma-separated set), ?pay_to= (records' current payTo, case-insensitive), ?route= (full resource URL or its absolute path, e.g. /v1/verdict) — any combination, on top of the cursors; filtering selects a subset of the SAME hash chain (seq/hashes never rewritten, so seq gaps under a filter are expected — the excluded records, not drops). Backfill: history is append-only and never pruned (floor = X-Recheck-Feed-Earliest-Seq header); page it forwards from ?since_seq=0 or backwards with ?before_seq=N (records with seq < N, newest first; X-Recheck-Feed-Next-Before-Seq names the next page while older matches remain)",
@@ -2298,6 +2356,14 @@ def llms_txt(settings: Settings, base_url: str) -> str:
                 "POST /v1/recheck/pack-balance. Exhausted packs return 402 — they",
                 "never fall back to per-call billing. Renewal is a new pack purchase.",
             ]
+        if path == "/v1/toolkit/pack":
+            lines += [
+                "Inspector loop? The Toolkit Pack is the default: $1.00 = 125 checks",
+                "spendable on Sign Reader, Score Book, or Guard in any mix for 90",
+                "days ($0.008/check). Spend with pack_id on those routes; check",
+                "the balance free at POST /v1/toolkit/pack-balance. Exhausted packs",
+                "return 402 — they never fall back to per-call billing.",
+            ]
     lines += [
         f"- GET {base_url}/quote — free price quote",
         f"- GET {base_url}/health — free liveness check",
@@ -2308,6 +2374,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp — manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json — tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
         "- Inspector Quickstart Pack (curl / Python / TypeScript): https://stall-row-production.up.railway.app/quickstart/curl · https://stall-row-production.up.railway.app/quickstart/python · https://stall-row-production.up.railway.app/quickstart/typescript — one-page integration path: pin Recheck + RouteVerdict, read the feed, register a watch, fund a pack",
         f"- POST {base_url}/v1/recheck/pack-balance — free pack balance (pack id required)",
+        f"- POST {base_url}/v1/toolkit/pack-balance — free toolkit pack balance (pack id required)",
         f"- GET {base_url}/v1/recheck/feed — free Recheck results feed (JSONL, newest first); ?v=2&since_seq=N for the hash-chained cursor mode; v2 filters ?origin= (single or comma-separated set), ?pay_to=, ?route= (full URL or absolute path) select a subset of the same chain (seq gaps under a filter are expected); backfill the never-pruned retained history from ?since_seq=0 forwards or ?before_seq=N backwards (floor: X-Recheck-Feed-Earliest-Seq header)",
         f"- GET {base_url}/v1/recheck/history — free recorded history (envelopes); /v1/recheck/history/<record_id> for one snapshot",
         f"- GET {base_url}/v1/resource/timeline?url= — free unified per-resource timeline (Recheck + RouteVerdict + catalogue snapshot)",

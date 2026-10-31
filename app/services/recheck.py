@@ -131,6 +131,26 @@ PACK_PRICE_UNITS = 1_000_000  # $1.00 — mirrors config.PRICE_UNITS
 PACK_TTL_DAYS = 90
 _PACK_ID_PREFIX = "pack_"
 
+# --- toolkit packs -------------------------------------------------------------
+#
+# The prepaid shape of the inspector toolkit (Next-20 #8): one $1.00
+# payment buys TOOLKIT_PACK_CREDITS checks spendable on the toolkit
+# FAMILY — Sign Reader, Score Book, Guard — in any mix, at $0.008
+# effective (20% under the $0.01 singles). Same store, same discipline
+# as the watch packs above (CSPRNG id as the only credential,
+# idempotent mint on the payment identity, atomic reserve under the
+# lock, refund when our side fails). The one deliberate difference is
+# the binding: a watch pack binds to ONE endpoint URL because Recheck
+# checks one URL per call, but the toolkit tools take a different
+# target per call, so this pack binds to the route FAMILY instead —
+# any of TOOLKIT_PACK_ROUTES, never anything else. Same 90-day TTL.
+
+TOOLKIT_PACK_CREDITS = 125
+TOOLKIT_PACK_PRICE_UNITS = 1_000_000  # $1.00 — mirrors config.PRICE_UNITS
+TOOLKIT_PACK_TTL_DAYS = 90
+TOOLKIT_PACK_ROUTES = ("/v1/sign-read", "/v1/score-book", "/v1/guard")
+_TK_PACK_ID_PREFIX = "tkpack_"
+
 # The public feed's window: GET /v1/recheck/feed serves at most
 # this many of the most recent recorded check responses.
 FEED_LIMIT = 100
@@ -198,6 +218,20 @@ def _pack_view(row: dict, now_epoch: float | None = None) -> dict:
     return {
         "pack_id": row["pack_id"],
         "url": row["url"],
+        "credits_total": row["credits_total"],
+        "credits_remaining": row["credits_remaining"],
+        "created_at": _iso_of(row["created_epoch"]),
+        "expires_at": _iso_of(row["expires_epoch"]),
+        "expired": now >= row["expires_epoch"],
+    }
+
+
+def _toolkit_pack_view(row: dict, now_epoch: float | None = None) -> dict:
+    now = time.time() if now_epoch is None else now_epoch
+    return {
+        "pack_id": row["pack_id"],
+        "family": "toolkit",
+        "routes": list(TOOLKIT_PACK_ROUTES),
         "credits_total": row["credits_total"],
         "credits_remaining": row["credits_remaining"],
         "created_at": _iso_of(row["created_epoch"]),
@@ -376,6 +410,18 @@ class WatchStore:
                     last_eval_snapshot_id INTEGER,
                     last_status TEXT,
                     active INTEGER NOT NULL DEFAULT 1
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS toolkit_packs (
+                    pack_id TEXT PRIMARY KEY,
+                    credits_total INTEGER NOT NULL,
+                    credits_remaining INTEGER NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    expires_epoch REAL NOT NULL,
+                    payment_key TEXT NOT NULL UNIQUE
                 )
                 """
             )
@@ -1878,6 +1924,143 @@ class WatchStore:
         with self._lock:
             self._conn.execute(
                 "UPDATE recheck_packs SET credits_remaining = "
+                "MIN(credits_remaining + 1, credits_total) WHERE pack_id = ?",
+                (pack_id,),
+            )
+            self._conn.commit()
+
+    # --- toolkit packs -------------------------------------------------
+    # Same discipline as watch packs — CSPRNG id as the only
+    # credential, idempotent mint on the payment identity, atomic
+    # reserve under the lock, refund when our side fails — but the
+    # binding is the toolkit route FAMILY (see the constants above),
+    # not one endpoint URL, so reserve validates no target.
+
+    _TK_PACK_COLS = (
+        "pack_id, credits_total, credits_remaining, "
+        "created_epoch, expires_epoch, payment_key"
+    )
+
+    def _tk_pack_row(self, where: str, params: tuple) -> dict | None:
+        row = self._conn.execute(
+            f"SELECT {self._TK_PACK_COLS} FROM toolkit_packs WHERE {where}",
+            params,
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "pack_id": row[0],
+            "credits_total": row[1],
+            "credits_remaining": row[2],
+            "created_epoch": row[3],
+            "expires_epoch": row[4],
+            "payment_key": row[5],
+        }
+
+    def mint_toolkit_pack(
+        self,
+        payment_key: str,
+        credits_total: int = TOOLKIT_PACK_CREDITS,
+        ttl_days: int = TOOLKIT_PACK_TTL_DAYS,
+        now_epoch: float | None = None,
+    ) -> tuple[dict, bool]:
+        """Create a toolkit pack for one settled payment. Idempotent
+        on payment_key, exactly like mint_pack: a re-presented
+        payment returns the pack it already minted (created=False).
+        Returns (pack_view, created)."""
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            for _attempt in range(3):
+                pack_id = _TK_PACK_ID_PREFIX + secrets.token_hex(16)
+                cur = self._conn.execute(
+                    "INSERT OR IGNORE INTO toolkit_packs "
+                    "(pack_id, credits_total, credits_remaining, "
+                    "created_epoch, expires_epoch, payment_key) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        pack_id,
+                        credits_total,
+                        credits_total,
+                        now,
+                        now + ttl_days * 86_400,
+                        payment_key,
+                    ),
+                )
+                self._conn.commit()
+                if cur.rowcount == 1:
+                    row = self._tk_pack_row("pack_id = ?", (pack_id,))
+                    assert row is not None
+                    return _toolkit_pack_view(row, now), True
+                existing = self._tk_pack_row(
+                    "payment_key = ?", (payment_key,)
+                )
+                if existing is not None:
+                    return _toolkit_pack_view(existing, now), False
+            raise RuntimeError("could not mint a unique toolkit pack id")
+
+    def get_toolkit_pack(self, pack_id: str) -> dict | None:
+        with self._lock:
+            row = self._tk_pack_row("pack_id = ?", (pack_id,))
+        return _toolkit_pack_view(row) if row is not None else None
+
+    def toolkit_pack_count(self) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM toolkit_packs"
+            ).fetchone()
+        return int(row[0]) if row else 0
+
+    def reserve_toolkit_credit(
+        self, pack_id: str, now_epoch: float | None = None
+    ) -> dict:
+        """Atomically take one credit for a toolkit call about to
+        run — the reserve_credit discipline with no URL binding to
+        validate (the family binding was fixed at mint). Raises
+        PackError (unknown / expired / exhausted) without
+        decrementing anything."""
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            row = self._tk_pack_row("pack_id = ?", (pack_id,))
+            if row is None:
+                raise PackError(
+                    "unknown_pack", "unknown pack_id", 404
+                )
+            if now >= row["expires_epoch"]:
+                raise PackError(
+                    "pack_expired",
+                    "this pack has expired; buy a new pack or pay per call",
+                    410,
+                )
+            if row["credits_remaining"] <= 0:
+                raise PackError(
+                    "pack_exhausted",
+                    "this pack has no credits left; buy a new pack or pay per call",
+                    402,
+                )
+            cur = self._conn.execute(
+                "UPDATE toolkit_packs SET credits_remaining = "
+                "credits_remaining - 1 WHERE pack_id = ? AND "
+                "credits_remaining > 0",
+                (pack_id,),
+            )
+            self._conn.commit()
+            if cur.rowcount != 1:  # pragma: no cover — lock makes this unreachable
+                raise PackError(
+                    "pack_exhausted",
+                    "this pack has no credits left; buy a new pack or pay per call",
+                    402,
+                )
+            row = self._tk_pack_row("pack_id = ?", (pack_id,))
+            assert row is not None
+            return _toolkit_pack_view(row, now)
+
+    def refund_toolkit_credit(self, pack_id: str) -> None:
+        """Return a reserved credit after OUR side failed to deliver
+        the call (fleet rule: never charge for our failure). Capped
+        at credits_total so a stray refund cannot inflate a pack."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE toolkit_packs SET credits_remaining = "
                 "MIN(credits_remaining + 1, credits_total) WHERE pack_id = ?",
                 (pack_id,),
             )

@@ -39,6 +39,7 @@ BODIES = {
     "/v1/recheck/pack": {"url": "https://www.x402.org/"},
     "/v1/fleet-check": {"origins": ["https://www.x402.org"]},
     "/v1/fleet-check/pack": {"origins": ["https://www.x402.org"]},
+    "/v1/toolkit/pack": {},
     "/v1/fleet-pass": {},
     "/v1/fleet-pass-20": {},
     "/v1/sign-read": {"url": "https://www.x402.org/"},

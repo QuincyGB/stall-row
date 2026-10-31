@@ -8,6 +8,7 @@ Paid:   POST /v1/* routes (see app/discovery.py ROUTES)
 Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt,
              /.well-known/agent-card.json
         POST /v1/recheck/pack-balance (pack id is the credential)
+        POST /v1/toolkit/pack-balance (pack id is the credential)
         GET  /v1/recheck/feed (public JSONL feed of recent recheck
              responses — see services/recheck.py)
         POST /v1/nudge (signed fleet-health mail — see services/nudge.py)
@@ -53,6 +54,13 @@ Recheck packs: POST /v1/recheck presenting a pack id (body field
 of paying per call, so the middleware below lets such requests
 through to the handler, which validates the pack against the store
 before any check runs — an invalid pack delivers nothing.
+
+Toolkit packs: POST /v1/sign-read, /v1/score-book or /v1/guard
+presenting a toolkit pack id (body field `pack_id` or X-Toolkit-Pack
+header) spends one prepaid credit from a pack bought at
+POST /v1/toolkit/pack — the pack binds to the toolkit route family,
+not to one target URL, because the tools take a different target
+per call. Same middleware bypass, same handler-side validation.
 
 Survey Batch Recheck: POST /v1/recheck/batch (Fleet-Pass-funded
 only, NOT a priced x402 route — see services/recheck_batch.py)
@@ -282,9 +290,34 @@ async def _request_pack_id(request: Request) -> str:
     return ""
 
 
+TOOLKIT_PACK_HEADER = "x-toolkit-pack"
+TOOLKIT_PATHS = frozenset(recheck_svc.TOOLKIT_PACK_ROUTES)
+
+
+async def _request_toolkit_pack_id(request: Request) -> str:
+    """The toolkit pack id a toolkit call presents, if any: the
+    X-Toolkit-Pack header, or the body's pack_id field — the same
+    presentation shape as the recheck pack (see _request_pack_id)."""
+    header = request.headers.get(TOOLKIT_PACK_HEADER)
+    if header and header.strip():
+        return header.strip()
+    try:
+        body = await request.body()
+        if body:
+            data = json.loads(body)
+            if isinstance(data, dict):
+                pack_id = data.get("pack_id")
+                if isinstance(pack_id, str) and pack_id.strip():
+                    return pack_id.strip()
+    except Exception:  # noqa: BLE001 — an unreadable body is just "no pack"
+        pass
+    return ""
+
+
 PASS_HEADER = fleetpass_svc.PASS_HEADER
 _PASS_EXEMPT = {
     "/v1/recheck/pack",
+    "/v1/toolkit/pack",
     "/v1/fleet-check/pack",
     "/v1/fleet-pass",
     "/v1/fleet-pass-20",
@@ -299,6 +332,13 @@ async def x402_middleware(request: Request, call_next):
     # are refused there and deliver nothing).
     if request.method == "POST" and request.url.path == "/v1/recheck":
         if await _request_pack_id(request):
+            return await call_next(request)
+    # Same bypass for the toolkit routes presenting a toolkit pack
+    # id: paid from the pack, validated by the handler against the
+    # store before any work runs — an invalid pack delivers nothing
+    # and never falls back to a per-call (or Fleet Pass) charge.
+    if request.method == "POST" and request.url.path in TOOLKIT_PATHS:
+        if await _request_toolkit_pack_id(request):
             return await call_next(request)
     # A call presenting a Fleet Pass id is paid from the pass: debit
     # this route's listed price from the ledger BEFORE the handler
@@ -494,6 +534,41 @@ async def _run(coro_fn):
     except Exception:  # noqa: BLE001 — never leak tracebacks
         log.exception("paid handler failed")
         return JSONResponse({"error": "internal failure"}, status_code=502)
+
+
+async def _run_pack_funded(pack_id: str, coro_fn):
+    """Run a toolkit handler body paid from a toolkit pack instead of
+    per call. Reserve-then-run, mirroring recheck_with_pack: the
+    credit is taken atomically BEFORE the call runs (refusals are
+    exact — unknown 404 / expired 410 / exhausted 402 — and deliver
+    nothing), and refunded whenever the handler answers >= 400,
+    because a failed call is OUR side not delivering (a delivered
+    report — including an unreachable-target report — keeps the
+    credit). On success the pack's post-spend state rides along on
+    the result, exactly as pack-funded rechecks report it."""
+    try:
+        reserved = _recheck_store.reserve_toolkit_credit(pack_id)
+    except recheck_svc.PackError as e:
+        return JSONResponse(
+            {"error": e.message, "code": e.code, "pack_id": pack_id},
+            status_code=e.http_status,
+        )
+    result = await _run(coro_fn)
+    if isinstance(result, JSONResponse):
+        if result.status_code >= 400:
+            _recheck_store.refund_toolkit_credit(pack_id)
+        return result
+    result["pack_id"] = pack_id
+    result["pack_credits_remaining"] = reserved["credits_remaining"]
+    result["pack_expires_at"] = reserved["expires_at"]
+    return result
+
+
+def _presented_toolkit_pack_id(req, request: Request) -> str:
+    """The toolkit pack id a toolkit request presents: the body's
+    pack_id field or the X-Toolkit-Pack header (body wins, mirroring
+    the recheck handler's precedence)."""
+    return (req.pack_id or request.headers.get(TOOLKIT_PACK_HEADER) or "").strip()
 
 
 # --- request models ------------------------------------------------------------
@@ -1030,10 +1105,17 @@ class SignReadRequest(BaseModel):
     declared_network: str | None = Field(
         default=None, description="Network your catalogue entry declares"
     )
+    pack_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional toolkit pack id (or send the X-Toolkit-Pack header): "
+            "spends one pack credit instead of the per-call payment"
+        ),
+    )
 
 
 @app.post("/v1/sign-read")
-async def sign_read(req: SignReadRequest):
+async def sign_read(req: SignReadRequest, request: Request):
     """Sign Reader: one unpaid probe of the target's 402 challenge;
     both wire formats parsed and normalized with exact decimals,
     malformed/missing fields named, declared-vs-live mismatches
@@ -1050,6 +1132,9 @@ async def sign_read(req: SignReadRequest):
     async def go():
         return await signread_svc.sign_read(_fetch_client(), req.url, declared)
 
+    pack_id = _presented_toolkit_pack_id(req, request)
+    if pack_id:
+        return await _run_pack_funded(pack_id, go)
     return await _run(go)
 
 
@@ -1057,10 +1142,17 @@ class ScoreBookRequest(BaseModel):
     url: str | None = Field(default=None, description="One resource URL — its track record")
     origin: str | None = Field(default=None, description="One origin — every recorded resource under it")
     pay_to: str | None = Field(default=None, description="One payTo address — every resource observed paying it")
+    pack_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional toolkit pack id (or send the X-Toolkit-Pack header): "
+            "spends one pack credit instead of the per-call payment"
+        ),
+    )
 
 
 @app.post("/v1/score-book")
-async def score_book(req: ScoreBookRequest):
+async def score_book(req: ScoreBookRequest, request: Request):
     """Score Book: a track record aggregated from the records this
     service holds (recheck history + Index snapshots + the
     committed patrol snapshot, whose section carries its own
@@ -1077,15 +1169,25 @@ async def score_book(req: ScoreBookRequest):
             pay_to=req.pay_to,
         )
 
+    pack_id = _presented_toolkit_pack_id(req, request)
+    if pack_id:
+        return await _run_pack_funded(pack_id, go)
     return await _run(go)
 
 
 class GuardRequest(BaseModel):
     url: str = Field(description="Public http(s) URL of the x402 endpoint you are about to pay")
+    pack_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional toolkit pack id (or send the X-Toolkit-Pack header): "
+            "spends one pack credit instead of the per-call payment"
+        ),
+    )
 
 
 @app.post("/v1/guard")
-async def guard(req: GuardRequest):
+async def guard(req: GuardRequest, request: Request):
     """Guard: one PROCEED / CAUTION / ABORT verdict for one
     endpoint, composed from the sign read (live terms + SDK
     compatibility), the bad-payTo registry, and the score book's
@@ -1097,6 +1199,9 @@ async def guard(req: GuardRequest):
             _fetch_client(), _recheck_store, _index_store, req.url
         )
 
+    pack_id = _presented_toolkit_pack_id(req, request)
+    if pack_id:
+        return await _run_pack_funded(pack_id, go)
     return await _run(go)
 
 
@@ -1329,6 +1434,50 @@ async def recheck_pack_balance(req: RecheckPackBalanceRequest):
     endpoint than the one named — is a plain 404."""
     pack = _recheck_store.get_pack(req.pack_id.strip())
     if pack is None or (req.url is not None and pack["url"] != req.url.strip()):
+        return JSONResponse({"error": "unknown pack_id"}, status_code=404)
+    return pack
+
+
+class ToolkitPackBalanceRequest(BaseModel):
+    pack_id: str = Field(description="Pack id returned by POST /v1/toolkit/pack")
+
+
+@app.post("/v1/toolkit/pack")
+async def toolkit_pack_buy(request: Request):
+    """Mint a toolkit pack. Runs only after the x402 middleware has
+    verified the $1.00 payment; minting is idempotent on the payment's
+    identity (see _payment_key), so a re-presented payment returns
+    the pack it already bought instead of minting a second one. The
+    pack binds to the toolkit route FAMILY (sign-read / score-book /
+    guard) — no URL is named at buy time, because the tools take a
+    different target per call."""
+    payment_key = _payment_key(request)
+    if payment_key is None:
+        return JSONResponse(
+            {"error": "payment identity unavailable; pack cannot be minted safely"},
+            status_code=502,
+        )
+    pack, created = _recheck_store.mint_toolkit_pack(payment_key)
+    return {
+        **pack,
+        "expiry_days": recheck_svc.TOOLKIT_PACK_TTL_DAYS,
+        "price_units": recheck_svc.TOOLKIT_PACK_PRICE_UNITS,
+        "note": (
+            "Spend credits with POST /v1/sign-read, /v1/score-book or "
+            "/v1/guard: send this pack_id in the body or the "
+            "X-Toolkit-Pack header. Read the balance free at "
+            "POST /v1/toolkit/pack-balance."
+            + ("" if created else " This payment already minted this pack; returning it.")
+        ),
+    }
+
+
+@app.post("/v1/toolkit/pack-balance")
+async def toolkit_pack_balance(req: ToolkitPackBalanceRequest):
+    """Free balance read: credits remaining + expiry for a toolkit
+    pack. Spends nothing. An unknown pack is a plain 404."""
+    pack = _recheck_store.get_toolkit_pack(req.pack_id.strip())
+    if pack is None:
         return JSONResponse({"error": "unknown pack_id"}, status_code=404)
     return pack
 
