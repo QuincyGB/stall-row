@@ -43,7 +43,7 @@ def _settings(**env):
                 os.environ[k] = v
 
 
-def test_thirty_two_routes_priced_as_specified():
+def test_thirty_three_routes_priced_as_specified():
     assert PRICE_UNITS == {
         "/v1/wallet-snapshot": 5000,
         "/v1/allowance-audit": 5000,
@@ -77,8 +77,9 @@ def test_thirty_two_routes_priced_as_specified():
         "/v1/ledger-dataset": 100_000,
         "/v1/ledger-dataset/full": 1_000_000,
         "/v1/physical": 50_000,
+        "/v1/payto-pin/verify": 10_000,
     }
-    assert sum(PRICE_UNITS.values()) == 35_415_000  # $35.415 to catalog the row
+    assert sum(PRICE_UNITS.values()) == 35_425_000  # $35.425 to catalog the row
     assert set(ROUTES) == set(PRICE_UNITS)
 
 
@@ -138,10 +139,10 @@ def test_output_schema_types_real_fields(path):
         assert "type" in sub, f"{path}.{name} untyped"
 
 
-def test_manifest_lists_all_thirty_two_with_matching_accepts():
+def test_manifest_lists_all_thirty_three_with_matching_accepts():
     manifest = x402_manifest(main.settings, "https://stall-row.example.com")
     paid = [r for r in manifest["resources"] if r["method"] == "POST"]
-    assert len(paid) == 32
+    assert len(paid) == 33
     for r in paid:
         path = r["resource"].removeprefix("https://stall-row.example.com")
         a = r["accepts"][0]
@@ -157,7 +158,7 @@ def test_live_manifest_endpoint_matches():
     client = TestClient(main.app, raise_server_exceptions=False)
     body = client.get("/.well-known/x402").json()
     assert body["service"] == "stall-row"
-    assert len([r for r in body["resources"] if r["method"] == "POST"]) == 32
+    assert len([r for r in body["resources"] if r["method"] == "POST"]) == 33
 
 
 def test_pack_output_example_fits_settled_sample_cap():

@@ -1673,6 +1673,64 @@ ROUTES: dict[str, dict] = {
             "limits": "One call, four legs, at call time.",
         },
     },
+    "/v1/payto-pin/verify": {
+        "description": (
+            "PayTo Pin Verify — check one pinned x402 route against its "
+            "first-seen payTo set: a fresh unpaid probe compares the "
+            "live payTo set with the pin's hash-committed baseline, "
+            "answering MATCH, MOVED with before/after sets, or "
+            "ROUTE_GONE as a delivered report. A swap fires one signed "
+            "PAYTO_MOVED webhook per distinct new set. Pins are "
+            "created free at POST /v1/payto-pin. Use this when a payTo "
+            "swap must be caught before you pay the route again."
+        ),
+        "tags": ["x402", "inspector", "payto", "monitoring", "verification"],
+        "input_schema": _obj(
+            {"pin_id": _N, "url": _N, "secret": _N, "webhook_url": _N},
+            [],
+        ),
+        "input_example": {"pin_id": "pin_9c73fa7ea40a6411b6517bd8cb3465a6"},
+        "output_schema": _obj(
+            {
+                "pin_id": _N,
+                "url": _S,
+                "status": {
+                    "type": "string",
+                    "enum": ["MATCH", "MOVED", "ROUTE_GONE"],
+                },
+                "pinned_payto_set": {
+                    "type": ["array", "null"],
+                    "items": _S,
+                },
+                "current_payto_set": {
+                    "type": ["array", "null"],
+                    "items": _S,
+                },
+                "commitment": _N,
+                "commitment_verified": {"type": ["boolean", "null"]},
+                "pin_created": _B,
+                "alert_queued": _B,
+                "observed_at": _S,
+                "evidence": {"type": "object"},
+                "limits": _S,
+            },
+            ["url", "status", "pin_created", "alert_queued", "observed_at"],
+        ),
+        "output_example": {
+            "pin_id": "pin_9c73fa7ea40a6411b6517bd8cb3465a6",
+            "url": "https://example.com/v1/verdict",
+            "status": "MATCH",
+            "pinned_payto_set": ["0x097f9685d1e0752bf8b02d61e5ce9be7ea0fba7f"],
+            "current_payto_set": ["0x097f9685d1e0752bf8b02d61e5ce9be7ea0fba7f"],
+            "commitment": "a" * 64,
+            "commitment_verified": True,
+            "pin_created": False,
+            "alert_queued": False,
+            "observed_at": "2026-10-31T12:00:00Z",
+            "evidence": {"http_status": 402, "challenge_found": True},
+            "limits": "One unpaid probe per verify, at call time.",
+        },
+    },
     "/v1/toolkit/pack": {
         "description": (
             "Toolkit Pack — the prepaid form of the inspector toolkit: "
@@ -2298,6 +2356,22 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "history from the persisted ledger (newest first, latest 100, "
         "total count stated; refunded debits marked refunded).",
         "",
+        "PayTo Pin & Change Alert: pin a route's first-seen payTo "
+        "set free at POST /v1/payto-pin (body url + a 16+ char "
+        "holder secret; an optional webhook_url registers the "
+        "PAYTO_MOVED alert webhook, signed with that secret). The "
+        "pin carries a sha256 commitment over its canonical "
+        "content, verifiable from the read; pins never expire. "
+        "Manage free at POST /v1/payto-pin/read, "
+        "/v1/payto-pin/delete and /v1/payto-pin/alert-subscribe "
+        "(pin_id + secret). Verify for $0.01 at POST "
+        "/v1/payto-pin/verify (pin_id, or url + secret — an "
+        "unpinned url + secret creates its pin free from that "
+        "verify's own probe): a fresh unpaid probe answers MATCH, "
+        "MOVED with before/after sets, or ROUTE_GONE as a "
+        "delivered report. Alerts fire only on verify-time "
+        "detection, once per distinct new set.",
+        "",
         "Webhook Watch: register POST /v1/watch/register (free) with "
         "a funded recheck pack or Fleet Pass and a webhook URL — the "
         "service rechecks on your interval and POSTs the change to "
@@ -2395,6 +2469,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `GET {base_url}/v1/recheck/corrections` — the append-only corrections log: amendments to history records, served beside the originals (originals are never mutated; writes are fleet-internal-secret gated)",
         f"- `GET {base_url}/v1/sandbox/x402` — TEST FIXTURE, not a service: a mutable x402 challenge for rehearsing Recheck change detection (flip its schema/price via the gated internal mutation; nothing is sold and no payment settles)",
         "- Recheck results carry a structured `field_changes` array (path, op, before, after, severity, category) beside the legacy `changes[]`, a `probe` object (latency_ms, attempts, redirect_count, error_class, flapping) and — when the catalogue snapshot is readable — a `catalogue_crosscheck` frozen at check time. Watch baselines can be pinned/imported and CHANGED results pushed to a signed per-watch webhook — both mutations are fleet-internal-secret gated (`/v1/internal/recheck/*`), never public writes",
+        f"- `POST {base_url}/v1/payto-pin` — FREE PayTo pin creation: pin one route's first-seen payTo set from one unpaid probe (body url + holder secret, optional webhook_url for the signed PAYTO_MOVED alert); beside it, free and secret-managed: `POST {base_url}/v1/payto-pin/read`, `/v1/payto-pin/delete`, `/v1/payto-pin/alert-subscribe` (pin_id + secret; unknown pin 404, wrong secret 403; pins never expire)",
         f"- `POST {base_url}/v1/recheck/webhooks` — SELF-SERVE change webhook: register your own signed callback for Recheck CHANGED events (feed-wide, one URL, or one origin), managed + signed with your own secret — no operator gate; `/list`, `/delete`, `/deliveries` beside it take the same secret in the body",
         f"- `POST {base_url}/v1/recheck/batch` — Survey Batch Recheck (Fleet-Pass-funded ONLY, not a priced route): up to 100 unique URLs checked in one batch at the $0.005 single-Recheck price per unique URL (20% off a full 100: $0.40 total), debited once from the pass (`fleet_pass_id` body field or X-Fleet-Pass header); Recheck packs cannot fund a survey",
         f"- `GET {base_url}/v1/verdict-read?url=` — free PUBLIC VERDICT READ: the recorded state this service already holds for one resource URL (latest recorded check + recorded terms + Score Book aggregates + last recorded CHANGED event as last_change_at). A verdict is included ONLY where honestly available: a standing-watch RouteVerdict verdict recorded for the URL (verdict_source 'recorded route-verdict check', served verbatim) or a PROCEED / CAUTION / ABORT band derived from recorded checks (verdict_source 'derived from recorded checks', reasons listed); otherwise verdict is null. Guard verdicts are NOT persisted, so none is served or invented. The read NEVER probes, fetches, or pays the target and triggers no paid call; an unrecorded URL answers found=false ('not yet checked')",
@@ -2456,6 +2531,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/v1/resource/timeline?url= — free unified per-resource timeline (Recheck + RouteVerdict + catalogue snapshot)",
         f"- GET {base_url}/v1/recheck/fingerprint-spec — free fingerprint spec + test vectors, exactly as implemented",
         f"- GET {base_url}/v1/recheck/corrections — free append-only corrections log (originals never mutated)",
+        f"- POST {base_url}/v1/payto-pin — free PayTo pin creation (url + holder secret, one unpaid probe; sha256-committed first-seen payTo set, never expires); free management beside it: POST {base_url}/v1/payto-pin/read, /v1/payto-pin/delete, /v1/payto-pin/alert-subscribe (pin_id + secret). Verify is the priced POST /v1/payto-pin/verify ($0.01): MATCH / MOVED (signed PAYTO_MOVED webhook, once per distinct new set) / ROUTE_GONE",
         f"- POST {base_url}/v1/recheck/webhooks — free self-serve change-webhook registration (signed callbacks for CHANGED events; /list, /delete, /deliveries beside it, managed by your own secret)",
         f"- POST {base_url}/v1/watch/register — free watch registration; watch_focus=\"schema\" is Contract Watch: SCHEMA_CHANGED pushes on output-schema fingerprint change only, runs funded at the listed $0.005 Recheck price from a pack or Fleet Pass (no separate price, no new priced route)",
         f"- POST {base_url}/v1/recheck/batch — Survey Batch Recheck (Fleet-Pass-funded ONLY, not a priced route): up to 100 unique URLs at $0.005/check from a Fleet Pass, 20% off a full 100 ($0.40 total); Recheck packs cannot fund a survey",

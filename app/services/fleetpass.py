@@ -63,6 +63,7 @@ FLEET_ROUTES: dict[tuple[str, str], int] = {
     ("stall-row", "/v1/ledger-dataset"): 100_000,
     ("stall-row", "/v1/ledger-dataset/full"): 1_000_000,
     ("stall-row", "/v1/physical"): 50_000,
+    ("stall-row", "/v1/payto-pin/verify"): 10_000,
 }
 
 

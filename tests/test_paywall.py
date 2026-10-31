@@ -48,6 +48,7 @@ BODIES = {
     "/v1/ledger-dataset": {},
     "/v1/ledger-dataset/full": {},
     "/v1/physical": {"url": "https://www.x402.org/"},
+    "/v1/payto-pin/verify": {"pin_id": "pin_9c73fa7ea40a6411b6517bd8cb3465a6"},
 }
 
 

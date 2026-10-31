@@ -86,6 +86,7 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/ledger-dataset": 100_000,     # $0.10 — Ledger Dataset (summary): per-origin rollup of the observation ledger
     "/v1/ledger-dataset/full": 1_000_000,  # $1.00 — Ledger Dataset (full): per-route records (dataset band, price card 2026-10-30)
     "/v1/physical": 50_000,            # $0.05 — Inspector Physical: sign + book + guard + recheck on one target, one call (singles sum $0.075)
+    "/v1/payto-pin/verify": 10_000,    # $0.01 — PayTo Pin verify: live payTo set vs the pin's first-seen set (new-check-tool band)
 }
 
 

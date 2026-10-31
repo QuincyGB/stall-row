@@ -54,6 +54,10 @@ Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt,
         GET  /v1/recheck/corrections (the append-only corrections
              log; POST /v1/internal/recheck/corrections is the
              fleet-internal-secret-gated write)
+        POST /v1/payto-pin{,/read,/delete,/alert-subscribe}
+             (FREE PayTo pin management: the holder secret is the
+             credential — see services/paytopin.py; the priced
+             leg is POST /v1/payto-pin/verify at $0.01)
         GET  /v1/sandbox/x402 (TEST FIXTURE: a mutable x402
              challenge for ingestion rehearsal — not a priced
              route, never listed; mutate it via the gated
@@ -143,6 +147,7 @@ from .services import indexsub as indexsub_svc
 from .services import nudge as nudge_svc
 from .services import paymentrail as paymentrail_svc
 from .services import orchestrate as orchestrate_svc
+from .services import paytopin as paytopin_svc
 from .services import pretrade as pretrade_svc
 from .services import probe as probe_svc
 from .services import reads as reads_svc
@@ -1284,6 +1289,133 @@ async def physical(req: PhysicalRequest, request: Request):
         )
 
     return await _run(go)
+
+
+# --- PayTo Pin & Change Alert (Next-20 #15) -------------------------------------
+# Free pin management (creation / read / delete / alert-subscribe:
+# the holder secret is the credential, mirroring the webhook-
+# subscription pattern — these paths are absent from PRICE_UNITS
+# and discovery's priced routes) plus ONE priced route,
+# POST /v1/payto-pin/verify at $0.01. See services/paytopin.py for
+# the design: commitment scheme, alert scope (verify-time only,
+# once per distinct new set), and delivery reuse.
+
+class PayToPinCreateRequest(BaseModel):
+    url: str = Field(description="Public http(s) URL of the x402 route to pin")
+    secret: str = Field(description="Holder secret (16+ chars): manages the pin and signs its alert webhooks; never echoed back")
+    webhook_url: str | None = Field(
+        default=None,
+        description="Optional https webhook for PAYTO_MOVED alerts (signed with the holder secret)",
+    )
+
+
+class PayToPinVerifyRequest(BaseModel):
+    pin_id: str | None = Field(default=None, description="The pin to verify against (or name url + secret instead)")
+    url: str | None = Field(default=None, description="With secret: the pinned route's URL — an unpinned url + secret creates its pin free from this verify's own probe")
+    secret: str | None = Field(default=None, description="Holder secret (required with url; when sent with pin_id it must match the pin)")
+    webhook_url: str | None = Field(
+        default=None,
+        description="Optional: alert webhook to register on a pin this verify creates",
+    )
+
+
+class PayToPinManageRequest(BaseModel):
+    pin_id: str = Field(description="Pin id returned by POST /v1/payto-pin")
+    secret: str = Field(description="The holder secret the pin was created with")
+
+
+class PayToPinAlertSubscribeRequest(BaseModel):
+    pin_id: str = Field(description="Pin id returned by POST /v1/payto-pin")
+    secret: str = Field(description="The holder secret the pin was created with")
+    webhook_url: str = Field(description="Public https URL that receives signed PAYTO_MOVED alerts")
+
+
+def _pin_error(e: paytopin_svc.PinError) -> JSONResponse:
+    return JSONResponse(
+        {"error": e.message, "code": e.code}, status_code=e.http_status
+    )
+
+
+@app.post("/v1/payto-pin")
+async def payto_pin_create(req: PayToPinCreateRequest):
+    """Free pin creation: ONE unpaid probe captures the route's
+    first-seen payTo set into a hash-committed pin. Re-creating
+    with the same url + secret returns the existing pin."""
+    try:
+        view, created = await paytopin_svc.create_pin(
+            _fetch_client(), _recheck_store, req.url, req.secret,
+            req.webhook_url,
+        )
+    except paytopin_svc.PinError as e:
+        return _pin_error(e)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    return {**view, "created": created}
+
+
+@app.post("/v1/payto-pin/read")
+async def payto_pin_read(req: PayToPinManageRequest):
+    """Free pin read by id + secret. Unknown pin 404, wrong
+    secret 403. The commitment is verifiable from this read."""
+    try:
+        return paytopin_svc.read_pin(
+            _recheck_store, req.pin_id, req.secret
+        )
+    except paytopin_svc.PinError as e:
+        return _pin_error(e)
+
+
+@app.post("/v1/payto-pin/delete")
+async def payto_pin_delete(req: PayToPinManageRequest):
+    """Free pin delete by id + secret (its alert webhook config
+    is removed with it). Unknown pin 404, wrong secret 403."""
+    try:
+        return paytopin_svc.delete_pin(
+            _recheck_store, req.pin_id, req.secret
+        )
+    except paytopin_svc.PinError as e:
+        return _pin_error(e)
+
+
+@app.post("/v1/payto-pin/alert-subscribe")
+async def payto_pin_alert_subscribe(req: PayToPinAlertSubscribeRequest):
+    """Register/replace the pin's PAYTO_MOVED webhook (secret-
+    managed; deliveries are HMAC-SHA256 signed with the secret
+    via the existing change-webhook pipeline)."""
+    try:
+        return await paytopin_svc.subscribe_alert(
+            _recheck_store, req.pin_id, req.secret, req.webhook_url
+        )
+    except paytopin_svc.PinError as e:
+        return _pin_error(e)
+
+
+@app.post("/v1/payto-pin/verify")
+async def payto_pin_verify(req: PayToPinVerifyRequest):
+    """PayTo Pin Verify ($0.01): a fresh unpaid probe of the
+    pinned route, compared with the pin's first-seen payTo set —
+    MATCH / MOVED (before/after; a registered webhook gets one
+    signed PAYTO_MOVED alert per distinct new set) / ROUTE_GONE,
+    the last as a delivered report, never a 500. A verify naming
+    url + secret for an unpinned route creates the pin free from
+    this verify's own probe. Unknown pin 404 / wrong secret 403
+    settle nothing."""
+    try:
+        return await paytopin_svc.verify_pin(
+            _fetch_client(),
+            _recheck_store,
+            req.pin_id,
+            req.url,
+            req.secret,
+            req.webhook_url,
+        )
+    except paytopin_svc.PinError as e:
+        return _pin_error(e)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except Exception:  # noqa: BLE001 — mirror _run's honesty contract
+        log.exception("payto pin verify failed")
+        return JSONResponse({"error": "internal failure"}, status_code=502)
 
 
 class LedgerDatasetRequest(BaseModel):

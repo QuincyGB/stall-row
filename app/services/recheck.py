@@ -716,6 +716,32 @@ class WatchStore:
                 )
                 """
             )
+            # PayTo pins (Next-20 #15, services/paytopin.py): one
+            # row per pin — a route URL, its first-seen payTo set,
+            # a sha256 commitment over the pin's canonical content,
+            # and the holder secret that manages it (stored exactly
+            # like the webhook tables above: it is both the
+            # management credential and the alert HMAC key, and it
+            # never echoes in any view). alerted_sets_json holds
+            # the set-hashes already alerted on, so a swap alerts
+            # once per distinct new set. Pins never expire.
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS payto_pins (
+                    pin_id TEXT PRIMARY KEY,
+                    url TEXT NOT NULL,
+                    payto_set_json TEXT NOT NULL,
+                    commitment TEXT NOT NULL,
+                    secret TEXT NOT NULL,
+                    webhook_url TEXT,
+                    created_epoch REAL NOT NULL,
+                    created_at TEXT NOT NULL,
+                    last_verified_epoch REAL,
+                    last_status TEXT,
+                    alerted_sets_json TEXT NOT NULL DEFAULT '[]'
+                )
+                """
+            )
             cols = {
                 row[1]
                 for row in self._conn.execute(
@@ -1682,6 +1708,165 @@ class WatchStore:
             "secret": sub["secret"],
             "enabled": sub["enabled"],
         }
+
+    # --- PayTo pins (Next-20 #15, services/paytopin.py) -------------
+    # Store side only: validation, probing, commitment and alert
+    # policy live in services/paytopin.py. The holder secret is
+    # stored (management credential + alert HMAC key, mirroring
+    # the webhook tables) and is present ONLY in the internal row
+    # these methods return to that service — never in a view it
+    # serves. Alert deliveries ride the change-delivery queue
+    # above under watch_key "pin:<pin_id>", with the pin's webhook
+    # config in recheck_webhooks under the same key, so
+    # deliver_change_event serves pins unchanged.
+
+    _PIN_COLS = (
+        "pin_id, url, payto_set_json, commitment, secret, "
+        "webhook_url, created_epoch, created_at, "
+        "last_verified_epoch, last_status, alerted_sets_json"
+    )
+
+    def _pin_row(self, where: str, params: tuple) -> dict | None:
+        row = self._conn.execute(
+            f"SELECT {self._PIN_COLS} FROM payto_pins WHERE {where}",
+            params,
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "pin_id": row[0],
+            "url": row[1],
+            "payto_set": json.loads(row[2]),
+            "commitment": row[3],
+            "secret": row[4],
+            "webhook_url": row[5],
+            "created_epoch": row[6],
+            "created_at": row[7],
+            "last_verified_epoch": row[8],
+            "last_status": row[9],
+            "alerted_sets": json.loads(row[10] or "[]"),
+        }
+
+    def create_payto_pin(
+        self,
+        pin_id: str,
+        url: str,
+        payto_set: list,
+        commitment: str,
+        secret: str,
+        webhook_url: str | None,
+        created_at: str,
+        now_epoch: float | None = None,
+    ) -> dict:
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO payto_pins (pin_id, url, "
+                "payto_set_json, commitment, secret, webhook_url, "
+                "created_epoch, created_at, alerted_sets_json) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, '[]')",
+                (
+                    pin_id,
+                    url,
+                    json.dumps(payto_set),
+                    commitment,
+                    secret,
+                    webhook_url,
+                    now,
+                    created_at,
+                ),
+            )
+            self._conn.commit()
+        row = self._pin_row("pin_id = ?", (pin_id,))
+        assert row is not None
+        return row
+
+    def get_payto_pin(self, pin_id: str) -> dict | None:
+        with self._lock:
+            return self._pin_row("pin_id = ?", (pin_id,))
+
+    def get_payto_pin_by_url_secret(
+        self, url: str, secret: str
+    ) -> dict | None:
+        with self._lock:
+            return self._pin_row(
+                "url = ? AND secret = ?", (url, secret)
+            )
+
+    def payto_pin_count(self) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM payto_pins"
+            ).fetchone()
+        return int(row[0]) if row else 0
+
+    def update_payto_pin_webhook(
+        self, pin_id: str, webhook_url: str | None
+    ) -> dict | None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE payto_pins SET webhook_url = ? WHERE pin_id = ?",
+                (webhook_url, pin_id),
+            )
+            self._conn.commit()
+        return self.get_payto_pin(pin_id)
+
+    def record_payto_pin_verify(
+        self, pin_id: str, status: str, now_epoch: float | None = None
+    ) -> None:
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            self._conn.execute(
+                "UPDATE payto_pins SET last_verified_epoch = ?, "
+                "last_status = ? WHERE pin_id = ?",
+                (now, status, pin_id),
+            )
+            self._conn.commit()
+
+    def mark_payto_pin_alerted(self, pin_id: str, set_hash: str) -> bool:
+        """Record `set_hash` as alerted for this pin. Returns True
+        only when this call newly marks it — the once-per-distinct-
+        set guarantee, atomic under the store lock."""
+        with self._lock:
+            row = self._pin_row("pin_id = ?", (pin_id,))
+            if row is None or set_hash in row["alerted_sets"]:
+                return False
+            alerted = [*row["alerted_sets"], set_hash]
+            self._conn.execute(
+                "UPDATE payto_pins SET alerted_sets_json = ? "
+                "WHERE pin_id = ?",
+                (json.dumps(alerted), pin_id),
+            )
+            self._conn.commit()
+        return True
+
+    def delete_payto_pin(self, pin_id: str, secret: str) -> bool:
+        """Delete one pin, secret-gated at the store as well as the
+        service layer. Its alert webhook config (watch_key
+        "pin:<pin_id>") is removed with it."""
+        with self._lock:
+            cur = self._conn.execute(
+                "DELETE FROM payto_pins WHERE pin_id = ? AND secret = ?",
+                (pin_id, secret),
+            )
+            self._conn.commit()
+            if cur.rowcount < 1:
+                return False
+            self._conn.execute(
+                "DELETE FROM recheck_webhooks WHERE watch_key = ?",
+                (f"pin:{pin_id}",),
+            )
+            self._conn.commit()
+        return True
+
+    def delete_change_webhook(self, watch_key: str) -> bool:
+        with self._lock:
+            cur = self._conn.execute(
+                "DELETE FROM recheck_webhooks WHERE watch_key = ?",
+                (watch_key,),
+            )
+            self._conn.commit()
+        return cur.rowcount > 0
 
     # --- corrections (append-only amendments, improvement 10) --------
     # A correction NEVER mutates the record it amends: the stored
