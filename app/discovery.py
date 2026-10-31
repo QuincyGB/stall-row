@@ -1545,14 +1545,15 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/score-book": {
         "description": (
-            "Score Book — one x402 resource's, origin's, or payTo's track "
-            "record from this service's own stores: recorded check counts "
-            "and outcomes, first/last seen, the distinct prices and payTos "
-            "its live sign has carried (change counts), its current "
-            "fingerprint, and its presence across the catalogue snapshots "
-            "held. Nothing is probed or invented — a target outside our "
-            "records answers found=false. Use this when judging a stall "
-            "needs its history, not just its current sign."
+            "Score Book — an x402 target's track record from our "
+            "records: check history, prices/payTos carried, catalogue "
+            "presence, and — for url/origin — patrol facts from the "
+            "patrol snapshot (open defects by class, first/last seen; "
+            "recoveries with receipt ids; snapshot provenance). "
+            "Patrol is periodic — facts are as of the snapshot, never "
+            "live; it holds no payTo data, so payTo patrol sections "
+            "are empty. Unknown: found=false. Use this when judging "
+            "a stall needs its history, not just its current sign."
         ),
         "tags": ["x402", "inspector", "history", "reputation", "monitoring"],
         "input_schema": _obj(

@@ -10,9 +10,9 @@ pattern as the stability manifest and the gradeability report —
 and this module is the single reader of that file.
 
 Consumers: the Ledger Dataset (services/ledger.py, Next-20 #6)
-folds it into both dataset tiers; the Score Book fold-in
-(Next-20 #16) is expected to read the same snapshot through this
-module rather than inventing a second format.
+folds it into both dataset tiers; the Score Book (services/
+scorebook.py, Next-20 #16) reads the same snapshot through this
+module — one export, one loader, no second format.
 
 Snapshot shape (kind "verdict-row-patrol-snapshot/v1"):
 
@@ -110,6 +110,8 @@ def provenance_of(snapshot: dict | None) -> dict | None:
         "patrol_run_id": source.get("patrol_run_id"),
         "patrol_as_of": source.get("patrol_as_of"),
         "patrol_runs_total": source.get("patrol_runs_total"),
+        "patrol_stalls_scanned_total": source.get("patrol_stalls_scanned_total"),
+        "patrol_resources_probed_total": source.get("patrol_resources_probed_total"),
         "open_defects": source.get("open_defects"),
         "recoveries": source.get("recoveries"),
     }

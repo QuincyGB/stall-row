@@ -21,6 +21,15 @@ into that answer — no new probing machinery, no sibling HTTP calls:
               movement, and catalogue presence. A resource with no
               record is NOT called safe — unknown history caps the
               verdict at CAUTION, the pre-trade guard's rule.
+              Since the Score Book's patrol fold-in (Next-20 #16)
+              its `found` also covers patrol-only targets; Guard's
+              bands were tuned on CHECK history, so this leg keeps
+              keying on recorded checks / catalogue presence —
+              patrol facts are history the buyer can read in the
+              score book, but they neither lift the no-history
+              caution nor add a verdict reason here (no silent
+              retune). The patrol section is passed through in the
+              response's history block for transparency only.
 
 Verdict bands mirror Pre-Trade Guard: PROCEED / CAUTION / ABORT,
 hard aborts override everything, and every verdict carries its
@@ -131,7 +140,15 @@ async def guard(client: httpx.AsyncClient, store, index_store, url: str) -> dict
     # --- history leg --------------------------------------------------
     book = scorebook_svc.score_book(store, index_store, url=url)
     live = book.get("live_checks") or {}
-    if not book.get("found"):
+    # Guard's bands are tuned on check history: "known" here means
+    # recorded checks or catalogue presence. The book's own `found`
+    # now also answers true for patrol-only targets (Next-20 #16) —
+    # patrol knowledge alone must not lift the no-history caution,
+    # so this leg deliberately does NOT key on book["found"].
+    check_history_found = bool(live.get("checks")) or bool(
+        (book.get("catalogue") or {}).get("present_in_snapshots")
+    )
+    if not check_history_found:
         caution = True
         reasons.append(
             {
@@ -187,6 +204,9 @@ async def guard(client: httpx.AsyncClient, store, index_store, url: str) -> dict
             "found": book.get("found"),
             "live_checks": live,
             "catalogue": book.get("catalogue"),
+            # Transparency only — the verdict bands above never
+            # read the patrol section.
+            "patrol": book.get("patrol"),
         },
         "limits": LIMITS,
     }

@@ -1061,8 +1061,10 @@ class ScoreBookRequest(BaseModel):
 
 @app.post("/v1/score-book")
 async def score_book(req: ScoreBookRequest):
-    """Score Book: a track record aggregated from the stores this
-    service already holds (recheck history + Index snapshots).
+    """Score Book: a track record aggregated from the records this
+    service holds (recheck history + Index snapshots + the
+    committed patrol snapshot, whose section carries its own
+    provenance; patrol walks are periodic, not continuous).
     Probes nothing; a target with no record answers found=false.
     Exactly one of url / origin / pay_to per call (else 422)."""
 

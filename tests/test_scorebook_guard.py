@@ -141,6 +141,231 @@ def test_score_book_requires_exactly_one_target(store, index_store):
         scorebook.score_book(store, index_store, url=URL, pay_to=OWNER)
 
 
+# --- score book: patrol fold-in (Next-20 #16) ---------------------------------
+
+PATROL_URL = ORIGIN + "/v1/patrolled"
+RECOVERED_URL = ORIGIN + "/v1/fixed"
+DUAL_URL = ORIGIN + "/v1/dual"
+
+
+def _patrol_snapshot():
+    """Fabricated patrol snapshot in the committed file's shape
+    (same fixture family as the Ledger Dataset tests)."""
+    return {
+        "kind": "verdict-row-patrol-snapshot/v1",
+        "generated_at": "2026-10-31T12:42:27Z",
+        "snapshot_id": "b" * 64,
+        "source": {
+            "patrol": "Dima (PC patrol walker)",
+            "patrol_run_id": "20261031T120333Z",
+            "patrol_as_of": "2026-10-31T12:03:33Z",
+            "patrol_runs_total": 179,
+            "patrol_stalls_scanned_total": 11272,
+            "patrol_resources_probed_total": 11351,
+            "open_defects": 3,
+            "recoveries": 2,
+            "receipts_index": "recovery-receipts/index.json",
+        },
+        "routes": [
+            {
+                "url": PATROL_URL,
+                "origin": ORIGIN,
+                "status": "open",
+                "defect_class": "unexpected_status",
+                "first_seen": "2026-10-30T17:31:18Z",
+                "last_seen": "2026-10-31T08:02:59Z",
+            },
+            {
+                "url": RECOVERED_URL,
+                "origin": ORIGIN,
+                "status": "recovered",
+                "defect_class": "unreachable",
+                "first_seen": "2026-10-28T10:47:09Z",
+                "recovered_at": "2026-10-30T09:18:15Z",
+                "receipt_id": "rr-0123456789abcdef0123",
+            },
+            {
+                "url": DUAL_URL,
+                "origin": ORIGIN,
+                "status": "recovered",
+                "defect_class": "unreachable",
+                "first_seen": "2026-10-27T10:47:09Z",
+                "recovered_at": "2026-10-29T09:18:15Z",
+                "receipt_id": "rr-aaaaaaaaaaaaaaaaaaaa",
+            },
+            {
+                "url": DUAL_URL,
+                "origin": ORIGIN,
+                "status": "open",
+                "defect_class": "sign_broken",
+                "first_seen": "2026-10-30T11:00:00Z",
+                "last_seen": "2026-10-31T07:00:00Z",
+            },
+            {
+                "url": URL,
+                "origin": ORIGIN,
+                "status": "open",
+                "defect_class": "unexpected_status",
+                "first_seen": "2026-10-30T17:31:18Z",
+                "last_seen": "2026-10-31T08:02:59Z",
+            },
+        ],
+    }
+
+
+def test_score_book_patrol_only_url_is_found_with_provenance(store, index_store):
+    book = scorebook.score_book(
+        store, index_store, url=PATROL_URL, patrol_snapshot=_patrol_snapshot()
+    )
+    assert book["found"] is True
+    # The patrol section is the whole of its record — the other
+    # sources stay empty so nothing blurs.
+    assert book["live_checks"]["checks"] == 0
+    assert book["catalogue"]["present_in_snapshots"] == 0
+    patrol = book["patrol"]
+    assert patrol["open_defect_count"] == 1
+    assert patrol["open_defects"] == [
+        {
+            "url": PATROL_URL,
+            "origin": ORIGIN,
+            "defect_class": "unexpected_status",
+            "first_seen": "2026-10-30T17:31:18Z",
+            "last_seen": "2026-10-31T08:02:59Z",
+        }
+    ]
+    assert patrol["recovery_count"] == 0
+    prov = patrol["provenance"]
+    assert prov["id"] == "b" * 64
+    assert prov["generated_at"] == "2026-10-31T12:42:27Z"
+    assert prov["patrol_run_id"] == "20261031T120333Z"
+    assert prov["patrol_stalls_scanned_total"] == 11272
+    assert prov["patrol_resources_probed_total"] == 11351
+    assert "not continuously" in patrol["coverage"]
+
+
+def test_score_book_merges_stores_with_sources_distinguishable(store, index_store):
+    _record(store)  # URL in the recheck history AND in the patrol snapshot
+    book = scorebook.score_book(
+        store, index_store, url=URL, patrol_snapshot=_patrol_snapshot()
+    )
+    assert book["found"] is True
+    assert book["live_checks"]["checks"] == 1
+    # The patrol defect does NOT leak into the check aggregates.
+    assert book["live_checks"]["by_status"] == {"UNCHANGED": 1}
+    assert book["patrol"]["open_defect_count"] == 1
+    assert book["patrol"]["open_defects"][0]["url"] == URL
+
+
+def test_score_book_open_defect_and_recovery_both_present(store, index_store):
+    book = scorebook.score_book(
+        store, index_store, url=DUAL_URL, patrol_snapshot=_patrol_snapshot()
+    )
+    assert book["found"] is True
+    patrol = book["patrol"]
+    assert patrol["open_defect_count"] == 1
+    assert patrol["open_defects"][0]["defect_class"] == "sign_broken"
+    assert patrol["recovery_count"] == 1
+    assert patrol["recoveries"][0]["recovered_at"] == "2026-10-29T09:18:15Z"
+    assert patrol["receipt_ids"] == ["rr-aaaaaaaaaaaaaaaaaaaa"]
+
+
+def test_score_book_patrol_recovery_carries_receipt(store, index_store):
+    book = scorebook.score_book(
+        store, index_store, url=RECOVERED_URL, patrol_snapshot=_patrol_snapshot()
+    )
+    assert book["found"] is True
+    assert book["patrol"]["receipt_ids"] == ["rr-0123456789abcdef0123"]
+    assert book["patrol"]["recoveries"][0]["defect_class"] == "unreachable"
+
+
+def test_score_book_patrol_only_origin(store, index_store):
+    book = scorebook.score_book(
+        store, index_store, origin=ORIGIN, patrol_snapshot=_patrol_snapshot()
+    )
+    assert book["found"] is True
+    assert book["resources"] == {}
+    assert book["totals"]["patrol_routes"] == 4
+    assert book["totals"]["patrol_open_defects"] == 3
+    assert book["totals"]["patrol_recoveries"] == 2
+    assert book["patrol"]["open_defect_count"] == 3
+    assert book["patrol"]["recovery_count"] == 2
+    assert set(book["patrol"]["receipt_ids"]) == {
+        "rr-0123456789abcdef0123",
+        "rr-aaaaaaaaaaaaaaaaaaaa",
+    }
+
+
+def test_score_book_unknown_everywhere_still_found_false(store, index_store):
+    book = scorebook.score_book(
+        store,
+        index_store,
+        url=ORIGIN + "/v1/never-seen",
+        patrol_snapshot=_patrol_snapshot(),
+    )
+    assert book["found"] is False
+    assert book["patrol"]["open_defect_count"] == 0
+    assert book["patrol"]["recovery_count"] == 0
+    # Provenance is still cited — the snapshot was consulted.
+    assert book["patrol"]["provenance"]["id"] == "b" * 64
+
+
+def test_score_book_window_labelling_names_patrol_snapshot(store, index_store):
+    book = scorebook.score_book(
+        store, index_store, url=PATROL_URL, patrol_snapshot=_patrol_snapshot()
+    )
+    limits = book["limits"]
+    assert "2026-10-31T12:42:27Z" in limits  # snapshot generated_at
+    assert "2026-10-31T12:03:33Z" in limits  # patrol as-of
+    assert "20261031T120333Z" in limits  # patrol run id
+    assert "periodic, not continuous" in limits
+    assert "HISTORY_WINDOW" not in limits and "1000" in limits
+
+
+def test_score_book_pay_to_patrol_section_explicitly_empty(store, index_store):
+    _record(store)
+    book = scorebook.score_book(
+        store, index_store, pay_to=OWNER, patrol_snapshot=_patrol_snapshot()
+    )
+    assert book["found"] is True  # from the recheck side, as before
+    patrol = book["patrol"]
+    assert patrol["open_defects"] == []
+    assert patrol["recoveries"] == []
+    assert patrol["receipt_ids"] == []
+    # The emptiness is explained, not implied coverage.
+    assert "no payTo data" in patrol["coverage"]
+    assert patrol["provenance"]["id"] == "b" * 64
+
+
+def test_score_book_no_patrol_snapshot_means_no_patrol_side(store, index_store):
+    book = scorebook.score_book(
+        store, index_store, url=PATROL_URL, patrol_snapshot=None
+    )
+    assert book["found"] is False
+    assert book["patrol"]["provenance"] is None
+    assert book["patrol"]["open_defect_count"] == 0
+    assert "no patrol snapshot is held" in book["limits"]
+
+
+def test_score_book_real_committed_snapshot(store, index_store):
+    """Default loading folds the REAL committed patrol snapshot:
+    a route with a signed patrol recovery and no other record is
+    found, with the receipt id the ledger tests also pin."""
+    book = scorebook.score_book(
+        store, index_store, url="https://402oracle.com/verify/price"
+    )
+    assert book["found"] is True
+    assert book["live_checks"]["checks"] == 0
+    assert book["patrol"]["receipt_ids"] == ["rr-1e12dde0c299cb395d37"]
+    assert book["patrol"]["provenance"]["generated_at"] == "2026-10-31T12:42:27Z"
+    open_book = scorebook.score_book(
+        store, index_store, url="https://1gateway.dev/v1/ai/llm-prices"
+    )
+    assert open_book["found"] is True
+    assert open_book["patrol"]["open_defects"][0]["defect_class"] == (
+        "unexpected_status"
+    )
+
+
 # --- guard ----------------------------------------------------------------------
 
 
@@ -191,6 +416,34 @@ def test_guard_caution_when_no_history(store, index_store):
     out = run(go())
     assert out["verdict"] == "CAUTION"
     assert any(r["code"] == "no_history" for r in out["reasons"])
+
+
+def test_guard_patrol_only_history_still_caution(store, index_store, monkeypatch):
+    """Next-20 #16 interaction: this URL is known ONLY to the
+    patrol snapshot (open defect, no recorded checks, no catalogue
+    presence), so the Score Book now answers found=true for it.
+    Guard's bands were tuned on check history and must NOT
+    silently change: patrol knowledge alone does not lift the
+    no-history CAUTION, and no patrol-based reason is added."""
+    from app.services import patrolsnap
+
+    monkeypatch.setattr(
+        patrolsnap, "load_snapshot", lambda path=None: _patrol_snapshot()
+    )
+    book = scorebook.score_book(store, index_store, url=PATROL_URL)
+    assert book["found"] is True
+    assert book["live_checks"]["checks"] == 0
+
+    async def go():
+        return await guard.guard(
+            _client(lambda r: _v2_response()), store, index_store, PATROL_URL
+        )
+
+    out = run(go())
+    assert out["verdict"] == "CAUTION"
+    assert any(r["code"] == "no_history" for r in out["reasons"])
+    # The patrol section is passed through for transparency only.
+    assert out["history"]["patrol"]["open_defect_count"] == 1
 
 
 def test_guard_abort_on_sdk_breaking_sign(store, index_store):

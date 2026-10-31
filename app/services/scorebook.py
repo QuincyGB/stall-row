@@ -14,13 +14,31 @@ computed over (the newest HISTORY_WINDOW recorded checks and the
 snapshots currently held — older history than the window is
 reported as outside the window, never reconstructed).
 
+Since Next-20 #16 the book also folds in Dima's patrol ledger —
+through the SAME committed, redacted patrol snapshot the Ledger
+Dataset ingests (app/data/patrol-snapshot.json, read via
+services/patrolsnap.py; no second pipeline). Url and origin books
+gain a `patrol` section: patrol-observed open defects (class,
+first/last seen per route) and recoveries (with their signed
+receipt ids), each fact under the snapshot's provenance. A target
+known ONLY to the patrol is found, with its patrol section as the
+whole of its record — the live-check and catalogue sections stay
+empty, so the sources never blur. The patrol walks periodically,
+not continuously: patrol facts are as of the snapshot's
+generated_at / the route's last patrol observation, and the
+response's limits text says so — a patrol fact never reads as
+live data. The patrol snapshot records no payTo per route, so a
+pay_to book's patrol section is explicitly empty rather than
+implying coverage the snapshot does not hold.
+
 Three target shapes (exactly one per call):
   url    — one resource's record: check counts by outcome,
            first/last check, the distinct amounts / payTos /
            networks its live sign has carried, its current
            fingerprint, and its catalogue presence across the
-           snapshots held.
-  origin — every recorded resource under one origin, summarized.
+           snapshots held, plus its patrol section.
+  origin — every recorded resource under one origin, summarized,
+           plus the origin's patrol section.
   pay_to — every resource ever observed paying this address, in
            live checks and in the latest catalogue snapshot.
 """
@@ -31,6 +49,7 @@ import logging
 from urllib.parse import urlsplit
 
 from . import indexfeed
+from . import patrolsnap as patrolsnap_svc
 from . import recheck as recheck_svc
 
 log = logging.getLogger("stall-row.scorebook")
@@ -39,16 +58,59 @@ PRICE_UNITS = 10_000  # $0.01 — mirrors config.PRICE_UNITS (price card 2026-10
 
 HISTORY_WINDOW = 1000  # newest recorded checks the aggregates cover
 
-LIMITS = (
-    "Aggregates cover only what this service's stores hold: the "
-    f"newest {HISTORY_WINDOW} recorded recheck responses and the "
-    "catalogue snapshots currently in the Index store (the newest "
-    "few, refreshed about every 6 hours). A target outside those "
-    "windows answers found=false or partial — absence here means "
-    "'not in our records', never 'does not exist'. Live-check "
-    "history begins when the recheck history table did; catalogue "
-    "history is limited to the snapshots held."
+_LIMITS_BASE = (
+    "Aggregates cover only what this service's records hold, from "
+    "three named sources: the live-check history (the newest "
+    f"{HISTORY_WINDOW} recorded recheck responses), the catalogue "
+    "snapshots currently in the Index store (the newest few, "
+    "refreshed about every 6 hours), and the patrol snapshot (see "
+    "below). A target outside those windows answers found=false or "
+    "partial — absence here means 'not in our records', never "
+    "'does not exist'. Live-check history begins when the recheck "
+    "history table did; catalogue history is limited to the "
+    "snapshots held."
 )
+
+PATROL_COVERAGE = (
+    "Patrol facts are the committed patrol snapshot's, cited in "
+    "this section's provenance (snapshot id + generated_at). The "
+    "patrol walks periodically, not continuously: an open defect "
+    "is as of its last patrol observation (last_seen) and a "
+    "recovery as of recovered_at — never live data. A route with "
+    "no patrol facts was not necessarily patrolled."
+)
+
+PATROL_NO_PAYTO = (
+    "The patrol snapshot records defects and recoveries per route "
+    "(origin + URL) and holds no payTo data, so no patrol facts "
+    "can be attributed to a payTo target: this section is "
+    "explicitly empty, not a claim that the patrol cleared this "
+    "address."
+)
+
+
+def _limits(patrol_snapshot: dict | None) -> str:
+    """The response's window statement, naming every source with
+    its window — including the patrol snapshot's own timestamps,
+    so a patrol fact can never read as live data."""
+    if patrol_snapshot is None:
+        return (
+            _LIMITS_BASE
+            + " Patrol side: no patrol snapshot is held by this "
+            "deployment, so the patrol contributes no facts to "
+            "this book."
+        )
+    source = patrol_snapshot.get("source") or {}
+    return (
+        _LIMITS_BASE
+        + " Patrol side: the committed patrol snapshot generated "
+        f"at {patrol_snapshot.get('generated_at')} (patrol data "
+        f"as of {source.get('patrol_as_of')}, patrol run "
+        f"{source.get('patrol_run_id')}). Patrol walks are "
+        "periodic, not continuous, so patrol defects and "
+        "recoveries are exactly as fresh as that snapshot and "
+        "their own last-observation stamps — never live."
+    )
 
 
 def _now_iso() -> str:
@@ -127,19 +189,100 @@ def _catalogue_for_url(index_store, url: str) -> dict:
     }
 
 
-def score_book(store, index_store, *, url=None, origin=None, pay_to=None) -> dict:
+def _patrol_section(snapshot: dict | None, rows: list[dict]) -> dict:
+    """The patrol section for the given patrol rows (already
+    filtered to the target). Facts are copied field by field from
+    the snapshot — nothing derived, nothing merged into the
+    live-check or catalogue aggregates, so the sources stay
+    distinguishable. A route can carry both an open row and a
+    recovered row (defective again since a signed recovery): both
+    are listed, each under its own status."""
+    open_defects: list[dict] = []
+    recoveries: list[dict] = []
+    for row in rows:
+        if row.get("status") == "open":
+            open_defects.append(
+                {
+                    "url": row.get("url"),
+                    "origin": row.get("origin"),
+                    "defect_class": row.get("defect_class"),
+                    "first_seen": row.get("first_seen"),
+                    "last_seen": row.get("last_seen"),
+                }
+            )
+        elif row.get("status") == "recovered":
+            recoveries.append(
+                {
+                    "url": row.get("url"),
+                    "origin": row.get("origin"),
+                    "defect_class": row.get("defect_class"),
+                    "first_seen": row.get("first_seen"),
+                    "recovered_at": row.get("recovered_at"),
+                    "receipt_id": row.get("receipt_id"),
+                }
+            )
+    return {
+        "provenance": patrolsnap_svc.provenance_of(snapshot),
+        "coverage": PATROL_COVERAGE,
+        "open_defects": open_defects,
+        "open_defect_count": len(open_defects),
+        "recoveries": recoveries,
+        "recovery_count": len(recoveries),
+        "receipt_ids": [
+            r["receipt_id"] for r in recoveries if r.get("receipt_id")
+        ],
+    }
+
+
+def _patrol_rows_for_url(snapshot: dict | None, url: str) -> list[dict]:
+    if not snapshot:
+        return []
+    return [
+        row
+        for row in snapshot.get("routes") or []
+        if isinstance(row, dict)
+        and (row.get("url") or "").rstrip("/") == url
+    ]
+
+
+def _patrol_rows_for_origin(snapshot: dict | None, origin: str) -> list[dict]:
+    if not snapshot:
+        return []
+    return [
+        row
+        for row in snapshot.get("routes") or []
+        if isinstance(row, dict)
+        and (
+            (row.get("origin") or "").rstrip("/") == origin
+            or _origin_of(row.get("url") or "") == origin
+        )
+    ]
+
+
+def score_book(
+    store, index_store, *, url=None, origin=None, pay_to=None,
+    patrol_snapshot="default",
+) -> dict:
     """The track record for exactly one target. Raises ValueError
     (the handler's 422) when no target — or more than one — is
-    named."""
+    named.
+
+    patrol_snapshot: "default" loads the committed patrol snapshot
+    via patrolsnap (the same loader the Ledger Dataset uses); None
+    builds without the patrol side; a dict is used as-is (tests).
+    """
     named = [bool(url), bool(origin), bool(pay_to)]
     if sum(named) != 1:
         raise ValueError("name exactly one target: url, origin, or pay_to")
+    if patrol_snapshot == "default":
+        patrol_snapshot = patrolsnap_svc.load_snapshot()
     records = _records(store)
-    base = {"computed_at": _now_iso(), "limits": LIMITS}
+    base = {"computed_at": _now_iso(), "limits": _limits(patrol_snapshot)}
 
     if url:
         url = url.strip().rstrip("/")
         mine = [r for r in records if (r.get("url") or "").rstrip("/") == url]
+        patrol_rows = _patrol_rows_for_url(patrol_snapshot, url)
         base.update(
             {
                 "target": {"type": "url", "value": url},
@@ -160,10 +303,17 @@ def score_book(store, index_store, *, url=None, origin=None, pay_to=None) -> dic
                     "current_fingerprint": None,
                 },
                 "catalogue": _catalogue_for_url(index_store, url),
+                "patrol": _patrol_section(patrol_snapshot, patrol_rows),
             }
         )
         if not mine:
-            base["found"] = base["catalogue"]["present_in_snapshots"] > 0
+            # Catalogue presence counts, and so does the patrol's:
+            # a target known ONLY to the patrol is found, with its
+            # patrol section as the whole of its record.
+            base["found"] = (
+                base["catalogue"]["present_in_snapshots"] > 0
+                or bool(patrol_rows)
+            )
         return base
 
     if origin:
@@ -175,10 +325,12 @@ def score_book(store, index_store, *, url=None, origin=None, pay_to=None) -> dic
         resources = {
             u: _url_summary(rs) for u, rs in sorted(by_url.items())
         }
+        patrol_rows = _patrol_rows_for_origin(patrol_snapshot, origin)
+        patrol = _patrol_section(patrol_snapshot, patrol_rows)
         base.update(
             {
                 "target": {"type": "origin", "value": origin},
-                "found": bool(mine),
+                "found": bool(mine) or bool(patrol_rows),
                 "resources": resources,
                 "totals": {
                     "resources_seen": len(resources),
@@ -186,7 +338,13 @@ def score_book(store, index_store, *, url=None, origin=None, pay_to=None) -> dic
                     "changed_count": sum(
                         s["changed_count"] for s in resources.values()
                     ),
+                    "patrol_routes": len(
+                        {r.get("url") for r in patrol_rows}
+                    ),
+                    "patrol_open_defects": patrol["open_defect_count"],
+                    "patrol_recoveries": patrol["recovery_count"],
                 },
+                "patrol": patrol,
             }
         )
         return base
@@ -221,6 +379,15 @@ def score_book(store, index_store, *, url=None, origin=None, pay_to=None) -> dic
             "catalogue": {
                 "snapshots_held": len(snaps),
                 "listings_in_latest_snapshot": listings_now,
+            },
+            # The patrol snapshot holds no payTo data (its rows are
+            # keyed by origin + URL), so no patrol fact can be
+            # attributed to this target honestly: the section is
+            # present but explicitly empty, with the reason stated,
+            # rather than implying patrol coverage of the address.
+            "patrol": {
+                **_patrol_section(patrol_snapshot, []),
+                "coverage": PATROL_NO_PAYTO,
             },
         }
     )
