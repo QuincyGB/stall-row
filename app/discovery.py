@@ -2379,6 +2379,17 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "- Recheck results carry a structured `field_changes` array (path, op, before, after, severity, category) beside the legacy `changes[]`, a `probe` object (latency_ms, attempts, redirect_count, error_class, flapping) and — when the catalogue snapshot is readable — a `catalogue_crosscheck` frozen at check time. Watch baselines can be pinned/imported and CHANGED results pushed to a signed per-watch webhook — both mutations are fleet-internal-secret gated (`/v1/internal/recheck/*`), never public writes",
         f"- `POST {base_url}/v1/recheck/webhooks` — SELF-SERVE change webhook: register your own signed callback for Recheck CHANGED events (feed-wide, one URL, or one origin), managed + signed with your own secret — no operator gate; `/list`, `/delete`, `/deliveries` beside it take the same secret in the body",
         f"- `POST {base_url}/v1/recheck/batch` — Survey Batch Recheck (Fleet-Pass-funded ONLY, not a priced route): up to 100 unique URLs checked in one batch at the $0.005 single-Recheck price per unique URL (20% off a full 100: $0.40 total), debited once from the pass (`fleet_pass_id` body field or X-Fleet-Pass header); Recheck packs cannot fund a survey",
+        f"- `GET {base_url}/v1/verdict-read?url=` — free PUBLIC VERDICT READ: the recorded state this service already holds for one resource URL (latest recorded check + recorded terms + Score Book aggregates + last recorded CHANGED event as last_change_at). A verdict is included ONLY where honestly available: a standing-watch RouteVerdict verdict recorded for the URL (verdict_source 'recorded route-verdict check', served verbatim) or a PROCEED / CAUTION / ABORT band derived from recorded checks (verdict_source 'derived from recorded checks', reasons listed); otherwise verdict is null. Guard verdicts are NOT persisted, so none is served or invented. The read NEVER probes, fetches, or pays the target and triggers no paid call; an unrecorded URL answers found=false ('not yet checked')",
+        "",
+        "## Embeddable Verdict Widget (free)",
+        "",
+        "Drop the live recorded verdict for a target into any page — it renders from the verdict-read surface above, so a page view never probes the target and never triggers a paid call:",
+        "",
+        "```html",
+        f'<script src="{base_url}/widget/verdict.js" data-target="https://example.com/v1/your-route" async></script>',
+        "```",
+        "",
+        f"Or iframe the self-contained page: `<iframe src=\"{base_url}/widget/verdict.html?url=https%3A%2F%2Fexample.com%2Fv1%2Fyour-route\" width=\"360\" height=\"170\" style=\"border:0\"></iframe>`. Both forms brand as Verdict Row Patrol (patrol@verdictrow.com) and render an honest 'Not yet checked' for URLs with no recorded state.",
     ]
     return "\n".join(lines) + "\n"
 
@@ -2428,6 +2439,8 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/v1/recheck/corrections — free append-only corrections log (originals never mutated)",
         f"- POST {base_url}/v1/recheck/webhooks — free self-serve change-webhook registration (signed callbacks for CHANGED events; /list, /delete, /deliveries beside it, managed by your own secret)",
         f"- POST {base_url}/v1/recheck/batch — Survey Batch Recheck (Fleet-Pass-funded ONLY, not a priced route): up to 100 unique URLs at $0.005/check from a Fleet Pass, 20% off a full 100 ($0.40 total); Recheck packs cannot fund a survey",
+        f"- GET {base_url}/v1/verdict-read?url= — free public verdict read over RECORDED state only (latest recorded check, recorded terms, Score Book aggregates, last_change_at; verdict only when recorded by a standing RouteVerdict watch or honestly derived from recorded checks — verdict_source says which; Guard verdicts are not persisted and none is invented). Never probes/fetches/pays the target, never triggers a paid call; unrecorded URL answers found=false",
+        f"- GET {base_url}/widget/verdict.js — free embeddable verdict widget: <script src=\"{base_url}/widget/verdict.js\" data-target=\"https://example.com/v1/your-route\" async></script> renders the recorded verdict + last-change (shadow DOM, no global CSS); iframe form: GET {base_url}/widget/verdict.html?url= (self-contained, server-rendered). Branding: Verdict Row Patrol, patrol@verdictrow.com",
         f"- GET {base_url}/v1/sandbox/x402 — TEST FIXTURE (not a service, never listed for sale): a mutable x402 challenge for Recheck ingestion rehearsal",
     ]
     return "\n".join(lines) + "\n"

@@ -3149,6 +3149,34 @@ class WatchStore:
             "last_summary": last_summary,
         }
 
+    def route_verdict_summaries_for_url(self, url: str) -> list[dict]:
+        """Recorded RouteVerdict summaries for one URL: every
+        route_verdict watch registration on it that has completed a
+        run, oldest registration first. This is recorded state the
+        service already holds (the watch leg's last_summary memory)
+        — the public verdict read (services/verdictread.py) serves
+        it verbatim; nothing here probes or calls RouteVerdict."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT watch_reg_id FROM watch_regs WHERE "
+                "check_kind = 'route_verdict' AND url = ? AND "
+                "last_summary IS NOT NULL ORDER BY created_epoch ASC",
+                (url,),
+            ).fetchall()
+        out = []
+        for (reg_id,) in rows:
+            reg = self.get_watch_reg(reg_id)
+            if reg is not None and reg.get("last_summary"):
+                out.append(
+                    {
+                        "watch_reg_id": reg["watch_reg_id"],
+                        "summary": reg["last_summary"],
+                        "last_run_at": reg.get("last_run_at"),
+                        "last_status": reg.get("last_status"),
+                    }
+                )
+        return out
+
     def due_watch_regs(self, now_epoch: float | None = None) -> list[dict]:
         now = time.time() if now_epoch is None else now_epoch
         with self._lock:

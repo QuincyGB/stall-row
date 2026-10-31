@@ -29,6 +29,17 @@ Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt,
         GET  /v1/resource/timeline?url= (unified per-resource
              timeline: Recheck events + RouteVerdict history +
              catalogue snapshot state — see services/timeline.py)
+        GET  /v1/verdict-read?url= (public recorded verdict read:
+             latest recorded check + terms + Score Book aggregates
+             + last recorded CHANGED event + a verdict only where
+             honestly derivable — recorded RouteVerdict or derived
+             from recorded checks; NEVER probes or pays the target,
+             found=false when unrecorded — see
+             services/verdictread.py)
+        GET  /widget/verdict.js, GET /widget/verdict.html?url=
+             (the embeddable verdict widget: JS snippet with a
+             data-target attribute, and its iframe page — same
+             recorded read, Verdict Row Patrol branding)
         POST /v1/internal/recheck/baseline/{pin,unpin,import} and
              /v1/internal/recheck/webhooks[/deliveries] (watch
              mutations, fleet-internal secret — see services/recheck.py)
@@ -151,6 +162,7 @@ from .services import hooksubs as hooksubs_svc
 from .services import scout as scout_svc
 from .services import seller as seller_svc
 from .services import verdict as verdict_svc
+from .services import verdictread as verdictread_svc
 
 log = logging.getLogger("stall-row")
 logging.basicConfig(level=logging.INFO)
@@ -1888,6 +1900,52 @@ async def resource_timeline(url: str):
     return await timeline_svc.build_timeline(
         _fetch_client(), _recheck_store, _index_store, url
     )
+
+
+@app.get("/v1/verdict-read")
+async def verdict_read(url: str = ""):
+    """Free public verdict read (Next-20 #13): the recorded state
+    this service ALREADY HOLDS for one resource URL — latest
+    recorded check, recorded terms, Score Book aggregates, the
+    last recorded CHANGED event, and a verdict ONLY where one is
+    honestly available (a recorded standing-watch RouteVerdict
+    verdict, served verbatim, or a band derived from recorded
+    checks — verdict_source states which). Guard verdicts are not
+    persisted, so none is invented. This surface NEVER fetches,
+    probes, or pays the target and triggers no paid call; an
+    unrecorded URL answers found=false (see
+    services/verdictread.py)."""
+    try:
+        return verdictread_svc.verdict_read(_recheck_store, _index_store, url)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+
+
+@app.get("/widget/verdict.js")
+async def verdict_widget_js():
+    """The embeddable verdict widget script (free): an inspector
+    or directory includes it with a data-target attribute and it
+    renders the recorded verdict + last-change from
+    GET /v1/verdict-read into a shadow-DOM element — no global CSS
+    pollution, no paid call per page view."""
+    return Response(
+        verdictread_svc.WIDGET_JS, media_type="application/javascript"
+    )
+
+
+@app.get("/widget/verdict.html")
+async def verdict_widget_html(url: str = ""):
+    """The iframe form of the verdict widget (free): a
+    self-contained page server-rendered from the same recorded
+    read as GET /v1/verdict-read, inline styles, no client JS
+    required. The url parameter is HTML-escaped in the render."""
+    try:
+        read = verdictread_svc.verdict_read(_recheck_store, _index_store, url)
+    except ValueError:
+        return HTMLResponse(
+            verdictread_svc.render_widget_html(None, url), status_code=422
+        )
+    return HTMLResponse(verdictread_svc.render_widget_html(read, url))
 
 
 # --- Fleet Pass ---------------------------------------------------------------
