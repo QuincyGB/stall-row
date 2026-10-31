@@ -3886,6 +3886,22 @@ async def changelog_json():
     return _serve_data_file("changelog.json", "application/json")
 
 
+@app.get("/status", response_class=HTMLResponse)
+async def fleet_status_page():
+    # Fleet status page (Batch 2 #10): committed files served
+    # VERBATIM, generated VM-side by the fleet's fleet_status.py
+    # from the standing checker's own state (latest run only —
+    # the page labels its window and timestamps honestly). Docs
+    # surface only — no priced route, no discovery entry,
+    # /health's route count does not move.
+    return _serve_data_file("fleet-status.html", "text/html; charset=utf-8")
+
+
+@app.get("/status.json")
+async def fleet_status_json():
+    return _serve_data_file("fleet-status.json", "application/json")
+
+
 @app.get("/quickstart/curl")
 async def quickstart_curl():
     return _serve_data_text("quickstart-curl.txt")
