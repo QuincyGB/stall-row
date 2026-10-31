@@ -1,0 +1,28 @@
+{
+  "block_number": 22104511,
+  "erc20_transfers": [
+    {
+      "amount_raw": "12500000",
+      "from": "0x1111111111111111111111111111111111111111",
+      "to": "0x2222222222222222222222222222222222222222",
+      "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+    }
+  ],
+  "from": "0x1111111111111111111111111111111111111111",
+  "gas_used": 51604,
+  "live": false,
+  "method": "transfer",
+  "method_description": "ERC-20 transfer(to, amount)",
+  "method_id": "0xa9059cbb",
+  "recorded_at": null,
+  "route": "/v1/tx-decoder",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "status": "success",
+  "summary": "ERC-20 transfer(to, amount) from 0x1111111111111111111111111111111111111111 to 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 with 1 ERC-20 transfer(s) \u2014 status: success.",
+  "target": "0xabababababababababababababababababababababababababababababababab",
+  "to": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "tx_hash": "0xabababababababababababababababababababababababababababababababab",
+  "value_eth": "0"
+}

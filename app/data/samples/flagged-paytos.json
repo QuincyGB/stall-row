@@ -1,0 +1,41 @@
+{
+  "baseline_at": "2026-10-27T05:38:08Z",
+  "counts": {
+    "entries_returned": 101,
+    "flagged_paytos": 101,
+    "ofac_sdn": 91,
+    "rotated_away_events": 3,
+    "vanished_events": 12
+  },
+  "current_at": "2026-10-27T11:39:12Z",
+  "entries": [
+    {
+      "evidence": {
+        "ofac_sdn": {
+          "detail": "Address appears verbatim in the bundled OFAC SDN digital-currency snapshot.",
+          "snapshot_date": "2026-10-21",
+          "snapshot_source": "https://www.treasury.gov/ofac/downloads/sdn.csv"
+        }
+      },
+      "pay_to": "0x0330070fd38ec3bb94f58fa55d40368271e9e54a",
+      "reasons": [
+        "ofac_sdn"
+      ]
+    }
+  ],
+  "generated_at": "2026-10-27T12:00:00Z",
+  "index_note": null,
+  "limits": "Flags are evidence, not verdicts.",
+  "live": false,
+  "recorded_at": null,
+  "route": "/v1/flagged-paytos",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "POST /v1/flagged-paytos on this stall (fleet's own service as subject)",
+  "truncation": {
+    "entries_capped_at": 500,
+    "entries_truncated": 0,
+    "evidence_examples_per_reason": 5
+  }
+}

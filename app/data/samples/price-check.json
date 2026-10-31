@@ -1,0 +1,28 @@
+{
+  "catalog_status": "ok",
+  "comparables": [
+    {
+      "description": "Token verdict",
+      "price_units": 20000,
+      "price_usd": 0.02,
+      "resource": "https://example.com/v1/verdict"
+    }
+  ],
+  "keywords": "token risk verdict",
+  "live": false,
+  "matches_found": 3,
+  "price_distribution": {
+    "max_usd": 0.05,
+    "median_usd": 0.02,
+    "min_usd": 0.01,
+    "p90_usd": 0.05
+  },
+  "rationale": "Median of 3 cataloged match(es).",
+  "recommended_price_usd": 0.02,
+  "recorded_at": null,
+  "route": "/v1/price-check",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "POST /v1/price-check on this stall (fleet's own service as subject)"
+}

@@ -1,0 +1,278 @@
+{
+  "kind": "verdict-row-samples/v1",
+  "service": "stall-row",
+  "generated_by": "Ren, Verdict Row Patrol \u2014 patrol@verdictrow.com",
+  "generator": "stall-row/scripts/gen_samples.py",
+  "note": "Free sample responses, one per priced route. source=recorded: a real recorded response from the fleet's recorded state. source=schema-example: shape example from the route's documented output example \u2014 not a recorded result. Every sample body carries sample=true + live=false in-band.",
+  "samples": [
+    {
+      "route": "/v1/agent-card-verify",
+      "slug": "agent-card-verify",
+      "source": "schema-example",
+      "target": "POST /v1/agent-card-verify on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)",
+      "shadowed_body_field_source": "erc8004_registry"
+    },
+    {
+      "route": "/v1/allowance-audit",
+      "slug": "allowance-audit",
+      "source": "schema-example",
+      "target": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/card-smith",
+      "slug": "card-smith",
+      "source": "schema-example",
+      "target": "POST /v1/card-smith on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/counterparty-report",
+      "slug": "counterparty-report",
+      "source": "schema-example",
+      "target": "POST /v1/counterparty-report on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/flagged-paytos",
+      "slug": "flagged-paytos",
+      "source": "schema-example",
+      "target": "POST /v1/flagged-paytos on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/fleet-check",
+      "slug": "fleet-check",
+      "source": "schema-example",
+      "target": "POST /v1/fleet-check on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/fleet-check/pack",
+      "slug": "fleet-check-pack",
+      "source": "schema-example",
+      "target": "POST /v1/fleet-check/pack on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/fleet-pass",
+      "slug": "fleet-pass",
+      "source": "schema-example",
+      "target": "POST /v1/fleet-pass on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/fleet-pass-20",
+      "slug": "fleet-pass-20",
+      "source": "schema-example",
+      "target": "POST /v1/fleet-pass-20 on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/gas-oracle",
+      "slug": "gas-oracle",
+      "source": "schema-example",
+      "target": "POST /v1/gas-oracle on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/grade-my-stall",
+      "slug": "grade-my-stall",
+      "source": "schema-example",
+      "target": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/guard",
+      "slug": "guard",
+      "source": "schema-example",
+      "target": "https://example.com/v1/verdict",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/index/changes",
+      "slug": "index-changes",
+      "source": "schema-example",
+      "target": "POST /v1/index/changes on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/job-scout",
+      "slug": "job-scout",
+      "source": "schema-example",
+      "target": "POST /v1/job-scout on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/ledger-dataset",
+      "slug": "ledger-dataset",
+      "source": "schema-example",
+      "target": "POST /v1/ledger-dataset on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/ledger-dataset/full",
+      "slug": "ledger-dataset-full",
+      "source": "schema-example",
+      "target": "POST /v1/ledger-dataset/full on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/orchestrate",
+      "slug": "orchestrate",
+      "source": "schema-example",
+      "target": "0x940181a94A35A4569E4529A3CDfB74e38FD98631",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/page-to-markdown",
+      "slug": "page-to-markdown",
+      "source": "schema-example",
+      "target": "https://www.x402.org/",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/payto-pin/verify",
+      "slug": "payto-pin-verify",
+      "source": "schema-example",
+      "target": "https://example.com/v1/verdict",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/physical",
+      "slug": "physical",
+      "source": "schema-example",
+      "target": "https://example.com/v1/verdict",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/pre-trade-guard",
+      "slug": "pre-trade-guard",
+      "source": "schema-example",
+      "target": "POST /v1/pre-trade-guard on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/price-check",
+      "slug": "price-check",
+      "source": "schema-example",
+      "target": "POST /v1/price-check on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/receipt-verify",
+      "slug": "receipt-verify",
+      "source": "schema-example",
+      "target": "0xeabaf4f583441a52af8ba936783aa96a13d5e71e8a0bf69d9d622076bd346c75",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/recheck",
+      "slug": "recheck",
+      "source": "recorded",
+      "target": "https://token-verdict-production.up.railway.app/v1/verdict",
+      "recorded_at": "2026-10-31T15:49:44Z",
+      "pulled_from": "GET https://stall-row-production.up.railway.app/v1/recheck/feed (newest record)"
+    },
+    {
+      "route": "/v1/recheck/pack",
+      "slug": "recheck-pack",
+      "source": "schema-example",
+      "target": "https://token-verdict-production.up.railway.app/v1/verdict",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/repo-vitals",
+      "slug": "repo-vitals",
+      "source": "schema-example",
+      "target": "https://github.com/QuincyGB/token-verdict",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/score-book",
+      "slug": "score-book",
+      "source": "schema-example",
+      "target": "https://example.com/v1/verdict",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)",
+      "shadowed_body_field_target": {
+        "type": "url",
+        "value": "https://example.com/v1/verdict"
+      }
+    },
+    {
+      "route": "/v1/sign-read",
+      "slug": "sign-read",
+      "source": "schema-example",
+      "target": "https://example.com/v1/verdict",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/toolkit/pack",
+      "slug": "toolkit-pack",
+      "source": "schema-example",
+      "target": "POST /v1/toolkit/pack on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/tube-search",
+      "slug": "tube-search",
+      "source": "schema-example",
+      "target": "base blockchain x402 tutorial",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/tx-decoder",
+      "slug": "tx-decoder",
+      "source": "schema-example",
+      "target": "0xabababababababababababababababababababababababababababababababab",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/wallet-snapshot",
+      "slug": "wallet-snapshot",
+      "source": "schema-example",
+      "target": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/wallet-verdict",
+      "slug": "wallet-verdict",
+      "source": "schema-example",
+      "target": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    }
+  ]
+}

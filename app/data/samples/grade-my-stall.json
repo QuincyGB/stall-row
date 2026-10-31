@@ -1,0 +1,29 @@
+{
+  "checks": {
+    "answers_402": {
+      "detail": "answers 402 with a parseable x402 challenge",
+      "status": "ok"
+    },
+    "payai": {
+      "detail": "no public catalogue read",
+      "status": "unverified"
+    }
+  },
+  "limits": "Live reads at report time, plus the newest Index snapshot.",
+  "live": false,
+  "overall": "no_issues_found",
+  "pay_to_supplied": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "recorded_at": null,
+  "resource": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+  "route": "/v1/grade-my-stall",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "summary": {
+    "issue": 0,
+    "not_found": 0,
+    "ok": 5,
+    "unverified": 2
+  },
+  "target": "https://stall-row-production.up.railway.app/v1/wallet-verdict"
+}

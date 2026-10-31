@@ -1,0 +1,21 @@
+{
+  "count": 1,
+  "live": false,
+  "query": "base blockchain x402 tutorial",
+  "recorded_at": null,
+  "results": [
+    {
+      "channel": "Example Channel",
+      "duration": "10:24",
+      "title": "x402 explained in 10 minutes",
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "video_id": "dQw4w9WgXcQ",
+      "views": "12K views"
+    }
+  ],
+  "route": "/v1/tube-search",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "base blockchain x402 tutorial"
+}

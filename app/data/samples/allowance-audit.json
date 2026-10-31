@@ -1,0 +1,21 @@
+{
+  "active_approvals": [],
+  "address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "allowance_checks_performed": 20,
+  "coverage_note": "Only the listed spenders are checked.",
+  "live": false,
+  "recorded_at": null,
+  "route": "/v1/allowance-audit",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "spender_coverage": [
+    "Permit2 (Uniswap)",
+    "Uniswap V3 SwapRouter02"
+  ],
+  "spenders_checked": 10,
+  "summary": "No active approvals found across 2 held token(s) and 10 known spenders.",
+  "target": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "tokens_held_checked": 2,
+  "unlimited_approvals": 0
+}

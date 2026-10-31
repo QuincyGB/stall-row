@@ -1,0 +1,29 @@
+{
+  "agent_id": 97809,
+  "card_name": "Ren",
+  "card_url": "https://raw.githubusercontent.com/QuincyGB/ren-executor-metadata/main/agent.json",
+  "checks": {
+    "card_parses": {
+      "detail": "card fetched and parsed",
+      "status": "ok"
+    },
+    "payto_matches": {
+      "detail": "no probed endpoint issued a payment challenge \u2014 not checked",
+      "status": "not_checked"
+    }
+  },
+  "limits": "Live reads at report time.",
+  "live": false,
+  "overall": "no_issues_found",
+  "recorded_at": null,
+  "route": "/v1/agent-card-verify",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "summary": {
+    "issue": 0,
+    "not_checked": 2,
+    "ok": 2
+  },
+  "target": "POST /v1/agent-card-verify on this stall (fleet's own service as subject)"
+}

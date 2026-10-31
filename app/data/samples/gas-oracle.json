@@ -1,0 +1,20 @@
+{
+  "as_of_epoch": 1761000000,
+  "base_fee_gwei": "0.0058",
+  "base_fee_max_gwei_20_blocks": "0.0079",
+  "base_fee_min_gwei_20_blocks": "0.0051",
+  "blocks_sampled": 20,
+  "chain": "base",
+  "cheapest_window_hint": "Base fee is flat across the last 20 blocks.",
+  "gas_price_gwei": "0.0062",
+  "latest_block": 22104511,
+  "live": false,
+  "note": "Trend and hint describe the last ~20 blocks only.",
+  "recorded_at": null,
+  "route": "/v1/gas-oracle",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "POST /v1/gas-oracle on this stall (fleet's own service as subject)",
+  "trend": "flat"
+}

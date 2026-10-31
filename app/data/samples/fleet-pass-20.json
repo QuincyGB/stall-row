@@ -1,0 +1,20 @@
+{
+  "balance_units": 20000000,
+  "balance_usd": 20.0,
+  "created_at": "2026-10-27T16:00:00Z",
+  "expired": false,
+  "expires_at": "2027-01-25T16:00:00Z",
+  "expiry_days": 90,
+  "live": false,
+  "note": "Spend with the X-Fleet-Pass header on any fleet route; each call debits that route's listed price. Read the balance free at POST /v1/fleet-pass/balance.",
+  "pass_id": "fpass_9c73fa7ea40a6411b6517bd8cb3465a6b3",
+  "price_units": 20000000,
+  "recorded_at": null,
+  "route": "/v1/fleet-pass-20",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "POST /v1/fleet-pass-20 on this stall (fleet's own service as subject)",
+  "total_units": 20000000,
+  "total_usd": 20.0
+}

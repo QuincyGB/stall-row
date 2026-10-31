@@ -1,0 +1,29 @@
+{
+  "baseline_at": "2026-10-26T18:00:00Z",
+  "current_at": "2026-10-27T00:00:00Z",
+  "events": [
+    {
+      "after": "new copy",
+      "before": "old copy",
+      "field": "description",
+      "kind": "field_changed",
+      "resource": "https://token-verdict-production.up.railway.app/v1/verdict"
+    }
+  ],
+  "events_returned": 1,
+  "generated_at": "2026-10-27T00:05:00Z",
+  "live": false,
+  "recorded_at": null,
+  "route": "/v1/index/changes",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "summary": {
+    "added": 412,
+    "field_changes": 3,
+    "removed": 397,
+    "resources_after": 78142,
+    "resources_before": 78127
+  },
+  "target": "POST /v1/index/changes on this stall (fleet's own service as subject)"
+}

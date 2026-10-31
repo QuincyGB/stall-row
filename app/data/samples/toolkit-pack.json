@@ -1,0 +1,24 @@
+{
+  "created_at": "2026-10-31T13:00:00Z",
+  "credits_remaining": 125,
+  "credits_total": 125,
+  "expired": false,
+  "expires_at": "2027-01-29T13:00:00Z",
+  "expiry_days": 90,
+  "family": "toolkit",
+  "live": false,
+  "note": "Spend credits with POST /v1/sign-read, /v1/score-book or /v1/guard: send this pack_id in the body or the X-Toolkit-Pack header. Read the balance free at POST /v1/toolkit/pack-balance.",
+  "pack_id": "tkpack_9c73fa7ea40a6411b6517bd8cb3465a6",
+  "price_units": 1000000,
+  "recorded_at": null,
+  "route": "/v1/toolkit/pack",
+  "routes": [
+    "/v1/sign-read",
+    "/v1/score-book",
+    "/v1/guard"
+  ],
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "POST /v1/toolkit/pack on this stall (fleet's own service as subject)"
+}

@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-10-27T12:00:00Z",
+  "legs": {
+    "locksmith": {
+      "headline": "SECURE",
+      "status": "ok"
+    },
+    "wallet": {
+      "status": "ok"
+    }
+  },
+  "legs_failed": [],
+  "legs_not_requested": [
+    "token_verdict"
+  ],
+  "legs_ok": [
+    "wallet",
+    "index",
+    "locksmith",
+    "listsmith"
+  ],
+  "legs_unavailable": [],
+  "limits": "Legs marked not_requested were not asked for and were not run.",
+  "listing_url": "https://stall-row-production.up.railway.app/.well-known/x402",
+  "live": false,
+  "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "recorded_at": null,
+  "route": "/v1/counterparty-report",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "service_url": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+  "source": "schema-example",
+  "target": "POST /v1/counterparty-report on this stall (fleet's own service as subject)",
+  "token_address": null
+}

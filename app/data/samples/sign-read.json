@@ -1,0 +1,41 @@
+{
+  "accepts": [
+    {
+      "amount_atomic": "5000",
+      "amount_decimal": "0.005",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "description": "A target service.",
+      "max_timeout_seconds": 300,
+      "network": "eip155:8453",
+      "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "resource": "https://example.com/v1/verdict",
+      "scheme": "exact"
+    }
+  ],
+  "challenge_found": true,
+  "defects": [],
+  "http_status": 402,
+  "limits": "One unpaid probe per method tried, at call time.",
+  "live": false,
+  "mismatches": [],
+  "origin": "https://example.com",
+  "read_at": "2026-10-30T12:00:00Z",
+  "recorded_at": null,
+  "route": "/v1/sign-read",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "sdk_compat": {
+    "python": {
+      "failures": [],
+      "parses": true
+    },
+    "typescript": {
+      "failures": [],
+      "parses": true
+    }
+  },
+  "source": "schema-example",
+  "target": "https://example.com/v1/verdict",
+  "url": "https://example.com/v1/verdict",
+  "x402_version": 2
+}

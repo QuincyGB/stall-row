@@ -1,0 +1,49 @@
+{
+  "catalogue_crosscheck": {
+    "captured_at": "2026-10-31T13:18:02Z",
+    "fields": {
+      "amount": "match",
+      "network": "match",
+      "payTo": "match"
+    },
+    "listed": true,
+    "snapshot_id": 19,
+    "source": "cdp_index_snapshot",
+    "verdict": "match"
+  },
+  "changes": [],
+  "checked_at": "2026-10-31T15:49:44Z",
+  "current": {
+    "amount": "20000",
+    "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "description_hash": "d2dcb45aee0d65486292dfe295c4e90d283c8705800c01906e82153acd113ce0",
+    "network": "eip155:8453",
+    "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+    "schema_hash": "6b41cbd441218f2129bf172e542e8ef7106f3adb82c5c3c1c3557292884ba0c8",
+    "status_code": 402
+  },
+  "field_changes": [],
+  "kind": "x402",
+  "live": false,
+  "probe": {
+    "attempts": 1,
+    "error_class": null,
+    "flapping": {
+      "alternations": 0,
+      "flapping": false,
+      "window": 6
+    },
+    "latency_ms": 188,
+    "redirect_count": 0
+  },
+  "recorded_at": "2026-10-31T15:49:44Z",
+  "route": "/v1/recheck",
+  "sample": true,
+  "sample_note": "Recorded response of this route against the target below, served from the fleet's recorded state \u2014 not live data.",
+  "source": "recorded",
+  "status": "UNCHANGED",
+  "summary": "No material change since the previous check.",
+  "target": "https://token-verdict-production.up.railway.app/v1/verdict",
+  "url": "https://token-verdict-production.up.railway.app/v1/verdict",
+  "watch_id": "watch_3b4cc8ecbe77798f"
+}

@@ -1,0 +1,37 @@
+{
+  "amount_units": 1000000,
+  "amount_usd": "1",
+  "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "asset_symbol": "USDC",
+  "block_number": 28000000,
+  "chain": "base",
+  "confirmations": 120,
+  "fleet_route_candidates": [
+    {
+      "route": "/v1/counterparty-report",
+      "service": "stall-row"
+    }
+  ],
+  "limits": "Base only (eip155:8453).",
+  "live": false,
+  "network": "eip155:8453",
+  "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "payer": "0xa4f183a6799F0310FcCC545B07F2DcC960223de2",
+  "receipt_status": "0x1",
+  "recorded_at": null,
+  "route": "/v1/receipt-verify",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "settled": true,
+  "source": "schema-example",
+  "target": "0xeabaf4f583441a52af8ba936783aa96a13d5e71e8a0bf69d9d622076bd346c75",
+  "tx_hash": "0xeabaf4f583441a52af8ba936783aa96a13d5e71e8a0bf69d9d622076bd346c75",
+  "tx_sender": "0xe74817f4cdc15844314812b2271276e64e890fae",
+  "usdc_transfers": [
+    {
+      "amount_units": 1000000,
+      "from": "0xa4f183a6799F0310FcCC545B07F2DcC960223de2",
+      "to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+    }
+  ]
+}

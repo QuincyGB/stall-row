@@ -1,0 +1,28 @@
+{
+  "card": {
+    "description": "Research agent",
+    "name": "Ren",
+    "skills": [],
+    "url": "",
+    "version": "1.0.0"
+  },
+  "live": false,
+  "mode": "generate",
+  "recorded_at": null,
+  "route": "/v1/card-smith",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "POST /v1/card-smith on this stall (fleet's own service as subject)",
+  "validation": {
+    "defects": [
+      {
+        "detail": "Top-level 'url' is absent or empty.",
+        "name": "missing url",
+        "severity": "major"
+      }
+    ],
+    "score": 55,
+    "valid_structure": false
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "archived": false,
+  "created_at": "2026-10-07T00:00:00Z",
+  "description": "x402 token-risk verdict service",
+  "forks": 0,
+  "health_notes": [
+    "Very few stars (<10)."
+  ],
+  "health_score": 45,
+  "license": "MIT",
+  "live": false,
+  "open_issues": 1,
+  "pushed_at": "2026-10-21T19:11:00Z",
+  "recorded_at": null,
+  "repo": "QuincyGB/token-verdict",
+  "route": "/v1/repo-vitals",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "stars": 3,
+  "target": "https://github.com/QuincyGB/token-verdict",
+  "url": "https://github.com/QuincyGB/token-verdict",
+  "verdict": "Active-looking repository with a modest footprint."
+}

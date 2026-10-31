@@ -1,0 +1,32 @@
+{
+  "legs": {
+    "locksmith": {
+      "headline": "SECURE",
+      "status": "ok"
+    },
+    "token_verdict": {
+      "headline": "SOLID (risk 12.0)",
+      "status": "ok"
+    }
+  },
+  "legs_failed": [],
+  "legs_ok": [
+    "token_verdict",
+    "route_verdict",
+    "locksmith",
+    "listsmith"
+  ],
+  "listing_url": "https://example-stall.app/.well-known/x402",
+  "live": false,
+  "recorded_at": null,
+  "route": "/v1/orchestrate",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "service_url": "https://example-stall.app/v1/call",
+  "source": "schema-example",
+  "target": "0x940181a94A35A4569E4529A3CDfB74e38FD98631",
+  "token": {
+    "address": "0x9401\u2026",
+    "chain": "base"
+  }
+}

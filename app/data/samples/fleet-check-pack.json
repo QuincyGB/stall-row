@@ -1,0 +1,29 @@
+{
+  "created_at": "2026-10-28T01:38:32Z",
+  "credits_remaining": 100,
+  "credits_total": 100,
+  "definition": {
+    "origins": [
+      "https://stall-row-production.up.railway.app"
+    ],
+    "resources": []
+  },
+  "email": null,
+  "expired": false,
+  "expires_at": "2027-01-26T01:38:32Z",
+  "expiry_days": 90,
+  "heartbeat": false,
+  "interval_s": 3600,
+  "last_run_at": null,
+  "live": false,
+  "note": "Sweeps of this fixed fleet definition run automatically on the pack interval and on demand via POST /v1/fleet-check/run \u2014 one credit per sweep, never per route. Read the latest table free at POST /v1/fleet-check/status.",
+  "pack_id": "fcpack_6029769f56d21efaf8dab279c312d625",
+  "price_units": 5000000,
+  "recorded_at": null,
+  "route": "/v1/fleet-check/pack",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "POST /v1/fleet-check/pack on this stall (fleet's own service as subject)",
+  "webhook_url": null
+}

@@ -131,6 +131,7 @@ from .blockscout import Blockscout
 from .config import PRICE_UNITS, SOLANA_ACCEPT_PATHS, load_settings
 from .solana_rail import SvmReplayGuard, make_after_settle_hook, make_before_verify_hook
 from .discovery import OWNERSHIP_PROOFS, ROUTES, agent_card, llms_txt, route_extension, skill_md, x402_manifest
+from . import samples as samples_svc
 from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import agentcard as agentcard_svc
 from .services import claims as claims_svc
@@ -3908,6 +3909,24 @@ async def skill(request: Request):
 @app.get("/llms.txt", response_class=PlainTextResponse)
 async def llms(request: Request):
     return llms_txt(settings, _public_base(request))
+
+
+@app.get("/samples")
+async def samples_index_route():
+    """Free: index of this stall's sample responses (one per priced
+    route), each labelled recorded vs schema-example with its target
+    and recorded_at. Static committed data — never live."""
+    return JSONResponse(samples_svc.index())
+
+
+@app.get("/sample/{slug}")
+async def sample_route(slug: str):
+    """Free: one sample response body, served verbatim from the
+    committed sample file. Carries sample=true + live=false in-band."""
+    body = samples_svc.get(slug)
+    if body is None:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    return JSONResponse(body)
 
 
 def main() -> None:

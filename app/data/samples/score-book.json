@@ -1,0 +1,12 @@
+{
+  "computed_at": "2026-10-30T12:00:00Z",
+  "found": true,
+  "limits": "Aggregates cover only what this service's stores hold.",
+  "live": false,
+  "recorded_at": null,
+  "route": "/v1/score-book",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "https://example.com/v1/verdict"
+}

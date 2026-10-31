@@ -1,0 +1,14 @@
+{
+  "final_url": "https://www.x402.org/",
+  "live": false,
+  "markdown": "# x402\n\nAn open standard for internet-native payments.",
+  "recorded_at": null,
+  "route": "/v1/page-to-markdown",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "https://www.x402.org/",
+  "title": "x402 \u2014 internet-native payments",
+  "url": "https://www.x402.org/",
+  "word_count": 8
+}

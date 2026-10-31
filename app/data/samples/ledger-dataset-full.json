@@ -1,0 +1,118 @@
+{
+  "live": false,
+  "origins": [
+    {
+      "changes": 2,
+      "checks": 12,
+      "defect_classes": [
+        "catalogue_mismatch"
+      ],
+      "last_seen": "2026-10-29T00:00:00Z",
+      "origin": "https://example.com",
+      "patrol_defect_classes": [
+        "unexpected_status"
+      ],
+      "patrol_open": 1,
+      "patrol_recovered": 1,
+      "recoveries": 0,
+      "routes": 3
+    }
+  ],
+  "provenance": {
+    "generated_at": "2026-10-30T00:00:00Z",
+    "limits": "Observation data only: the Recheck history records answered checks; the catalogue side is limited to the snapshots this service holds; the patrol side is a point-in-time export of the PC patrol ledger.",
+    "snapshot_id": "9f2c1a4b5e6d7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7",
+    "sources": {
+      "index_snapshots": [
+        {
+          "captured_at": "2026-10-29T00:00:00Z",
+          "id": 12,
+          "resource_count": 9012
+        }
+      ],
+      "patrol_snapshot": {
+        "generated_at": "2026-10-30T00:00:00Z",
+        "id": "9f2c1a4b5e6d7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7",
+        "open_defects": 700,
+        "patrol_as_of": "2026-10-30T00:00:00Z",
+        "patrol_run_id": "20261030T000000Z",
+        "patrol_runs_total": 150,
+        "recoveries": 80
+      },
+      "recheck_records": 1204,
+      "routes_from_index": 9012,
+      "routes_from_patrol": 780,
+      "routes_from_recheck": 87
+    }
+  },
+  "recorded_at": null,
+  "records": [
+    {
+      "catalogue": {
+        "amount": "10000",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "calls30d": 12,
+        "last_updated": "2026-10-28T00:00:00Z",
+        "listed": true,
+        "network": "eip155:8453",
+        "payTo": "0x0000000000000000000000000000000000000000",
+        "payers30d": 3,
+        "present_in_latest": true,
+        "service_name": "Example",
+        "snapshots_seen": 2
+      },
+      "catalogue_changes": 1,
+      "changes": 2,
+      "checks": 5,
+      "defect_class": "catalogue_mismatch",
+      "defect_detail": {
+        "fields": [
+          "payTo"
+        ],
+        "via": "snapshot_vs_latest_observed"
+      },
+      "first_seen": "2026-10-24T00:00:00Z",
+      "last_seen": "2026-10-29T00:00:00Z",
+      "latest_status": "CHANGED",
+      "origin": "https://example.com",
+      "patrol": {
+        "defect_class": "unexpected_status",
+        "first_seen": "2026-10-28T00:00:00Z",
+        "last_seen": "2026-10-29T00:00:00Z",
+        "receipt_id": null,
+        "recovered_at": null,
+        "status": "open"
+      },
+      "recheck_changes": 1,
+      "recoveries": 0,
+      "sources": [
+        "cdp_index",
+        "recheck"
+      ],
+      "terms": {
+        "amount": "10000",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "network": "eip155:8453",
+        "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+        "status_code": 402
+      },
+      "url": "https://example.com/v1/verdict"
+    }
+  ],
+  "route": "/v1/ledger-dataset/full",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "POST /v1/ledger-dataset/full on this stall (fleet's own service as subject)",
+  "tier": "full",
+  "totals": {
+    "changes": 133,
+    "checks": 1204,
+    "defective_routes": 61,
+    "origins": 2400,
+    "patrol_open_defects": 700,
+    "patrol_recoveries": 80,
+    "recoveries": 4,
+    "routes": 9050
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "amount": 20000,
+  "index": {
+    "first_seen_at": "2026-10-26T18:00:00Z",
+    "listed_now": 16,
+    "rotations_in": [],
+    "rotations_out": [],
+    "snapshots_held": 3,
+    "status": "ok"
+  },
+  "limits": "Listing history covers only the snapshots held.",
+  "live": false,
+  "network": "eip155:8453",
+  "not_checked": "Operator identity and delivery quality are not checked.",
+  "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "reasons": [
+    {
+      "detail": "PayTo appears in the snapshots held with no payTo rotations.",
+      "name": "catalog track record",
+      "points": 0
+    }
+  ],
+  "recorded_at": null,
+  "resource": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+  "risk_score": 0,
+  "route": "/v1/pre-trade-guard",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "sanctions": {
+    "matched": false,
+    "snapshot_date": "2026-10-21",
+    "status": "no_match"
+  },
+  "source": "schema-example",
+  "target": "POST /v1/pre-trade-guard on this stall (fleet's own service as subject)",
+  "unknown_legs": [],
+  "verdict": "PROCEED",
+  "wallet": {
+    "age_days": 352,
+    "outgoing_tx_count_nonce": 137,
+    "status": "ok"
+  }
+}

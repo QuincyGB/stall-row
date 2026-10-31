@@ -1,0 +1,30 @@
+{
+  "count": 1,
+  "data_stale": false,
+  "jobs": [
+    {
+      "budget_usd": 12.0,
+      "capabilities": [
+        "research",
+        "data-analysis"
+      ],
+      "expires_at": "2026-10-23T16:15:00Z",
+      "fetched_at": "2026-10-21T19:49:00Z",
+      "platform": "Synmerco",
+      "status": "open",
+      "title": "FDIC bank health snapshot, 10 Florida banks",
+      "url": "https://synmerco.com"
+    }
+  ],
+  "live": false,
+  "note": "Snapshot data from our own platform sweeps.",
+  "recorded_at": null,
+  "route": "/v1/job-scout",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "snapshot_age_hours": 2.0,
+  "snapshot_fetched_at": "2026-10-21T19:49:00Z",
+  "snapshot_source": "Ren's Synmerco sweep",
+  "source": "schema-example",
+  "target": "POST /v1/job-scout on this stall (fleet's own service as subject)"
+}

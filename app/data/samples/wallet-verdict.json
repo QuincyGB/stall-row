@@ -1,0 +1,26 @@
+{
+  "address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "first_activity": "2025-11-02T14:03:11+00:00",
+  "limits": "Sanctions matching is exact-address only against the bundled snapshot.",
+  "live": false,
+  "outgoing_tx_count_nonce": 137,
+  "poisoning": {
+    "signals": [],
+    "status": "none_found"
+  },
+  "reasons": [],
+  "recorded_at": null,
+  "route": "/v1/wallet-verdict",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "sanctions": {
+    "matched": false,
+    "snapshot_date": "2026-10-21",
+    "status": "no_match"
+  },
+  "score": 100,
+  "source": "schema-example",
+  "target": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "verdict": "SAFE",
+  "wallet_age_days": 352
+}

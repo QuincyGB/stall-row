@@ -1,0 +1,33 @@
+{
+  "address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "eth_balance": "0.0042",
+  "eth_balance_source": "blockscout",
+  "eth_balance_wei": "4200000000000000",
+  "first_activity": "2025-11-02T14:03:11.000000Z",
+  "is_contract": false,
+  "last_activity": "2026-10-20T09:41:52.000000Z",
+  "live": false,
+  "note": "Fields marked unknown could not be supplied by their source.",
+  "outgoing_tx_count_nonce": 137,
+  "recorded_at": null,
+  "route": "/v1/wallet-snapshot",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "sources": {
+    "activity_window": "blockscout",
+    "eth_balance": "blockscout",
+    "token_balances": "blockscout"
+  },
+  "target": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "token_balances": [
+    {
+      "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "balance": "12.5",
+      "balance_raw": "12500000",
+      "decimals": 6,
+      "name": "USD Coin",
+      "symbol": "USDC"
+    }
+  ]
+}

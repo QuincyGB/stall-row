@@ -1,0 +1,32 @@
+{
+  "book": {
+    "found": false
+  },
+  "guard": {
+    "reasons": [],
+    "verdict": "CAUTION"
+  },
+  "limits": "One call, four legs, at call time.",
+  "live": false,
+  "recheck": {
+    "recorded": true,
+    "status": "BASELINE"
+  },
+  "recorded_at": null,
+  "route": "/v1/physical",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "sign": {
+    "challenge_found": true,
+    "x402_version": 2
+  },
+  "source": "schema-example",
+  "summary": {
+    "headline": "Guard verdict CAUTION; recheck BASELINE (recorded).",
+    "recheck_status": "BASELINE",
+    "verdict": "CAUTION"
+  },
+  "target": "https://example.com/v1/verdict",
+  "url": "https://example.com/v1/verdict",
+  "verdict": "CAUTION"
+}

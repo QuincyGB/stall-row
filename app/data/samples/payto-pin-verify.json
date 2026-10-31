@@ -1,0 +1,28 @@
+{
+  "alert_queued": false,
+  "commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "commitment_verified": true,
+  "current_payto_set": [
+    "0x097f9685d1e0752bf8b02d61e5ce9be7ea0fba7f"
+  ],
+  "evidence": {
+    "challenge_found": true,
+    "http_status": 402
+  },
+  "limits": "One unpaid probe per verify, at call time.",
+  "live": false,
+  "observed_at": "2026-10-31T12:00:00Z",
+  "pin_created": false,
+  "pin_id": "pin_9c73fa7ea40a6411b6517bd8cb3465a6",
+  "pinned_payto_set": [
+    "0x097f9685d1e0752bf8b02d61e5ce9be7ea0fba7f"
+  ],
+  "recorded_at": null,
+  "route": "/v1/payto-pin/verify",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "status": "MATCH",
+  "target": "https://example.com/v1/verdict",
+  "url": "https://example.com/v1/verdict"
+}

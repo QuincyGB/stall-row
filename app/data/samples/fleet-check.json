@@ -1,0 +1,50 @@
+{
+  "checked_at": "2026-10-28T01:37:53Z",
+  "limits": "Unpaid probes at sweep time: liveness, HTTP status, and the 402 challenge a buyer would meet. Declared-vs-live comparisons use the origin's own /.well-known/x402 when it publishes one; an origin that publishes none is checked live-only, never guessed about. This checker never pays, signs, or settles any route it probes.",
+  "live": false,
+  "origins": [
+    {
+      "degraded": 0,
+      "down": 0,
+      "ok": 1,
+      "origin": "https://93.184.216.34",
+      "resources": 1,
+      "score": 100,
+      "verdict": "TRUSTED"
+    }
+  ],
+  "recorded_at": null,
+  "resources": [
+    {
+      "accepts": [
+        {
+          "amount": "20000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "alive": true,
+      "challenge_ok": true,
+      "defects": [],
+      "http_status": 402,
+      "origin": "https://93.184.216.34",
+      "url": "https://93.184.216.34/v1/verdict",
+      "verdict": "OK"
+    }
+  ],
+  "route": "/v1/fleet-check",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "summary": {
+    "degraded": 0,
+    "down": 0,
+    "ok": 1,
+    "origins": 1,
+    "resources": 1,
+    "truncated": 0
+  },
+  "target": "POST /v1/fleet-check on this stall (fleet's own service as subject)"
+}
