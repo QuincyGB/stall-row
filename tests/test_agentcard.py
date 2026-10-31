@@ -183,3 +183,17 @@ def test_declared_endpoints_shapes():
         "https://c.example.com/z",
     ]
     assert out[2]["declared_price"] == "100"
+
+
+@pytest.mark.asyncio
+async def test_ssrf_card_url_is_a_caller_fault_never_fetched():
+    # Next-20 #18: a non-public card URL is a ValueError (the handler
+    # answers 422), NOT an UpstreamError 502 — and it is refused
+    # before any fetch. The mock handler raises AssertionError on
+    # unmocked hosts, so a fetch attempt would surface differently.
+    async with _client(_card()) as client:
+        rpc = Rpc(client, S.rpc_url)
+        with pytest.raises(ValueError):
+            await agentcard.verify_agent_card(
+                client, rpc, agent_url="http://127.0.0.1/agent.json"
+            )

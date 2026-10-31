@@ -22,11 +22,14 @@ checked against live reality with the fleet's 402-probe machinery:
 An unreachable card (registry resolution failure, empty URI,
 transport failure) raises UpstreamError and the payment does not
 settle — there is nothing to verify. A card that fetches but does
-not parse IS the finding, and is delivered as such.
+not parse IS the finding, and is delivered as such. A card URL the
+SSRF guard refuses (non-public host, unresolvable host) raises
+ValueError instead — a caller fault the handler answers 422.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from urllib.parse import urlsplit
@@ -35,6 +38,7 @@ import httpx
 from eth_hash.auto import keccak
 
 from ..rpc import Rpc, UpstreamError
+from . import fetch as fetch_svc
 from . import recheck as recheck_svc
 
 REGISTRY = "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
@@ -186,9 +190,18 @@ async def verify_agent_card(
     else:
         raise ValueError("name an agent_id or an agent_url")
 
-    # Fetch the card under the probe's SSRF discipline.
+    # Fetch the card under the probe's SSRF discipline: the guard
+    # checks the card URL itself BEFORE the first fetch (recheck's
+    # _get_once checks redirect hops only), exactly as the claims
+    # fetcher does. A refusal is a caller fault — ValueError, which
+    # the handler answers 422 — never an upstream 502 (Next-20 #18:
+    # this route previously wrapped refusals as "agent card
+    # unreachable" and fetched non-public first hops unguarded).
+    await asyncio.to_thread(fetch_svc.ssrf_check, card_url)
     try:
         status, _headers, body, _redirs = await recheck_svc._get_once(client, card_url, "GET")
+    except ValueError:
+        raise  # a redirect hop went non-public — still a 422 refusal
     except Exception as e:  # noqa: BLE001 — unreachable card = unsettled error
         raise UpstreamError(f"agent card unreachable: {e}") from e
     if status != 200 or not body:
