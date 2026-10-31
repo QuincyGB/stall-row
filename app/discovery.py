@@ -1985,7 +1985,7 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
         # nudges (app/services/nudge.py; spec in x402-loop-kits).
         # A top-level extension, NOT a resource — inbound mail is
         # free and the priced route count does not move.
-        "extensions": {"nudge": nudge_extension(base_url), "mcp": dict(MCP_SERVER)},
+        "extensions": {"nudge": nudge_extension(base_url), "mcp": dict(MCP_SERVER), "quickstart": dict(QUICKSTART)},
         "resources": resources,
     }
 
@@ -2017,6 +2017,19 @@ MCP_SERVER = {
     "transport": "stdio",
     "repository": "https://github.com/QuincyGB/stall-row-mcp",
     "manifest": "https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json",
+}
+
+# The Inspector Quickstart Pack: one page per language (curl /
+# Python / TypeScript), hosted canonically on StallRow at
+# /quickstart/<lang> (committed text in app/data/, served verbatim —
+# see app/main.py). Every stall links the same canonical pages; the
+# URLs are absolute because the pack lives on this stall's origin
+# no matter which stall's discovery doc a reader started from.
+QUICKSTART = {
+    "title": "Inspector Quickstart Pack",
+    "curl": "https://stall-row-production.up.railway.app/quickstart/curl",
+    "python": "https://stall-row-production.up.railway.app/quickstart/python",
+    "typescript": "https://stall-row-production.up.railway.app/quickstart/typescript",
 }
 
 
@@ -2083,6 +2096,7 @@ def agent_card(settings: Settings, base_url: str) -> dict:
             "asset": USDC_ASSET,
         },
         "mcp": dict(MCP_SERVER),
+        "quickstart": dict(QUICKSTART),
     }
 
 
@@ -2182,6 +2196,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `GET {base_url}/.well-known/agent-card.json` — A2A agent card (skills mirror the priced routes; derived from the manifest)",
         f"- `GET {base_url}/.well-known/stability-manifest.json` — signed pinned-route stability manifest (prices + schema fingerprints, pinned under an agent-wallet signature)",
         f"- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp — manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json — tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
+        "- Inspector Quickstart Pack (curl / Python / TypeScript): https://stall-row-production.up.railway.app/quickstart/curl · https://stall-row-production.up.railway.app/quickstart/python · https://stall-row-production.up.railway.app/quickstart/typescript — one-page integration path: pin Recheck + RouteVerdict, read the feed, register a watch, fund a pack",
         f"- `POST {base_url}/v1/recheck/pack-balance` — a pack's credits + expiry (pack id required)",
         f"- `GET {base_url}/v1/recheck/feed` — recent Recheck results as JSONL, newest first (public observatory feed)",
         f"- `GET {base_url}/v1/recheck/feed?v=2&since_seq=N` — feed v2: each line an envelope (seq, record_id, schema_version, prev_hash, record_hash, record); since_seq is the gap-proof cursor mode (ascending), watch_id / url filter",
@@ -2223,6 +2238,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/.well-known/agent-card.json — A2A agent card (skills mirror the priced routes)",
         f"- GET {base_url}/.well-known/stability-manifest.json — signed pinned-route stability manifest (prices + schema fingerprints)",
         f"- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp — manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json — tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
+        "- Inspector Quickstart Pack (curl / Python / TypeScript): https://stall-row-production.up.railway.app/quickstart/curl · https://stall-row-production.up.railway.app/quickstart/python · https://stall-row-production.up.railway.app/quickstart/typescript — one-page integration path: pin Recheck + RouteVerdict, read the feed, register a watch, fund a pack",
         f"- POST {base_url}/v1/recheck/pack-balance — free pack balance (pack id required)",
         f"- GET {base_url}/v1/recheck/feed — free Recheck results feed (JSONL, newest first); ?v=2&since_seq=N for the hash-chained cursor mode",
         f"- GET {base_url}/v1/recheck/history — free recorded history (envelopes); /v1/recheck/history/<record_id> for one snapshot",

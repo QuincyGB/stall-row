@@ -1,0 +1,140 @@
+# Inspector Quickstart — Verdict Row (Python)
+
+The inspector path through the Verdict Row fleet, in Python:
+discover, pay, pin Recheck + RouteVerdict, follow the change feed,
+register standing pushes, fund a $1 pack. Every URL and price below
+is live. The same path in curl and TypeScript:
+  https://stall-row-production.up.railway.app/quickstart/curl
+  https://stall-row-production.up.railway.app/quickstart/typescript
+
+Payments: x402 v2, exact scheme, USDC on Base — network eip155:8453,
+asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913. Prices: Recheck
+$0.005 (5000) · RouteVerdict check $0.05 (50000) · Sign Reader /
+Score Book / Guard $0.01 (10000) each · Recheck pack $1.00 = 250
+checks on one URL, 90 days · Fleet Pass $5.00 / $20.00.
+Contact: Ren, Verdict Row Patrol — patrol@verdictrow.com.
+
+Setup (the x402 SDK below is the one the services themselves run,
+v2.25.0; the authorization is gasless EIP-3009 — your wallet needs
+the USDC on Base, and a dedicated small-balance agent wallet):
+
+  pip install "x402[httpx,evm]" httpx eth-account
+  export X402_PRIVATE_KEY=0x...   # dedicated agent wallet, small balance
+
+The whole path as one script — free reads use plain httpx; paid
+calls go through wrapHttpxWithPayment, which answers a 402 by
+signing the challenge's Base accept and retrying automatically:
+
+  import asyncio, json, os
+  import httpx
+  from eth_account import Account
+  from x402 import x402Client
+  from x402.http.clients import wrapHttpxWithPayment
+  from x402.mechanisms.evm.exact.client import ExactEvmScheme
+
+  SR = "https://stall-row-production.up.railway.app"
+  RV = "https://route-verdict-production.up.railway.app"
+  TARGET = "https://token-verdict-production.up.railway.app/v1/verdict"
+
+  def paid_client() -> x402Client:
+      account = Account.from_key(os.environ["X402_PRIVATE_KEY"])
+      client = x402Client()
+      # A LocalAccount is auto-wrapped in EthAccountSigner.
+      client.register("eip155:8453", ExactEvmScheme(account))
+      return client
+
+  async def main() -> None:
+      # 1. Discover (free): manifest, agent card, stability manifest.
+      async with httpx.AsyncClient(timeout=30) as http:
+          manifest = (await http.get(f"{SR}/.well-known/x402")).json()
+          card = (await http.get(f"{SR}/.well-known/agent-card.json")).json()
+          stable = (await http.get(f"{SR}/.well-known/stability-manifest.json")).json()
+      print(manifest["payTo"], manifest["network"], card["name"], stable["version"])
+      # /llms.txt and /skill.md on the same origin carry the prose docs.
+
+      # 2+3. Pin: one paid Recheck ($0.005; first sight = BASELINE)
+      # and one paid RouteVerdict check ($0.05). Record terms +
+      # fingerprint to pins.json — later calls diff against it.
+      async with wrapHttpxWithPayment(paid_client(), timeout=60) as pay:
+          recheck = (await pay.post(f"{SR}/v1/recheck",
+                     json={"url": TARGET, "watch_id": "quickstart-pin"})).json()
+          route = (await pay.post(f"{RV}/v1/check",
+                   json={"resource_url": TARGET})).json()
+      pin = {"url": TARGET,
+             "recheck": {"amount": recheck["current"]["amount"],
+                         "payTo": recheck["current"]["payTo"],
+                         "network": recheck["current"]["network"],
+                         "schema_hash": recheck["current"]["schema_hash"]},
+             "route_verdict": {"verdict": route["verdict"], "score": route["score"],
+                               "terms": route["terms"]}}
+      json.dump(pin, open("pins.json", "w"), indent=2)
+
+      # 4. Feed v2 cursor (free): JSONL envelopes {seq, record_id,
+      # schema_version, prev_hash, record_hash, record}. since_seq
+      # is gap-proof: persist the last seq, resume from it.
+      try:
+          seq = int(open("feed-seq").read().strip())
+      except (OSError, ValueError):
+          seq = 0
+      async with httpx.AsyncClient(timeout=30) as http:
+          resp = await http.get(f"{SR}/v1/recheck/feed", params={"v": 2, "since_seq": seq})
+      expected = None  # successive envelopes must step by exactly 1
+      for line in resp.text.splitlines():
+          if not line.strip():
+              continue
+          env = json.loads(line)
+          assert env["prev_hash"] and env["record_hash"]  # chain fields present
+          if expected is not None:
+              assert env["seq"] == expected, "gap in the feed chain"
+          expected = env["seq"] + 1
+          seq = env["seq"]
+          if env["record"]["status"] == "CHANGED":
+              print("CHANGED", env["record"]["url"], env["record"].get("field_changes"))
+      open("feed-seq", "w").write(str(seq))
+
+      # 6 (do this before 5): fund a $1 Recheck pack — one paid
+      # call mints 250 credits bound to TARGET for 90 days.
+      async with wrapHttpxWithPayment(paid_client(), timeout=60) as pay:
+          pack = (await pay.post(f"{SR}/v1/recheck/pack", json={"url": TARGET})).json()
+      pack_id = pack["pack_id"]
+      # Spend a credit with plain httpx (no payment header), and
+      # read the balance free:
+      async with httpx.AsyncClient(timeout=30) as http:
+          spent = (await http.post(f"{SR}/v1/recheck",
+                   json={"url": TARGET, "pack_id": pack_id})).json()
+          bal = (await http.post(f"{SR}/v1/recheck/pack-balance",
+                 json={"pack_id": pack_id})).json()
+      print("pack balance:", bal["credits_remaining"], "/", bal["credits_total"])
+      # An exhausted pack returns 402 — never a per-call fallback.
+
+      # 5. Standing pushes (registration free; runs spend funding).
+      # Watch: re-checks on your interval, POSTs BASELINE / CHANGED
+      # to your webhook. Exactly one credential: this pack, or a
+      # Fleet Pass id (check_kind="route_verdict" = RouteVerdict
+      # runs at $0.05, Fleet Pass only).
+      async with httpx.AsyncClient(timeout=30) as http:
+          watch = (await http.post(f"{SR}/v1/watch/register", json={
+              "url": TARGET, "webhook_url": os.environ["WEBHOOK_URL"],
+              "interval_s": 3600, "pack_id": pack_id})).json()
+          # CHANGED-only webhook: HMAC-SHA256-signed pushes for any
+          # Recheck CHANGED event. A pack-funded subscription must
+          # filter to exactly the pack's URL. Manage later via
+          # /v1/recheck/webhooks/list|deliveries|delete (same secret).
+          hook = (await http.post(f"{SR}/v1/recheck/webhooks", json={
+              "callback_url": os.environ["WEBHOOK_URL"],
+              "secret": os.environ["HOOK_SECRET"],  # 16+ chars
+              "url": TARGET, "pack_id": pack_id})).json()
+      print("watch:", watch["watch_reg_id"], "webhook sub:", hook["subscription"]["sub_id"])
+
+  asyncio.run(main())
+
+Fleet Pass instead of per-call payment: buy POST $SR/v1/fleet-pass
+($5.00) or /v1/fleet-pass-20 ($20.00) through the same paid client,
+then call any fleet route with plain httpx and header
+X-Fleet-Pass: <pass_id> — each call debits that route's listed
+price. Balance free at POST /v1/fleet-pass/balance {"pass_id": ...}.
+
+Also on StallRow, $0.01 each, same paid client: POST /v1/sign-read
+{"url"} (parse a 402 challenge + SDK-compat verdict), POST
+/v1/score-book {"url"|"origin"|"pay_to"} (track record), POST
+/v1/guard {"url"} (one PROCEED / CAUTION / ABORT before you pay).

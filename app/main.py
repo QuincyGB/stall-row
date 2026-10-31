@@ -3194,6 +3194,35 @@ async def stability_manifest_document():
     return Response(content=payload, media_type="application/json")
 
 
+def _serve_data_text(filename: str):
+    # Committed text served VERBATIM (same pattern as the stability
+    # manifest above): the canonical Inspector Quickstart Pack pages
+    # live at app/data/quickstart-<lang>.txt. Absent file -> 404,
+    # never fabricated.
+    path = os.path.join(os.path.dirname(__file__), "data", filename)
+    try:
+        with open(path, "rb") as f:
+            payload = f.read()
+    except OSError:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    return Response(content=payload, media_type="text/plain; charset=utf-8")
+
+
+@app.get("/quickstart/curl")
+async def quickstart_curl():
+    return _serve_data_text("quickstart-curl.txt")
+
+
+@app.get("/quickstart/python")
+async def quickstart_python():
+    return _serve_data_text("quickstart-python.txt")
+
+
+@app.get("/quickstart/typescript")
+async def quickstart_typescript():
+    return _serve_data_text("quickstart-typescript.txt")
+
+
 @app.get("/skill.md", response_class=PlainTextResponse)
 async def skill(request: Request):
     return skill_md(settings, _public_base(request))

@@ -1,0 +1,153 @@
+# Inspector Quickstart — Verdict Row (curl / shell)
+
+The inspector path through the Verdict Row fleet, in shell: discover,
+handle a 402, pin Recheck + RouteVerdict, follow the change feed,
+register standing pushes, fund a $1 pack. Every URL and price below
+is live. The same path in Python and TypeScript:
+  https://stall-row-production.up.railway.app/quickstart/python
+  https://stall-row-production.up.railway.app/quickstart/typescript
+
+Fleet: StallRow https://stall-row-production.up.railway.app (Recheck,
+the $0.01 toolkit, packs, passes, watches, webhooks) and RouteVerdict
+https://route-verdict-production.up.railway.app (endpoint trust
+checks). Payments: x402 v2, exact scheme, USDC on Base — network
+eip155:8453, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913.
+Prices: Recheck $0.005 (5000) · RouteVerdict check $0.05 (50000) ·
+Sign Reader / Score Book / Guard $0.01 (10000) each · Recheck pack
+$1.00 = 250 checks on one URL, 90 days · Fleet Pass $5.00 / $20.00.
+Contact: Ren, Verdict Row Patrol — patrol@verdictrow.com.
+
+  SR=https://stall-row-production.up.railway.app
+  RV=https://route-verdict-production.up.railway.app
+  TARGET=https://token-verdict-production.up.railway.app/v1/verdict
+
+## 1. Discover (free, no key)
+
+Every stall publishes the same four surfaces — read them before
+paying anything:
+
+  curl -s $SR/.well-known/x402 | head -c 600        # x402 manifest: routes, prices, payTo
+  curl -s $SR/llms.txt                               # compact agent index (skill.md has the long form)
+  curl -s $SR/.well-known/agent-card.json | head -c 600   # A2A agent card
+  curl -s $SR/.well-known/stability-manifest.json | head -c 600  # signed pinned routes + schema fingerprints
+
+Swap $SR for any fleet origin (token-verdict, route-verdict,
+list-smith, lock-smith — all *-production.up.railway.app).
+
+## 2. Handle a 402 and pay
+
+An unpaid call answers 402 with the terms in a PAYMENT-REQUIRED
+header (base64 JSON; accepts[0] is the Base accept):
+
+  curl -s -i -X POST $SR/v1/recheck -H 'Content-Type: application/json' \
+    -d "{\"url\": \"$TARGET\"}" | grep -i payment-required
+
+  # decode it (macOS: swap `base64 -d` for `base64 -D`):
+  curl -s -D - -o /dev/null -X POST $SR/v1/recheck \
+    -H 'Content-Type: application/json' -d "{\"url\": \"$TARGET\"}" \
+    | sed -n 's/^[Pp]ayment-required: //p' | tr -d '\r' | base64 -d | python3 -m json.tool
+
+The challenge names scheme "exact", network eip155:8453, amount
+"5000" ($0.005), the USDC asset, and payTo. Paying = signing an
+EIP-3009 transferWithAuthorization for exactly those terms and
+retrying the same request with a PAYMENT-SIGNATURE header (base64
+payment payload). curl cannot sign — produce $PAYMENT once with an
+x402 client (the Python / TypeScript pages of this pack are exactly
+that; any x402 v2 client works). The authorization is gasless: your
+wallet needs the USDC, the facilitator settles on-chain. Everything
+else on this page — discovery, the feed, pack/pass-funded calls,
+registrations, balance reads — is plain curl.
+
+## 3. Pin Recheck + RouteVerdict (one paid call each)
+
+  # Recheck, $0.005 — first sight of a URL answers BASELINE:
+  curl -s -X POST $SR/v1/recheck -H 'Content-Type: application/json' \
+    -H "PAYMENT-SIGNATURE: $PAYMENT" \
+    -d "{\"url\": \"$TARGET\", \"watch_id\": \"quickstart-pin\"}" | tee recheck.json
+
+  # RouteVerdict, $0.05 — trust verdict on the same resource:
+  curl -s -X POST $RV/v1/check -H 'Content-Type: application/json' \
+    -H "PAYMENT-SIGNATURE: $PAYMENT_RV" \
+    -d "{\"resource_url\": \"$TARGET\"}" | tee route.json
+
+Record the pin — terms + fingerprint — from the two responses:
+
+  python3 - <<'EOF'
+  import json
+  r = json.load(open("recheck.json")); v = json.load(open("route.json"))
+  pin = {
+    "url": r["url"],
+    "recheck": {"amount": r["current"]["amount"], "payTo": r["current"]["payTo"],
+                "network": r["current"]["network"], "schema_hash": r["current"]["schema_hash"]},
+    "route_verdict": {"verdict": v["verdict"], "score": v["score"], "terms": v["terms"]},
+  }
+  json.dump(pin, open("pins.json", "w"), indent=2); print(json.dumps(pin, indent=2))
+  EOF
+
+Later Recheck calls answer UNCHANGED or CHANGED (with field_changes);
+RouteVerdict answers carry a diff against its previous check. If a
+term or the schema_hash moves, your pin is what proves it.
+
+## 4. Read the Recheck feed with the v2 cursor (free)
+
+Feed v2 is JSONL envelopes {seq, record_id, schema_version,
+prev_hash, record_hash, record}; since_seq is the gap-proof cursor
+(ascending; store the last seq you saw, resume from it):
+
+  SEQ=$(cat feed-seq 2>/dev/null || echo 0)
+  curl -s "$SR/v1/recheck/feed?v=2&since_seq=$SEQ" | tee page.jsonl \
+    | jq -e -c 'select(has("prev_hash") and has("record_hash")) | select(.record.status == "CHANGED") | .record.url'
+  jq -r .seq page.jsonl | tail -1 > feed-seq   # advance the cursor
+
+An envelope missing prev_hash/record_hash, or a seq that skips,
+means the chain broke — do not silently continue past it. The
+response headers X-Recheck-Feed-Latest-Seq / X-Recheck-Feed-Count
+name the chain head on every read.
+
+## 5. Standing pushes (registration is free; runs spend funding)
+
+Buy the pack in step 6 first, or use a Fleet Pass you already hold —
+exactly one funding credential per registration.
+
+Watch — StallRow re-checks on your interval and POSTs BASELINE /
+CHANGED to your webhook (UNCHANGED pushes nothing). interval_s is
+300–86400; check_kind "route_verdict" runs RouteVerdict instead
+(Fleet Pass only, $0.05 per run):
+
+  curl -s -X POST $SR/v1/watch/register -H 'Content-Type: application/json' \
+    -d "{\"url\": \"$TARGET\", \"webhook_url\": \"https://you.example/hook\", \"interval_s\": 3600, \"pack_id\": \"$PACK_ID\"}"
+  # -> watch_reg_id; read it back:  POST $SR/v1/watch/status  {"watch_reg_id": "..."}
+  # run one check now:              POST $SR/v1/watch/run     {"watch_reg_id": "..."}
+
+CHANGED-only webhook — signed (HMAC-SHA256, your secret) pushes for
+any Recheck CHANGED event: feed-wide, one URL, or one origin. A
+pack-funded subscription must filter to exactly the pack's URL:
+
+  HOOK_SECRET=$(openssl rand -hex 16)   # 16+ chars; also your management credential
+  curl -s -X POST $SR/v1/recheck/webhooks -H 'Content-Type: application/json' \
+    -d "{\"callback_url\": \"https://you.example/hook\", \"secret\": \"$HOOK_SECRET\", \"url\": \"$TARGET\", \"pack_id\": \"$PACK_ID\"}"
+  # manage with the same secret in the body: /v1/recheck/webhooks/list,
+  # /v1/recheck/webhooks/deliveries, /v1/recheck/webhooks/delete
+
+## 6. Fund a $1 Recheck pack
+
+One $1.00 payment = 250 checks on ONE endpoint URL, 90 days. The
+buy itself is a paid call (same PAYMENT-SIGNATURE flow as step 2):
+
+  curl -s -X POST $SR/v1/recheck/pack -H 'Content-Type: application/json' \
+    -H "PAYMENT-SIGNATURE: $PAYMENT_PACK" -d "{\"url\": \"$TARGET\"}"
+  # -> pack_id. Spend credits with plain curl — no payment header:
+  curl -s -X POST $SR/v1/recheck -H 'Content-Type: application/json' \
+    -d "{\"url\": \"$TARGET\", \"pack_id\": \"$PACK_ID\"}"
+  # balance, free:  POST $SR/v1/recheck/pack-balance  {"pack_id": "..."}
+  # an exhausted pack returns 402 — it never falls back to per-call billing.
+
+Fleet Pass instead: POST $SR/v1/fleet-pass ($5.00) or
+$SR/v1/fleet-pass-20 ($20.00) mints a USD balance spendable on any
+fleet route via the X-Fleet-Pass header; balance free at
+POST $SR/v1/fleet-pass/balance {"pass_id": "..."}.
+
+Also on StallRow, $0.01 each: POST /v1/sign-read {"url"} (parse a
+402 challenge + SDK-compat verdict), POST /v1/score-book
+{"url"|"origin"|"pay_to"} (track record), POST /v1/guard {"url"}
+(one PROCEED / CAUTION / ABORT before you pay an endpoint).

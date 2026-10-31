@@ -1,0 +1,120 @@
+# Inspector Quickstart — Verdict Row (TypeScript)
+
+The inspector path through the Verdict Row fleet, in TypeScript:
+discover, pay, pin Recheck + RouteVerdict, follow the change feed,
+register standing pushes, fund a $1 pack. Every URL and price below
+is live. The same path in curl and Python:
+  https://stall-row-production.up.railway.app/quickstart/curl
+  https://stall-row-production.up.railway.app/quickstart/python
+
+Payments: x402 v2, exact scheme, USDC on Base — network eip155:8453,
+asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913. Prices: Recheck
+$0.005 (5000) · RouteVerdict check $0.05 (50000) · Sign Reader /
+Score Book / Guard $0.01 (10000) each · Recheck pack $1.00 = 250
+checks on one URL, 90 days · Fleet Pass $5.00 / $20.00.
+Contact: Ren, Verdict Row Patrol — patrol@verdictrow.com.
+
+Setup (Node 18+; the authorization is gasless EIP-3009 — your
+wallet needs the USDC on Base, and a dedicated small-balance agent
+wallet):
+
+  npm i @x402/fetch @x402/core @x402/evm viem
+  export X402_PRIVATE_KEY=0x...   # dedicated agent wallet, small balance
+
+The whole path as one script — free reads use plain fetch; paid
+calls go through wrapFetchWithPayment, which answers a 402 by
+signing the challenge's Base accept and retrying automatically:
+
+  import { readFileSync, writeFileSync } from "node:fs";
+  import { wrapFetchWithPayment } from "@x402/fetch";
+  import { x402Client } from "@x402/core/client";
+  import { ExactEvmScheme } from "@x402/evm/exact/client";
+  import { privateKeyToAccount } from "viem/accounts";
+
+  const SR = "https://stall-row-production.up.railway.app";
+  const RV = "https://route-verdict-production.up.railway.app";
+  const TARGET = "https://token-verdict-production.up.railway.app/v1/verdict";
+
+  const signer = privateKeyToAccount(process.env.X402_PRIVATE_KEY as `0x${string}`);
+  const client = new x402Client();
+  client.register("eip155:*", new ExactEvmScheme(signer));
+  const paidFetch = wrapFetchWithPayment(fetch, client);
+
+  const post = async (f: typeof fetch, url: string, body: unknown) =>
+    (await f(url, { method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body) })).json();
+
+  // 1. Discover (free): manifest, agent card, stability manifest.
+  const manifest = await (await fetch(`${SR}/.well-known/x402`)).json();
+  const card = await (await fetch(`${SR}/.well-known/agent-card.json`)).json();
+  const stable = await (await fetch(`${SR}/.well-known/stability-manifest.json`)).json();
+  console.log(manifest.payTo, manifest.network, card.name, stable.version);
+  // /llms.txt and /skill.md on the same origin carry the prose docs.
+
+  // 2+3. Pin: one paid Recheck ($0.005; first sight = BASELINE) and
+  // one paid RouteVerdict check ($0.05). Record terms + fingerprint
+  // to pins.json — later calls diff against it.
+  const recheck = await post(paidFetch, `${SR}/v1/recheck`,
+    { url: TARGET, watch_id: "quickstart-pin" });
+  const route = await post(paidFetch, `${RV}/v1/check`, { resource_url: TARGET });
+  const pin = { url: TARGET,
+    recheck: { amount: recheck.current.amount, payTo: recheck.current.payTo,
+               network: recheck.current.network, schema_hash: recheck.current.schema_hash },
+    route_verdict: { verdict: route.verdict, score: route.score, terms: route.terms } };
+  writeFileSync("pins.json", JSON.stringify(pin, null, 2));
+
+  // 4. Feed v2 cursor (free): JSONL envelopes {seq, record_id,
+  // schema_version, prev_hash, record_hash, record}. since_seq is
+  // gap-proof: persist the last seq, resume from it.
+  let seq = 0;
+  try { seq = parseInt(readFileSync("feed-seq", "utf8").trim(), 10) || 0; } catch {}
+  const feed = await (await fetch(`${SR}/v1/recheck/feed?v=2&since_seq=${seq}`)).text();
+  let expected: number | null = null;  // successive envelopes step by exactly 1
+  for (const line of feed.split("\n")) {
+    if (!line.trim()) continue;
+    const env = JSON.parse(line);
+    if (!env.prev_hash || !env.record_hash) throw new Error("feed envelope missing hash chain fields");
+    if (expected !== null && env.seq !== expected) throw new Error("gap in the feed chain");
+    expected = env.seq + 1;
+    seq = env.seq;
+    if (env.record.status === "CHANGED")
+      console.log("CHANGED", env.record.url, env.record.field_changes);
+  }
+  writeFileSync("feed-seq", String(seq));
+
+  // 6 (do this before 5): fund a $1 Recheck pack — one paid call
+  // mints 250 credits bound to TARGET for 90 days.
+  const pack = await post(paidFetch, `${SR}/v1/recheck/pack`, { url: TARGET });
+  const packId: string = pack.pack_id;
+  // Spend a credit with plain fetch (no payment), balance free:
+  const spent = await post(fetch, `${SR}/v1/recheck`, { url: TARGET, pack_id: packId });
+  const bal = await post(fetch, `${SR}/v1/recheck/pack-balance`, { pack_id: packId });
+  console.log("pack balance:", bal.credits_remaining, "/", bal.credits_total);
+  // An exhausted pack returns 402 — never a per-call fallback.
+
+  // 5. Standing pushes (registration free; runs spend funding).
+  // Watch: re-checks on your interval, POSTs BASELINE / CHANGED to
+  // your webhook. Exactly one credential: this pack, or a Fleet
+  // Pass id (check_kind: "route_verdict" = RouteVerdict runs at
+  // $0.05, Fleet Pass only).
+  const watch = await post(fetch, `${SR}/v1/watch/register`, {
+    url: TARGET, webhook_url: process.env.WEBHOOK_URL, interval_s: 3600, pack_id: packId });
+  // CHANGED-only webhook: HMAC-SHA256-signed pushes for any Recheck
+  // CHANGED event. A pack-funded subscription must filter to
+  // exactly the pack's URL. Manage later via
+  // /v1/recheck/webhooks/list|deliveries|delete (same secret).
+  const hook = await post(fetch, `${SR}/v1/recheck/webhooks`, {
+    callback_url: process.env.WEBHOOK_URL, secret: process.env.HOOK_SECRET, // 16+ chars
+    url: TARGET, pack_id: packId });
+  console.log("watch:", watch.watch_reg_id, "webhook sub:", hook.subscription.sub_id);
+
+Fleet Pass instead of per-call payment: buy POST $SR/v1/fleet-pass
+($5.00) or /v1/fleet-pass-20 ($20.00) through paidFetch, then call
+any fleet route with plain fetch and header
+"X-Fleet-Pass": "<pass_id>" — each call debits that route's listed
+price. Balance free at POST /v1/fleet-pass/balance {pass_id}.
+
+Also on StallRow, $0.01 each, same paidFetch: POST /v1/sign-read
+{url} (parse a 402 challenge + SDK-compat verdict), POST
+/v1/score-book {url|origin|pay_to} (track record), POST /v1/guard
+{url} (one PROCEED / CAUTION / ABORT before you pay an endpoint).
