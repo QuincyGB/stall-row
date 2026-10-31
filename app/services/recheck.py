@@ -116,6 +116,16 @@ def _iso_of(epoch_seconds: float) -> str:
     )
 
 
+def usd_exact(units: int) -> str:
+    """Exact decimal USD string for a micro-unit amount (never a
+    float): 4_500_000 -> '4.5', 20_000 -> '0.02', 5_000_000 -> '5'."""
+    sign = "-" if units < 0 else ""
+    whole, frac = divmod(abs(int(units)), 1_000_000)
+    if frac == 0:
+        return f"{sign}{whole}"
+    return f"{sign}{whole}.{frac:06d}".rstrip("0")
+
+
 # --- watch packs ---------------------------------------------------------------
 #
 # A pack is the prepaid shape of this stall: one $1.00 payment buys
@@ -3072,6 +3082,71 @@ class WatchStore:
                 (pass_id,),
             ).fetchone()
         return int(row[0]) if row else 0
+
+    # Newest-first bound for the holder-facing debit history read.
+    PASS_DEBIT_HISTORY_LIMIT = 100
+
+    def pass_debit_history(
+        self, pass_id: str, limit: int = PASS_DEBIT_HISTORY_LIMIT
+    ) -> dict:
+        """Debit history + totals for ONE pass, from the persisted
+        fleet_pass_debits ledger rows (written by debit_pass since the
+        ledger existed — history is complete for every debit the store
+        ever recorded; there is no earlier aggregate-only era to label).
+
+        Refunds are NOT separate rows in the ledger: refund_debit marks
+        the original debit row refunded=1 (and stores no refund time),
+        so a refunded debit is served as its own row with
+        refunded=True / status='refunded' — never as a fabricated
+        refund event with an invented timestamp. Totals are exact:
+        net_debited = gross debited - refunded, and
+        total_units - net_debited == balance_units."""
+        limit = max(1, int(limit))
+        with self._lock:
+            agg = self._conn.execute(
+                "SELECT COUNT(*), COALESCE(SUM(price_units), 0), "
+                "COALESCE(SUM(CASE WHEN refunded = 1 THEN price_units "
+                "ELSE 0 END), 0) FROM fleet_pass_debits WHERE pass_id = ?",
+                (pass_id,),
+            ).fetchone()
+            rows = self._conn.execute(
+                "SELECT debit_id, service, route, price_units, "
+                "created_epoch, refunded FROM fleet_pass_debits "
+                "WHERE pass_id = ? ORDER BY created_epoch DESC, "
+                "rowid DESC LIMIT ?",
+                (pass_id, limit),
+            ).fetchall()
+        debit_count = int(agg[0]) if agg else 0
+        gross = int(agg[1]) if agg else 0
+        refunded_total = int(agg[2]) if agg else 0
+        net = gross - refunded_total
+        history = [
+            {
+                "debit_id": row[0],
+                "kind": "debit",
+                "service": row[1],
+                "route": row[2],
+                "amount_units": int(row[3]),
+                "amount_usd_exact": usd_exact(int(row[3])),
+                "at": _iso_of(row[4]),
+                "refunded": bool(row[5]),
+                "status": "refunded" if row[5] else "debited",
+            }
+            for row in rows
+        ]
+        return {
+            "debit_count": debit_count,
+            "total_debited_units": gross,
+            "total_debited_usd_exact": usd_exact(gross),
+            "total_refunded_units": refunded_total,
+            "total_refunded_usd_exact": usd_exact(refunded_total),
+            "net_debited_units": net,
+            "net_debited_usd_exact": usd_exact(net),
+            "history": history,
+            "history_limit": limit,
+            "history_returned": len(history),
+            "history_truncated": debit_count > len(history),
+        }
 
     # --- webhook watch registrations ------------------------------------
     # A registration binds one watched URL to a delivery target and a

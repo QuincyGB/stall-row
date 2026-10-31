@@ -1990,7 +1990,7 @@ async def fleet_pass_buy(request: Request):
         "note": (
             "Spend with the X-Fleet-Pass header on any fleet route; each "
             "call debits that route's listed price. Read the balance "
-            "free at POST /v1/fleet-pass/balance."
+            "and debit history free at POST /v1/fleet-pass/balance."
             + ("" if created else " This payment already minted this pass; returning it.")
         ),
     }
@@ -1998,12 +1998,49 @@ async def fleet_pass_buy(request: Request):
 
 @app.post("/v1/fleet-pass/balance")
 async def fleet_pass_balance(req: FleetPassBalanceRequest):
-    """Free balance read: USD balance + expiry + debit count."""
-    fleet_pass = _recheck_store.get_pass(req.pass_id.strip())
+    """Free holder read (the Pass Balance & Debit API): the pass id
+    alone is the credential, mirroring the pack-balance reads. Serves
+    ONLY that pass: balance (units + float + exact decimal), tier /
+    original credit, expiry (an expired pass still reads, with
+    expired=true — only an UNKNOWN pass 404s), debit totals, and the
+    debit history from the persisted ledger rows (newest first,
+    bounded at the store's PASS_DEBIT_HISTORY_LIMIT, the bound and
+    the total count stated in the response; refunded debits are
+    marked refunded on their own row — the ledger stores no separate
+    refund event). Free: not a priced route, spends nothing."""
+    pass_id = req.pass_id.strip()
+    fleet_pass = _recheck_store.get_pass(pass_id)
     if fleet_pass is None:
         return JSONResponse({"error": "unknown pass_id"}, status_code=404)
-    fleet_pass["debits"] = _recheck_store.pass_debit_count(req.pass_id.strip())
-    return fleet_pass
+    summary = _recheck_store.pass_debit_history(pass_id)
+    if fleet_pass["total_units"] == fleetpass_svc.PASS_PRICE_UNITS:
+        tier = "fleet-pass"
+    elif fleet_pass["total_units"] == fleetpass_svc.PASS_V2_PRICE_UNITS:
+        tier = "fleet-pass-20"
+    else:
+        tier = "custom"
+    return {
+        **fleet_pass,
+        "tier": tier,
+        "original_credit_units": fleet_pass["total_units"],
+        "original_credit_usd_exact": recheck_svc.usd_exact(
+            fleet_pass["total_units"]
+        ),
+        "balance_usd_exact": recheck_svc.usd_exact(fleet_pass["balance_units"]),
+        # Back-compat: `debits` has always been the debit count.
+        "debits": summary["debit_count"],
+        "debit_count": summary["debit_count"],
+        "total_debited_units": summary["total_debited_units"],
+        "total_debited_usd_exact": summary["total_debited_usd_exact"],
+        "total_refunded_units": summary["total_refunded_units"],
+        "total_refunded_usd_exact": summary["total_refunded_usd_exact"],
+        "net_debited_units": summary["net_debited_units"],
+        "net_debited_usd_exact": summary["net_debited_usd_exact"],
+        "debit_history": summary["history"],
+        "history_limit": summary["history_limit"],
+        "history_returned": summary["history_returned"],
+        "history_truncated": summary["history_truncated"],
+    }
 
 
 @app.post("/v1/fleet-pass/debit")
@@ -2382,7 +2419,7 @@ async def fleet_pass_20_buy(request: Request):
             "fleet route; each call debits that route's listed "
             "price. There are no holder discounts — passes debit at "
             "listed prices, exactly like the $5 pass. Read the "
-            "balance free at POST /v1/fleet-pass/balance."
+            "balance and debit history free at POST /v1/fleet-pass/balance."
             + ("" if created else " This payment already minted this pass; returning it.")
         ),
     }

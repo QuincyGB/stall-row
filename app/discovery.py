@@ -2291,7 +2291,12 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "ListSmith, StallRow, LockSmith) by sending the pass id as "
         "the X-Fleet-Pass header — each call debits that route's "
         "listed price. Check the balance free at POST "
-        "/v1/fleet-pass/balance.",
+        "/v1/fleet-pass/balance — the holder read (pass id alone is "
+        "the credential) returns the balance (units + exact decimal), "
+        "tier / original credit, expiry (expired passes still read, "
+        "expired=true; unknown ids 404), debit totals, and the debit "
+        "history from the persisted ledger (newest first, latest 100, "
+        "total count stated; refunded debits marked refunded).",
         "",
         "Webhook Watch: register POST /v1/watch/register (free) with "
         "a funded recheck pack or Fleet Pass and a webhook URL — the "
@@ -2368,6 +2373,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "- Inspector Quickstart Pack (curl / Python / TypeScript): https://stall-row-production.up.railway.app/quickstart/curl · https://stall-row-production.up.railway.app/quickstart/python · https://stall-row-production.up.railway.app/quickstart/typescript — one-page integration path: pin Recheck + RouteVerdict, read the feed, register a watch, fund a pack",
         f"- `POST {base_url}/v1/recheck/pack-balance` — a pack's credits + expiry (pack id required)",
         f"- `POST {base_url}/v1/toolkit/pack-balance` — a toolkit pack's credits + expiry (pack id required)",
+        f"- `POST {base_url}/v1/fleet-pass/balance` — a Fleet Pass holder read: balance (units + exact decimal) + tier/original credit + expiry (expired passes still read with expired=true; unknown ids 404) + debit totals + debit history (persisted ledger rows, newest first, latest 100 with total count stated; refunded debits marked refunded) — pass id alone is the credential, reveals nothing about any other pass",
         f"- `GET {base_url}/v1/recheck/feed` — recent Recheck results as JSONL, newest first (public observatory feed)",
         f"- `GET {base_url}/v1/recheck/feed?v=2&since_seq=N` — feed v2: each line an envelope (seq, record_id, schema_version, prev_hash, record_hash, record); since_seq is the gap-proof cursor mode (ascending), watch_id / url filter",
         f"- Feed v2 filters + backfill on the same endpoint: ?origin= (one http(s) origin or a comma-separated set), ?pay_to= (records' current payTo, case-insensitive), ?route= (full resource URL or its absolute path, e.g. /v1/verdict) — any combination, on top of the cursors; filtering selects a subset of the SAME hash chain (seq/hashes never rewritten, so seq gaps under a filter are expected — the excluded records, not drops). Backfill: history is append-only and never pruned (floor = X-Recheck-Feed-Earliest-Seq header); page it forwards from ?since_seq=0 or backwards with ?before_seq=N (records with seq < N, newest first; X-Recheck-Feed-Next-Before-Seq names the next page while older matches remain)",
@@ -2432,6 +2438,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         "- Inspector Quickstart Pack (curl / Python / TypeScript): https://stall-row-production.up.railway.app/quickstart/curl · https://stall-row-production.up.railway.app/quickstart/python · https://stall-row-production.up.railway.app/quickstart/typescript — one-page integration path: pin Recheck + RouteVerdict, read the feed, register a watch, fund a pack",
         f"- POST {base_url}/v1/recheck/pack-balance — free pack balance (pack id required)",
         f"- POST {base_url}/v1/toolkit/pack-balance — free toolkit pack balance (pack id required)",
+        f"- POST {base_url}/v1/fleet-pass/balance — free Fleet Pass holder read (pass id required): balance (units + exact decimal), tier/original credit, expiry (expired passes still read, expired=true; unknown ids 404), debit totals, debit history (persisted ledger rows, newest first, latest 100, total count stated; refunded debits marked refunded)",
         f"- GET {base_url}/v1/recheck/feed — free Recheck results feed (JSONL, newest first); ?v=2&since_seq=N for the hash-chained cursor mode; v2 filters ?origin= (single or comma-separated set), ?pay_to=, ?route= (full URL or absolute path) select a subset of the same chain (seq gaps under a filter are expected); backfill the never-pruned retained history from ?since_seq=0 forwards or ?before_seq=N backwards (floor: X-Recheck-Feed-Earliest-Seq header)",
         f"- GET {base_url}/v1/recheck/history — free recorded history (envelopes); /v1/recheck/history/<record_id> for one snapshot",
         f"- GET {base_url}/v1/resource/timeline?url= — free unified per-resource timeline (Recheck + RouteVerdict + catalogue snapshot)",
