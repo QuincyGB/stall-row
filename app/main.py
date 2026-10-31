@@ -3846,6 +3846,30 @@ def _serve_data_text(filename: str):
     return Response(content=payload, media_type="text/plain; charset=utf-8")
 
 
+def _serve_data_file(filename: str, media_type: str):
+    # Committed file served VERBATIM (same pattern as _serve_data_text):
+    # the Verdict Row Tools Index pages live at app/data/tools-index.*
+    # (generated VM-side by the fleet's tools_index.py from the five
+    # stalls' live discovery docs). Absent file -> 404, never fabricated.
+    path = os.path.join(os.path.dirname(__file__), "data", filename)
+    try:
+        with open(path, "rb") as f:
+            payload = f.read()
+    except OSError:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    return Response(content=payload, media_type=media_type)
+
+
+@app.get("/tools", response_class=HTMLResponse)
+async def tools_index_page():
+    return _serve_data_file("tools-index.html", "text/html; charset=utf-8")
+
+
+@app.get("/tools.json")
+async def tools_index_json():
+    return _serve_data_file("tools-index.json", "application/json")
+
+
 @app.get("/quickstart/curl")
 async def quickstart_curl():
     return _serve_data_text("quickstart-curl.txt")

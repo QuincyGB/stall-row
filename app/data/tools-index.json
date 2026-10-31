@@ -1,0 +1,983 @@
+{
+  "contact": "patrol@verdictrow.com",
+  "generated_at": "2026-10-31T15:16:55Z",
+  "generated_by": "Ren, Verdict Row Patrol \u2014 patrol@verdictrow.com",
+  "host": {
+    "html": "https://stall-row-production.up.railway.app/tools",
+    "json": "https://stall-row-production.up.railway.app/tools.json",
+    "note": "Hosted on StallRow, the fleet hub. verdictrow.com currently serves only mail (Zoho, patrol@verdictrow.com); its web address redirects to a Porkbun Easy Links page, which is not fleet-controlled hosting."
+  },
+  "kind": "verdict-row-tools-index/v1",
+  "sdk": {
+    "note": "Python client source is public at the source repo; the PyPI release is pending the owner's publish step.",
+    "package": "verdict-row",
+    "registry": "PyPI",
+    "source": "https://github.com/QuincyGB/verdict-row",
+    "status": "not published (PyPI probe HTTP 404)",
+    "url": "https://pypi.org/project/verdict-row/",
+    "version": null
+  },
+  "stalls": [
+    {
+      "base_url": "https://stall-row-production.up.railway.app",
+      "description": "A row of small x402 stalls in one service: Base chain reads (wallet snapshot, allowance audit, transaction decoder, gas oracle), a wallet trust verdict, fetch tools (YouTube search, page-to-Markdown, GitHub repo vitals), seller tools (Bazaar price-check, agent-card smith), a digest of open agent jobs, and scheduled change detection for x402 resources and web pages, with prepaid check packs. Use this when an agent needs one cheap, honest fact mid-task and cannot run the source itself.",
+      "free_surfaces": [
+        {
+          "label": "GET https://stall-row-production.up.railway.app/quote \u2014 free (Free price quote for every route on the row)",
+          "url": "https://stall-row-production.up.railway.app/quote"
+        },
+        {
+          "label": "GET https://stall-row-production.up.railway.app/quote \u2014 free price quote",
+          "url": "https://stall-row-production.up.railway.app/quote"
+        },
+        {
+          "label": "GET https://stall-row-production.up.railway.app/health \u2014 free liveness check",
+          "url": "https://stall-row-production.up.railway.app/health"
+        },
+        {
+          "label": "GET https://stall-row-production.up.railway.app/.well-known/gradeability-report.json \u2014 Gradeability Self-Test Report (latest self-test: listed vs live 402 per priced route; signed, free)",
+          "url": "https://stall-row-production.up.railway.app/.well-known/gradeability-report.json"
+        },
+        {
+          "label": "MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp \u2014 manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json \u2014 tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
+          "url": "https://github.com/QuincyGB/stall-row-mcp"
+        },
+        {
+          "label": "POST https://stall-row-production.up.railway.app/v1/recheck/pack-balance \u2014 free pack balance (pack id required)",
+          "url": "https://stall-row-production.up.railway.app/v1/recheck/pack-balance"
+        },
+        {
+          "label": "POST https://stall-row-production.up.railway.app/v1/toolkit/pack-balance \u2014 free toolkit pack balance (pack id required)",
+          "url": "https://stall-row-production.up.railway.app/v1/toolkit/pack-balance"
+        },
+        {
+          "label": "POST https://stall-row-production.up.railway.app/v1/fleet-pass/balance \u2014 free Fleet Pass holder read (pass id required): balance (units + exact decimal), tier/original credit, expiry (expired passes still read, expired=true; unknown ids 404), debit totals, debit history (persisted ledger rows, newest first, latest 100, total count stated; refunded debits marked refunded)",
+          "url": "https://stall-row-production.up.railway.app/v1/fleet-pass/balance"
+        },
+        {
+          "label": "GET https://stall-row-production.up.railway.app/v1/recheck/feed \u2014 free Recheck results feed (JSONL, newest first); ?v=2&since_seq=N for the hash-chained cursor mode; v2 filters ?origin= (single or comma-separated set), ?pay_to=, ?route= (full URL or absolute path) select a subset of the same chain (seq gaps under a filter are expected); backfill the never-pruned retained history from ?since_seq=0 forwards or ?before_seq=N backwards (floor: X-Recheck-Feed-Earliest-Seq header)",
+          "url": "https://stall-row-production.up.railway.app/v1/recheck/feed"
+        },
+        {
+          "label": "GET https://stall-row-production.up.railway.app/v1/recheck/history \u2014 free recorded history (envelopes); /v1/recheck/history/<record_id> for one snapshot",
+          "url": "https://stall-row-production.up.railway.app/v1/recheck/history"
+        },
+        {
+          "label": "GET https://stall-row-production.up.railway.app/v1/resource/timeline?url= \u2014 free unified per-resource timeline (Recheck + RouteVerdict + catalogue snapshot)",
+          "url": "https://stall-row-production.up.railway.app/v1/resource/timeline?url="
+        },
+        {
+          "label": "GET https://stall-row-production.up.railway.app/v1/recheck/fingerprint-spec \u2014 free fingerprint spec + test vectors, exactly as implemented",
+          "url": "https://stall-row-production.up.railway.app/v1/recheck/fingerprint-spec"
+        },
+        {
+          "label": "GET https://stall-row-production.up.railway.app/v1/recheck/corrections \u2014 free append-only corrections log (originals never mutated)",
+          "url": "https://stall-row-production.up.railway.app/v1/recheck/corrections"
+        },
+        {
+          "label": "POST https://stall-row-production.up.railway.app/v1/payto-pin \u2014 free PayTo pin creation (url + holder secret, one unpaid probe; sha256-committed first-seen payTo set, never expires); free management beside it: POST https://stall-row-production.up.railway.app/v1/payto-pin/read, /v1/payto-pin/delete, /v1/payto-pin/alert-subscribe (pin_id + secret). Verify is the priced POST /v1/payto-pin/verify ($0.01): MATCH / MOVED (signed PAYTO_MOVED webhook, once per distinct new set) / ROUTE_GONE",
+          "url": "https://stall-row-production.up.railway.app/v1/payto-pin"
+        },
+        {
+          "label": "POST https://stall-row-production.up.railway.app/v1/recheck/webhooks \u2014 free self-serve change-webhook registration (signed callbacks for CHANGED events; /list, /delete, /deliveries beside it, managed by your own secret)",
+          "url": "https://stall-row-production.up.railway.app/v1/recheck/webhooks"
+        },
+        {
+          "label": "POST https://stall-row-production.up.railway.app/v1/watch/register \u2014 free watch registration; watch_focus=\"schema\" is Contract Watch: SCHEMA_CHANGED pushes on output-schema fingerprint change only, runs funded at the listed $0.005 Recheck price from a pack or Fleet Pass (no separate price, no new priced route)",
+          "url": "https://stall-row-production.up.railway.app/v1/watch/register"
+        },
+        {
+          "label": "GET https://stall-row-production.up.railway.app/v1/verdict-read?url= \u2014 free public verdict read over RECORDED state only (latest recorded check, recorded terms, Score Book aggregates, last_change_at; verdict only when recorded by a standing RouteVerdict watch or honestly derived from recorded checks \u2014 verdict_source says which; Guard verdicts are not persisted and none is invented). Never probes/fetches/pays the target, never triggers a paid call; unrecorded URL answers found=false",
+          "url": "https://stall-row-production.up.railway.app/v1/verdict-read?url="
+        },
+        {
+          "label": "GET https://stall-row-production.up.railway.app/widget/verdict.js \u2014 free embeddable verdict widget: <script src=\"https://stall-row-production.up.railway.app/widget/verdict.js\" data-target=\"https://example.com/v1/your-route\" async></script> renders the recorded verdict + last-change (shadow DOM, no global CSS); iframe form: GET https://stall-row-production.up.railway.app/widget/verdict.html?url= (self-contained, server-rendered). Branding: Verdict Row Patrol, patrol@verdictrow.com",
+          "url": "https://stall-row-production.up.railway.app/widget/verdict.js"
+        }
+      ],
+      "mcp": {
+        "manifest": "https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json",
+        "name": "io.github.QuincyGB/stall-row-mcp",
+        "repository": "https://github.com/QuincyGB/stall-row-mcp",
+        "title": "StallRow MCP server",
+        "transport": "stdio"
+      },
+      "name": "stall-row",
+      "network": "eip155:8453",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "priced_route_count": 33,
+      "priced_routes": [
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.005",
+              "amount_units": "5000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Snapshot one Base wallet in a single call: ETH balance, top token holdings, first and last activity, and outgoing transaction count. Use this when an agent needs a wallet's shape before deciding to pay, trust, or transact with it. Explorer fields that cannot be supplied come back marked unknown, never invented.",
+          "method": "POST",
+          "price_display": "$0.005",
+          "resource": "https://stall-row-production.up.railway.app/v1/wallet-snapshot"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.005",
+              "amount_units": "5000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Audit one Base wallet's ERC-20 approvals against a curated list of major spenders (Permit2, Uniswap, Aerodrome, aggregators): active approvals are listed and unlimited ones flagged high risk. Use this when an agent or its owner wants to know what a wallet has already authorized before it holds or moves funds. When the explorer cannot supply the held-token list, the token-dependent fields come back marked unknown rather than the call failing.",
+          "method": "POST",
+          "price_display": "$0.005",
+          "resource": "https://stall-row-production.up.railway.app/v1/allowance-audit"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.002",
+              "amount_units": "2000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Decode one Base transaction into plain English: sender, receiver, ETH value, status, the known method behind the selector, every ERC-20 transfer it made, and a one-sentence summary. Use this when an agent needs to explain or verify what a transaction actually did before acting on it.",
+          "method": "POST",
+          "price_display": "$0.002",
+          "resource": "https://stall-row-production.up.railway.app/v1/tx-decoder"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.001",
+              "amount_units": "1000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Current Base gas in one call: the live gas price, the current base fee, the base-fee range across the last 20 blocks, whether fees are rising, falling, or flat, and a cheap-window hint drawn from that data. Use this when an agent wants to time a transaction instead of paying whatever the moment charges.",
+          "method": "POST",
+          "price_display": "$0.001",
+          "resource": "https://stall-row-production.up.railway.app/v1/gas-oracle"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.02",
+              "amount_units": "20000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "A trust verdict for one Base wallet: OFAC SDN exact-match against a dated snapshot, wallet age, activity level, and an address-poisoning scan of its recent token transfers, combined into SAFE, CAUTION, or AVOID with a 0-100 score and itemized reasons. Use this when an agent must decide whether a wallet is safe to pay or take instructions from.",
+          "method": "POST",
+          "price_display": "$0.02",
+          "resource": "https://stall-row-production.up.railway.app/v1/wallet-verdict"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.005",
+              "amount_units": "5000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Pre-Trade Guard \u2014 before you pay an x402 listing, screen the payTo you are about to pay: its Verdict Index catalog history (first seen, payTo rotations, listings added or removed across the snapshots held), an OFAC SDN exact-match check, and the wallet's Base age and activity, combined into PROCEED, CAUTION, or ABORT with itemized reasons. Use this when an agent is about to pay a payTo it has never paid before.",
+          "method": "POST",
+          "price_display": "$0.005",
+          "resource": "https://stall-row-production.up.railway.app/v1/pre-trade-guard"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "1",
+              "amount_units": "1000000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Counterparty Report \u2014 one bundled report on one seller: the payTo's wallet snapshot, an OFAC SDN exact-match screen, and its Verdict Index listing history, plus a Token Verdict when you name a token, a LockSmith audit when you name a service URL, and a ListSmith grade when you name a listing URL. Legs that are not requested or cannot run are marked, never padded. Use this when an agent is about to rely on a seller it has never dealt with.",
+          "method": "POST",
+          "price_display": "$1",
+          "resource": "https://stall-row-production.up.railway.app/v1/counterparty-report"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.005",
+              "amount_units": "5000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Grade My Stall \u2014 a seller-side report card for one x402 resource: a live unpaid probe (does it answer 402 with a parseable challenge?), the description measured against the 500-character limit, CDP listing presence in the newest catalog snapshot, Settled's record, the origin's x402scan ownership declaration, and payTo consistency across sources. Checks that cannot be performed report unverified, never a guess. Use this when you run a stall and want to know how buyers' tools see it.",
+          "method": "POST",
+          "price_display": "$0.005",
+          "resource": "https://stall-row-production.up.railway.app/v1/grade-my-stall"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.002",
+              "amount_units": "2000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Receipt Verifier \u2014 a Base transaction hash in, a normalized verified receipt out: payer, payTo and amount from the USDC Transfer log, asset and network, settled status and confirmations. When the payTo is this fleet's own and the amount matches a priced route, routes at that price are listed as candidates \u2014 an amount alone never proves which route was called. Unknown transactions error honestly, unsettled. Use this when someone claims they paid and you want the chain's version. Base only.",
+          "method": "POST",
+          "price_display": "$0.002",
+          "resource": "https://stall-row-production.up.railway.app/v1/receipt-verify"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.005",
+              "amount_units": "5000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Bad-payTo Registry Feed \u2014 the currently flagged payTos, each with its evidence: every address in the bundled OFAC SDN snapshot, payTos the newest catalog snapshot pair shows rotated away from live listings, and payTos of listings that vanished between snapshots. Built from the same two sources the Pre-Trade Guard screens against. No entry without evidence; entry and evidence caps are stated, never silent. Use this when a router or guard wants the fleet's current avoid-list in one cheap call.",
+          "method": "POST",
+          "price_display": "$0.005",
+          "resource": "https://stall-row-production.up.railway.app/v1/flagged-paytos"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.005",
+              "amount_units": "5000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Agent-Card Verifier \u2014 an ERC-8004 agent id (resolved on Base via the registry) or an agent.json URL in; the card is fetched and checked against live reality: declared endpoints probed unpaid (402 is correct for a paid service), challenge payTos compared with the card's declared wallets, declared prices with live challenge amounts. Undeclared fields report not_checked, never a guess; an unreachable card errors honestly, unsettled. Use this when an agent's card claims more than its endpoints do.",
+          "method": "POST",
+          "price_display": "$0.005",
+          "resource": "https://stall-row-production.up.railway.app/v1/agent-card-verify"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.01",
+              "amount_units": "10000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "YouTube search results as clean JSON: title, video id, URL, channel, duration, and views for each result, scraped from the public results page with no API key. Use this when an agent needs to find a video mid-task and cannot drive a browser or hold a Google API key.",
+          "method": "POST",
+          "price_display": "$0.01",
+          "resource": "https://stall-row-production.up.railway.app/v1/tube-search"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.01",
+              "amount_units": "10000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Fetch one web page and return its main content as clean Markdown with title and word count, extracted server-side. Private and loopback targets are refused. Use this when an agent needs to read a page inside a workflow without a browser and without wading through navigation and boilerplate.",
+          "method": "POST",
+          "price_display": "$0.01",
+          "resource": "https://stall-row-production.up.railway.app/v1/page-to-markdown"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.005",
+              "amount_units": "5000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Vital signs for one GitHub repository in a single call: stars, forks, open issues, license, last push, archived flag, and a 0-100 health score with a verdict line. Use this when an agent is choosing a dependency, a repo to contribute to, or a project to trust, and needs the quick read before the deep one.",
+          "method": "POST",
+          "price_display": "$0.005",
+          "resource": "https://stall-row-production.up.railway.app/v1/repo-vitals"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.05",
+              "amount_units": "50000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Pricing comps for an x402 listing, read live from the CDP Bazaar public catalog: how many resources match your keywords, their price distribution, the closest comparables, and a recommended listing price with its rationale. Use this when you operate an x402 route and are setting or changing its price.",
+          "method": "POST",
+          "price_display": "$0.05",
+          "resource": "https://stall-row-production.up.railway.app/v1/price-check"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.1",
+              "amount_units": "100000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Generate or grade an agent card (the /.well-known/agent-card.json an agent publishes for A2A and AgentWorld-style registries). Generate builds a structurally valid card from your fields; grade scores a supplied card and itemizes its defects. Use this when you are registering an agent and want the card right the first time.",
+          "method": "POST",
+          "price_display": "$0.1",
+          "resource": "https://stall-row-production.up.railway.app/v1/card-smith"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.05",
+              "amount_units": "50000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "A digest of currently open agent jobs from the marketplaces we sweep daily, filtered by the capabilities you name and sorted by budget: platform, budget, capability tags, deadline, and source snapshot time on every row, with a stale flag when the snapshot ages past 24 hours. Use this when your agent is looking for paid work.",
+          "method": "POST",
+          "price_display": "$0.05",
+          "resource": "https://stall-row-production.up.railway.app/v1/job-scout"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.005",
+              "amount_units": "5000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Probe one x402 resource or page WITHOUT paying it: BASELINE / UNCHANGED / CHANGED with a diff (price, asset, payTo, schema, body) vs the last check. Use this when a scheduled agent must know what changed first. Watch and pack state persist across redeploys on the service volume. Checking the same endpoint on a schedule? Buy the pack instead \u2014 POST /v1/recheck/pack is $1 for 250 checks (90 days) and this route spends pack credits when you send pack_id, so a loop makes one payment, not hundreds.",
+          "method": "POST",
+          "price_display": "$0.005",
+          "resource": "https://stall-row-production.up.railway.app/v1/recheck"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.1",
+              "amount_units": "100000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Verdict Index \u2014 the CDP Bazaar catalog changelog: the diff between our two newest full-catalog snapshots (price, asset, network, payTo, description, service name), with added and removed resources counted. Snapshots refresh about every 6 hours; until two exist this returns 502 and charges nothing. Filter by resource, payTo, service name, or network \u2014 every chain covered, Solana included; the summary breaks counts down by network. Use this when a router needs what changed since its last sync.",
+          "method": "POST",
+          "price_display": "$0.1",
+          "resource": "https://stall-row-production.up.railway.app/v1/index/changes"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.75",
+              "amount_units": "750000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "One combined fleet report for $0.75: Token Verdict's verdict on a token, RouteVerdict's delivery check and LockSmith's security audit summary on a service URL, and ListSmith's grade on a listing URL \u2014 four fleet services in one call. A failed leg is marked in the report, not hidden; only a total failure returns 502 and charges nothing. Use this when an agent is about to trust a token and a stall in the same workflow and wants one receipt instead of four payments.",
+          "method": "POST",
+          "price_display": "$0.75",
+          "resource": "https://stall-row-production.up.railway.app/v1/orchestrate"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "1",
+              "amount_units": "1000000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Recheck watch pack \u2014 the default for monitoring loops: one $1.00 payment buys 250 change-checks for ONE endpoint ($0.004 per check instead of $0.005), good for 90 days. Returns an unguessable pack id \u2014 spend credits via POST /v1/recheck (body pack_id or X-Recheck-Pack header); read the balance free at POST /v1/recheck/pack-balance, and an exhausted pack returns 402 rather than charging per call. Use this when anything checks the same endpoint more than ~3 times a week.",
+          "method": "POST",
+          "price_display": "$1",
+          "resource": "https://stall-row-production.up.railway.app/v1/recheck/pack"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.1",
+              "amount_units": "100000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            },
+            {
+              "amount_decimal": "0.1",
+              "amount_units": "100000",
+              "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+              "pay_to": "FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ"
+            }
+          ],
+          "description": "Fleet Check \u2014 one health sweep of your whole x402 fleet: name resource URLs and/or origins (expanded from their own /.well-known/x402) and get a per-route table \u2014 alive, status, whether the 402 challenge decodes, each accept's network/asset/payTo/amount, an OK / DEGRADED / DOWN verdict naming the defect, and a grade per origin. Probes are unpaid only \u2014 this route never pays any route it checks. Use this when you run more than one x402 stall and want one honest answer about all of them.",
+          "method": "POST",
+          "price_display": "$0.1",
+          "resource": "https://stall-row-production.up.railway.app/v1/fleet-check"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "5",
+              "amount_units": "5000000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            },
+            {
+              "amount_decimal": "5",
+              "amount_units": "5000000",
+              "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+              "pay_to": "FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ"
+            }
+          ],
+          "description": "Fleet Check pack \u2014 the standing form of Fleet Check: one $5.00 payment buys 100 sweep credits for ONE fixed fleet definition (resources and/or origins), good for 90 days. Sweeps run on your interval or on demand via POST /v1/fleet-check/run \u2014 one credit per sweep, never per route \u2014 diff against the last sweep, and POST failures and recoveries to your webhook (heartbeats optional); the latest table is free at POST /v1/fleet-check/status. Use this when your stalls should be watched continuously.",
+          "method": "POST",
+          "price_display": "$5",
+          "resource": "https://stall-row-production.up.railway.app/v1/fleet-check/pack"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "5",
+              "amount_units": "5000000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Fleet Pass \u2014 one prepaid balance for the whole fleet: one $5.00 payment buys a $5.00 balance that spends on any paid route across Token Verdict, RouteVerdict, ListSmith, StallRow and LockSmith, each call debited at that route's listed price (90 days). Send the pass id as the X-Fleet-Pass header; read the balance free at POST /v1/fleet-pass/balance. Use this when a loop calls more than one fleet service and wants one budget, not a payment per call.",
+          "method": "POST",
+          "price_display": "$5",
+          "resource": "https://stall-row-production.up.railway.app/v1/fleet-pass"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "20",
+              "amount_units": "20000000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Fleet Pass v2 \u2014 the $20 working pass for agent frameworks: one $20.00 payment buys a $20.00 prepaid balance that spends on any paid route across Token Verdict, RouteVerdict, ListSmith, StallRow and LockSmith, each call debited at that route's listed price \u2014 no holder discounts (90 days). Send the pass id as the X-Fleet-Pass header; read the balance free at POST /v1/fleet-pass/balance. Use this when a framework loop calls the fleet often enough that a $5 pass would run dry mid-run.",
+          "method": "POST",
+          "price_display": "$20",
+          "resource": "https://stall-row-production.up.railway.app/v1/fleet-pass-20"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.01",
+              "amount_units": "10000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Sign Reader \u2014 read one x402 endpoint's 402 challenge: both wire formats (v2 PAYMENT-REQUIRED header, v1 JSON body) parsed and normalized (network, asset, amount atomic and exact decimal, payTo, scheme), malformed fields named, declared-vs-live mismatches (method included) when you pass your catalogue entry, and a compatibility verdict for the official Python and TypeScript x402 SDKs. Probe is unpaid. Use this when a checker's parser keeps choking on sellers' signs.",
+          "method": "POST",
+          "price_display": "$0.01",
+          "resource": "https://stall-row-production.up.railway.app/v1/sign-read"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.01",
+              "amount_units": "10000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Score Book \u2014 an x402 target's track record from our records: check history, prices/payTos carried, catalogue presence, and \u2014 for url/origin \u2014 patrol facts from the patrol snapshot (open defects by class, first/last seen; recoveries with receipt ids; snapshot provenance). Patrol is periodic \u2014 facts are as of the snapshot, never live; it holds no payTo data, so payTo patrol sections are empty. Unknown: found=false. Use this when judging a stall needs its history, not just its current sign.",
+          "method": "POST",
+          "price_display": "$0.01",
+          "resource": "https://stall-row-production.up.railway.app/v1/score-book"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.01",
+              "amount_units": "10000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Guard \u2014 one pay / caution / avoid verdict for one x402 endpoint, composed from the row's inspector tools: the live 402 sign read and SDK-checked, the payTo screened against the bad-payTo registry (OFAC plus rotation/vanishing flags, evidence attached), and the resource's recorded history \u2014 unknown history caps the verdict at CAUTION. Every verdict carries its reasons; the one probe inside is unpaid. Use this when your agent is about to pay an endpoint it does not know.",
+          "method": "POST",
+          "price_display": "$0.01",
+          "resource": "https://stall-row-production.up.railway.app/v1/guard"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.05",
+              "amount_units": "50000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Inspector Physical \u2014 the full pre-pay workup for one x402 resource in ONE $0.05 call (the singles sum to $0.075): Sign Reader's challenge report, Score Book's track record, Guard's PROCEED/CAUTION/ABORT verdict as the headline, and a Recheck that probes and records the target (BASELINE/UNCHANGED/CHANGED, in the public feed). No RouteVerdict leg. Bad targets are delivered reports; only SSRF refusals are 422. Use this when your agent wants one endpoint's complete picture before paying it.",
+          "method": "POST",
+          "price_display": "$0.05",
+          "resource": "https://stall-row-production.up.railway.app/v1/physical"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.01",
+              "amount_units": "10000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "PayTo Pin Verify \u2014 check one pinned x402 route against its first-seen payTo set: a fresh unpaid probe compares the live payTo set with the pin's hash-committed baseline, answering MATCH, MOVED with before/after sets, or ROUTE_GONE as a delivered report. A swap fires one signed PAYTO_MOVED webhook per distinct new set. Pins are created free at POST /v1/payto-pin. Use this when a payTo swap must be caught before you pay the route again.",
+          "method": "POST",
+          "price_display": "$0.01",
+          "resource": "https://stall-row-production.up.railway.app/v1/payto-pin/verify"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "1",
+              "amount_units": "1000000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Toolkit Pack \u2014 the prepaid form of the inspector toolkit: one $1.00 payment buys 125 checks spendable on Sign Reader, Score Book, or Guard in any mix ($0.008/check instead of the $0.01 singles), good for 90 days. Spend credits via POST /v1/sign-read, /v1/score-book, or /v1/guard (body pack_id or X-Toolkit-Pack header); read the balance free at POST /v1/toolkit/pack-balance. An exhausted pack returns 402 rather than charging per call. Use this when your agent runs the toolkit regularly.",
+          "method": "POST",
+          "price_display": "$1",
+          "resource": "https://stall-row-production.up.railway.app/v1/toolkit/pack"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.1",
+              "amount_units": "100000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Ledger Dataset (summary) \u2014 per-origin rollup of the fleet's x402 observation ledger (Recheck history + held CDP snapshots + the committed patrol snapshot): routes, checks, change/recovery counts, patrol open defects and recoveries by class, last-seen times, provenance. Observation data only \u2014 no operator contacts. Use this when you want the town-wide state of the x402 catalogue before buying the full per-route pull.",
+          "method": "POST",
+          "price_display": "$0.1",
+          "resource": "https://stall-row-production.up.railway.app/v1/ledger-dataset"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "1",
+              "amount_units": "1000000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Ledger Dataset (full) \u2014 every route in the fleet's x402 observation ledger: observed/listed terms, latest status, check/change/recovery counts, derived defect class, catalogue listing + usage counters, and its patrol block (open defect by class, first/last seen; or recovery + receipt id), plus the per-origin rollup and provenance. Sources: Recheck history, held CDP + patrol snapshots; observation data only. Use this when you need route-level state for monitoring, grading, or dataset work.",
+          "method": "POST",
+          "price_display": "$1",
+          "resource": "https://stall-row-production.up.railway.app/v1/ledger-dataset/full"
+        }
+      ],
+      "quickstart": {
+        "curl": "https://stall-row-production.up.railway.app/quickstart/curl",
+        "python": "https://stall-row-production.up.railway.app/quickstart/python",
+        "title": "Inspector Quickstart Pack",
+        "typescript": "https://stall-row-production.up.railway.app/quickstart/typescript"
+      },
+      "slug": "stall-row",
+      "surfaces": {
+        "agent_card": "https://stall-row-production.up.railway.app/.well-known/agent-card.json",
+        "discovery": "https://stall-row-production.up.railway.app/.well-known/x402",
+        "gradeability_report": "https://stall-row-production.up.railway.app/.well-known/gradeability-report.json",
+        "health": "https://stall-row-production.up.railway.app/health",
+        "llms_txt": "https://stall-row-production.up.railway.app/llms.txt",
+        "quote": "https://stall-row-production.up.railway.app/quote",
+        "skill_md": "https://stall-row-production.up.railway.app/skill.md",
+        "stability_manifest": "https://stall-row-production.up.railway.app/.well-known/stability-manifest.json"
+      },
+      "x402_version": 2
+    },
+    {
+      "base_url": "https://route-verdict-production.up.railway.app",
+      "description": "Trust checks for x402 endpoints: send any paid resource URL, get a TRUSTED / CAUTION / AVOID verdict with a 0-100 score, an itemized deduction list, catalog presence in the CDP Bazaar and PayAI indexes, and a diff against the last check. No API key, no signup, $0.05 USDC per check. Use this when an agent, monitor, or inspector needs to verify an x402 route before paying it or relying on it.",
+      "free_surfaces": [
+        {
+          "label": "GET https://route-verdict-production.up.railway.app/quote \u2014 free (Free price quote for the paid endpoint)",
+          "url": "https://route-verdict-production.up.railway.app/quote"
+        },
+        {
+          "label": "GET https://route-verdict-production.up.railway.app/quote \u2014 free price quote",
+          "url": "https://route-verdict-production.up.railway.app/quote"
+        },
+        {
+          "label": "GET https://route-verdict-production.up.railway.app/health \u2014 free liveness check",
+          "url": "https://route-verdict-production.up.railway.app/health"
+        },
+        {
+          "label": "GET https://route-verdict-production.up.railway.app/v1/history?resource_url=<url> \u2014 free; stored check history for one resource",
+          "url": "https://route-verdict-production.up.railway.app/v1/history?resource_url=<url>"
+        },
+        {
+          "label": "GET https://route-verdict-production.up.railway.app/.well-known/gradeability-report.json \u2014 Gradeability Self-Test Report (latest self-test: listed vs live 402 per priced route; signed, free)",
+          "url": "https://route-verdict-production.up.railway.app/.well-known/gradeability-report.json"
+        }
+      ],
+      "mcp": {
+        "manifest": "https://github.com/QuincyGB/route-verdict-mcp/blob/main/server.json",
+        "name": "io.github.QuincyGB/route-verdict-mcp",
+        "repository": "https://github.com/QuincyGB/route-verdict-mcp",
+        "title": "RouteVerdict MCP server",
+        "transport": "stdio"
+      },
+      "name": "route-verdict",
+      "network": "eip155:8453",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "priced_route_count": 1,
+      "priced_routes": [
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.05",
+              "amount_units": "50000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Trust & liveness check for one x402 resource URL: live 402 probe (never pays the target), terms, discovery-schema quality, catalog presence, diff. Use this when auditing an unfamiliar x402 endpoint before paying or relying on it.",
+          "method": "POST",
+          "price_display": "$0.05",
+          "resource": "https://route-verdict-production.up.railway.app/v1/check"
+        }
+      ],
+      "quickstart": {
+        "curl": "https://stall-row-production.up.railway.app/quickstart/curl",
+        "python": "https://stall-row-production.up.railway.app/quickstart/python",
+        "title": "Inspector Quickstart Pack",
+        "typescript": "https://stall-row-production.up.railway.app/quickstart/typescript"
+      },
+      "slug": "route-verdict",
+      "surfaces": {
+        "agent_card": "https://route-verdict-production.up.railway.app/.well-known/agent-card.json",
+        "discovery": "https://route-verdict-production.up.railway.app/.well-known/x402",
+        "gradeability_report": "https://route-verdict-production.up.railway.app/.well-known/gradeability-report.json",
+        "health": "https://route-verdict-production.up.railway.app/health",
+        "llms_txt": "https://route-verdict-production.up.railway.app/llms.txt",
+        "quote": "https://route-verdict-production.up.railway.app/quote",
+        "skill_md": "https://route-verdict-production.up.railway.app/skill.md",
+        "stability_manifest": "https://route-verdict-production.up.railway.app/.well-known/stability-manifest.json"
+      },
+      "x402_version": 2
+    },
+    {
+      "base_url": "https://token-verdict-production.up.railway.app",
+      "description": "Send a token contract address, get a risk verdict. Returns SOLID / CAUTION / DANGER with a 0-100 score, six weighted market-structure signals and a written analyst take. Built for AI agents screening tokens \u2014 no API key, no signup, $0.02 USDC per call on Base or Solana. Use this when an agent is about to buy, swap, or route funds into a token and needs a fast risk screen first.",
+      "free_surfaces": [
+        {
+          "label": "GET https://token-verdict-production.up.railway.app/quote \u2014 free (Free price quote for the paid endpoint)",
+          "url": "https://token-verdict-production.up.railway.app/quote"
+        },
+        {
+          "label": "GET https://token-verdict-production.up.railway.app/quote \u2014 free price quote",
+          "url": "https://token-verdict-production.up.railway.app/quote"
+        },
+        {
+          "label": "GET https://token-verdict-production.up.railway.app/health \u2014 free liveness check",
+          "url": "https://token-verdict-production.up.railway.app/health"
+        },
+        {
+          "label": "GET https://token-verdict-production.up.railway.app/.well-known/gradeability-report.json \u2014 Gradeability Self-Test Report (latest self-test: listed vs live 402 per priced route; signed, free)",
+          "url": "https://token-verdict-production.up.railway.app/.well-known/gradeability-report.json"
+        }
+      ],
+      "mcp": {
+        "manifest": "https://github.com/QuincyGB/token-verdict-mcp/blob/main/server.json",
+        "name": "io.github.QuincyGB/token-verdict-mcp",
+        "repository": "https://github.com/QuincyGB/token-verdict-mcp",
+        "title": "TokenVerdict MCP server",
+        "transport": "stdio"
+      },
+      "name": "token-verdict",
+      "network": "eip155:8453",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "priced_route_count": 3,
+      "priced_routes": [
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.02",
+              "amount_units": "20000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            },
+            {
+              "amount_decimal": "0.02",
+              "amount_units": "20000",
+              "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+              "pay_to": "FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ"
+            }
+          ],
+          "description": "Token risk verdict: SOLID / CAUTION / DANGER with score, six signals and a written take. Send a contract address. Use this when screening a token before buying, swapping, or routing funds into it.",
+          "method": "POST",
+          "price_display": "$0.02",
+          "resource": "https://token-verdict-production.up.railway.app/v1/verdict"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.05",
+              "amount_units": "50000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            },
+            {
+              "amount_decimal": "0.05",
+              "amount_units": "50000",
+              "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+              "pay_to": "FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ"
+            }
+          ],
+          "description": "Combined go/no-go before a trade: PROCEED / CAUTION / ABORT from the token's market verdict, the wallet's sanctions/age/poisoning check, and (with a spender) its ERC-20 approvals. Mode 'compact' returns the decision plus per-leg summaries. Use this when an agent is about to swap or pay and needs token + wallet + allowance risk in one call. Payable in USDC on Base or Solana.",
+          "method": "POST",
+          "price_display": "$0.05",
+          "resource": "https://token-verdict-production.up.railway.app/v1/pre-trade"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.2",
+              "amount_units": "200000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            },
+            {
+              "amount_decimal": "0.2",
+              "amount_units": "200000",
+              "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+              "pay_to": "FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ"
+            }
+          ],
+          "description": "Screen 1-25 Base tokens in one flat-fee call: SOLID / CAUTION / DANGER verdicts with scores, riskiest first, plus summary counts; unfetchable tokens return UNKNOWN with a reason. Mode 'compact' returns verdict/score and counts only. Use this when screening tokens before trading. Screening the same feed on a schedule? Pair this with StallRow Recheck (stall-row-production.up.railway.app/v1/recheck) to watch the endpoints you depend on for price/payTo/schema changes between screens. Payable in USDC on Base or Solana.",
+          "method": "POST",
+          "price_display": "$0.20",
+          "resource": "https://token-verdict-production.up.railway.app/v1/batch-verdict"
+        }
+      ],
+      "quickstart": {
+        "curl": "https://stall-row-production.up.railway.app/quickstart/curl",
+        "python": "https://stall-row-production.up.railway.app/quickstart/python",
+        "title": "Inspector Quickstart Pack",
+        "typescript": "https://stall-row-production.up.railway.app/quickstart/typescript"
+      },
+      "slug": "token-verdict",
+      "surfaces": {
+        "agent_card": "https://token-verdict-production.up.railway.app/.well-known/agent-card.json",
+        "discovery": "https://token-verdict-production.up.railway.app/.well-known/x402",
+        "gradeability_report": "https://token-verdict-production.up.railway.app/.well-known/gradeability-report.json",
+        "health": "https://token-verdict-production.up.railway.app/health",
+        "llms_txt": "https://token-verdict-production.up.railway.app/llms.txt",
+        "quote": "https://token-verdict-production.up.railway.app/quote",
+        "skill_md": "https://token-verdict-production.up.railway.app/skill.md",
+        "stability_manifest": "https://token-verdict-production.up.railway.app/.well-known/stability-manifest.json"
+      },
+      "x402_version": 2
+    },
+    {
+      "base_url": "https://list-smith-production.up.railway.app",
+      "description": "Listing grades and repairs for x402 services. /v1/grade ($0.10) itemizes what is broken in a route's Bazaar discovery metadata \u2014 hollow schemas, failed SDK validation, over-500-char descriptions, wrong asset addresses. /v1/fix ($0.50) returns a repaired, validator-passed discovery package inferred from one real sample output. Use this when you operate an x402 route and need it discoverable, valid, and honestly described.",
+      "free_surfaces": [
+        {
+          "label": "GET https://list-smith-production.up.railway.app/quote \u2014 free (Free price quote for the paid endpoints)",
+          "url": "https://list-smith-production.up.railway.app/quote"
+        },
+        {
+          "label": "GET https://list-smith-production.up.railway.app/quote \u2014 free price quote",
+          "url": "https://list-smith-production.up.railway.app/quote"
+        },
+        {
+          "label": "GET https://list-smith-production.up.railway.app/health \u2014 free liveness check",
+          "url": "https://list-smith-production.up.railway.app/health"
+        },
+        {
+          "label": "GET https://list-smith-production.up.railway.app/.well-known/gradeability-report.json \u2014 Gradeability Self-Test Report (latest self-test: listed vs live 402 per priced route; signed, free)",
+          "url": "https://list-smith-production.up.railway.app/.well-known/gradeability-report.json"
+        }
+      ],
+      "mcp": {
+        "manifest": "https://github.com/QuincyGB/list-smith-mcp/blob/main/server.json",
+        "name": "io.github.QuincyGB/list-smith-mcp",
+        "repository": "https://github.com/QuincyGB/list-smith-mcp",
+        "title": "ListSmith MCP server",
+        "transport": "stdio"
+      },
+      "name": "list-smith",
+      "network": "eip155:8453",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "priced_route_count": 2,
+      "priced_routes": [
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.1",
+              "amount_units": "100000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Grade one x402 route's discovery metadata: SDK validation verdicts, schema-quality score, itemized defects with severities, and a 0-100 grade. Diagnosis only \u2014 no repaired content. Use this when you want to know what is broken before paying for the fix.",
+          "method": "POST",
+          "price_display": "$0.10",
+          "resource": "https://list-smith-production.up.railway.app/v1/grade"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.5",
+              "amount_units": "500000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Repair one x402 route's discovery metadata: a Bazaar extension with a full output schema inferred from your sample, a sub-500-char description with a use-when sentence, OpenAPI and well-known snippets, and paste-in instructions. Send mode 'compact' for the repaired fields only (description, extension info, changes) in a smaller response. Ships only if it passes both x402 SDK validators. Use this when your listing is hollow, invalid, or invisible.",
+          "method": "POST",
+          "price_display": "$0.50",
+          "resource": "https://list-smith-production.up.railway.app/v1/fix"
+        }
+      ],
+      "quickstart": {
+        "curl": "https://stall-row-production.up.railway.app/quickstart/curl",
+        "python": "https://stall-row-production.up.railway.app/quickstart/python",
+        "title": "Inspector Quickstart Pack",
+        "typescript": "https://stall-row-production.up.railway.app/quickstart/typescript"
+      },
+      "slug": "list-smith",
+      "surfaces": {
+        "agent_card": "https://list-smith-production.up.railway.app/.well-known/agent-card.json",
+        "discovery": "https://list-smith-production.up.railway.app/.well-known/x402",
+        "gradeability_report": "https://list-smith-production.up.railway.app/.well-known/gradeability-report.json",
+        "health": "https://list-smith-production.up.railway.app/health",
+        "llms_txt": "https://list-smith-production.up.railway.app/llms.txt",
+        "quote": "https://list-smith-production.up.railway.app/quote",
+        "skill_md": "https://list-smith-production.up.railway.app/skill.md",
+        "stability_manifest": "https://list-smith-production.up.railway.app/.well-known/stability-manifest.json"
+      },
+      "x402_version": 2
+    },
+    {
+      "base_url": "https://lock-smith-production.up.railway.app",
+      "description": "Automated security checks for x402 endpoints \u2014 not a penetration test. POST /v1/audit ($0.50) runs eight non-destructive, unpaid probes against one paid route: paywall presence, challenge sanity, garbage and forged payment rejection, exposure surface, error hygiene, body-size cap, and discovery consistency. Returns SECURE / FINDINGS / EXPOSED with per-check results and a fix note per finding. Use this when you operate an x402 route and want its locks checked before an attacker rattles them.",
+      "free_surfaces": [
+        {
+          "label": "GET https://lock-smith-production.up.railway.app/quote \u2014 free (Free price quote for the paid endpoints)",
+          "url": "https://lock-smith-production.up.railway.app/quote"
+        },
+        {
+          "label": "GET https://lock-smith-production.up.railway.app/quote: free price quote.",
+          "url": "https://lock-smith-production.up.railway.app/quote:"
+        },
+        {
+          "label": "GET https://lock-smith-production.up.railway.app/.well-known/gradeability-report.json \u2014 Gradeability Self-Test Report (latest self-test: listed vs live 402 per priced route; signed, free)",
+          "url": "https://lock-smith-production.up.railway.app/.well-known/gradeability-report.json"
+        }
+      ],
+      "mcp": {
+        "manifest": "https://github.com/QuincyGB/lock-smith-mcp/blob/main/server.json",
+        "name": "io.github.QuincyGB/lock-smith-mcp",
+        "repository": "https://github.com/QuincyGB/lock-smith-mcp",
+        "title": "LockSmith MCP server",
+        "transport": "stdio"
+      },
+      "name": "lock-smith",
+      "network": "eip155:8453",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "priced_route_count": 1,
+      "priced_routes": [
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.5",
+              "amount_units": "500000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Security-audit one x402 endpoint: eight automated, non-destructive, unpaid checks (paywall, challenge sanity, garbage/forged payment rejection, exposure surface, error hygiene, body cap, discovery consistency) with a SECURE / FINDINGS / EXPOSED verdict and a fix note per finding. Automated security checks, not a penetration test.",
+          "method": "POST",
+          "price_display": "$0.50",
+          "resource": "https://lock-smith-production.up.railway.app/v1/audit"
+        }
+      ],
+      "quickstart": {
+        "curl": "https://stall-row-production.up.railway.app/quickstart/curl",
+        "python": "https://stall-row-production.up.railway.app/quickstart/python",
+        "title": "Inspector Quickstart Pack",
+        "typescript": "https://stall-row-production.up.railway.app/quickstart/typescript"
+      },
+      "slug": "lock-smith",
+      "surfaces": {
+        "agent_card": "https://lock-smith-production.up.railway.app/.well-known/agent-card.json",
+        "discovery": "https://lock-smith-production.up.railway.app/.well-known/x402",
+        "gradeability_report": "https://lock-smith-production.up.railway.app/.well-known/gradeability-report.json",
+        "health": "https://lock-smith-production.up.railway.app/health",
+        "llms_txt": "https://lock-smith-production.up.railway.app/llms.txt",
+        "quote": "https://lock-smith-production.up.railway.app/quote",
+        "skill_md": "https://lock-smith-production.up.railway.app/skill.md",
+        "stability_manifest": "https://lock-smith-production.up.railway.app/.well-known/stability-manifest.json"
+      },
+      "x402_version": 2
+    }
+  ],
+  "title": "Verdict Row \u2014 Tools Index",
+  "totals": {
+    "priced_routes": 40,
+    "stalls": 5
+  }
+}
