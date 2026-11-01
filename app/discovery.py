@@ -55,7 +55,7 @@ ROUTES: dict[str, dict] = {
             "pay, trust, or transact with it. Explorer fields that cannot be "
             "supplied come back marked unknown, never invented."
         ),
-        "tags": ["base", "wallet", "balances", "data", "agents"],
+        "tags": ["base", "wallet", "balances", "data", "agents", "onchain-data", "address-lookup"],
         "input_schema": _obj({"address": _S}, ["address"]),
         "input_example": {"address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"},
         "output_schema": _obj(
@@ -120,7 +120,7 @@ ROUTES: dict[str, dict] = {
             "cannot supply the held-token list, the token-dependent fields "
             "come back marked unknown rather than the call failing."
         ),
-        "tags": ["base", "security", "approvals", "allowance", "agents"],
+        "tags": ["base", "security", "approvals", "allowance", "agents", "erc20-approvals", "spender-risk", "preflight"],
         "input_schema": _obj({"address": _S}, ["address"]),
         "input_example": {"address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"},
         "output_schema": _obj(
@@ -173,7 +173,7 @@ ROUTES: dict[str, dict] = {
             "when an agent needs to explain or verify what a transaction "
             "actually did before acting on it."
         ),
-        "tags": ["base", "transactions", "decode", "data", "agents"],
+        "tags": ["base", "transactions", "decode", "data", "agents", "tx-decode", "transaction-lookup", "onchain-data"],
         "input_schema": _obj({"tx_hash": _S}, ["tx_hash"]),
         "input_example": {"tx_hash": "0x" + "ab" * 32},
         "output_schema": _obj(
@@ -229,7 +229,7 @@ ROUTES: dict[str, dict] = {
             "from that data. Use this when an agent wants to time a "
             "transaction instead of paying whatever the moment charges."
         ),
-        "tags": ["base", "gas", "fees", "data", "agents"],
+        "tags": ["base", "gas", "fees", "data", "agents", "gas-price", "base-fees", "fee-estimate"],
         "input_schema": _obj({}, []),
         "input_example": {},
         "output_schema": _obj(
@@ -271,7 +271,7 @@ ROUTES: dict[str, dict] = {
             "reasons. Use this when an agent must decide whether a wallet is "
             "safe to pay or take instructions from."
         ),
-        "tags": ["base", "security", "sanctions", "verdict", "agents"],
+        "tags": ["base", "security", "sanctions", "verdict", "agents", "wallet-risk", "trust-verdict"],
         "input_schema": _obj({"address": _S}, ["address"]),
         "input_example": {"address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"},
         "output_schema": _obj(
@@ -315,7 +315,7 @@ ROUTES: dict[str, dict] = {
             "or ABORT with itemized reasons. Use this when an agent is about "
             "to pay a payTo it has never paid before."
         ),
-        "tags": ["x402", "security", "sanctions", "verdict", "payments", "agents"],
+        "tags": ["x402", "security", "sanctions", "verdict", "payments", "agents", "pre-trade-guard", "payto", "preflight", "counterparty"],
         "input_schema": _obj(
             {"pay_to": _S, "amount": {"type": ["integer", "string", "null"]}, "network": _N, "resource": _N},
             ["pay_to"],
@@ -382,7 +382,7 @@ ROUTES: dict[str, dict] = {
             "padded. Use this when an agent is about to rely on a seller "
             "it has never dealt with."
         ),
-        "tags": ["x402", "security", "verdict", "sellers", "agents"],
+        "tags": ["x402", "security", "verdict", "sellers", "agents", "counterparty", "payto", "due-diligence", "preflight"],
         "input_schema": _obj(
             {
                 "pay_to": _S,
@@ -441,7 +441,7 @@ ROUTES: dict[str, dict] = {
             "unverified, never a guess. Use this when you run a stall "
             "and want to know how buyers' tools see it."
         ),
-        "tags": ["x402", "sellers", "listings", "verification"],
+        "tags": ["x402", "sellers", "listings", "verification", "listing-grade", "preflight", "discovery", "endpoint-verification"],
         "input_schema": _obj(
             {"resource_url": _S, "pay_to": _N},
             ["resource_url"],
@@ -486,7 +486,7 @@ ROUTES: dict[str, dict] = {
             "this when someone claims they paid and you want the "
             "chain's version. Base only."
         ),
-        "tags": ["x402", "payments", "verification", "receipts"],
+        "tags": ["x402", "payments", "verification", "receipts", "settlement-proof", "tx-verification", "delivery-verified"],
         "input_schema": _obj({"tx_hash": _S}, ["tx_hash"]),
         "input_example": {
             "tx_hash": "0xeabaf4f583441a52af8ba936783aa96a13d5e71e8a0bf69d9d622076bd346c75",
@@ -554,7 +554,7 @@ ROUTES: dict[str, dict] = {
             "or guard wants the fleet's current avoid-list in one "
             "cheap call."
         ),
-        "tags": ["x402", "security", "sanctions", "registry", "agents"],
+        "tags": ["x402", "security", "sanctions", "registry", "agents", "payto", "blocklist", "risk-feed"],
         "input_schema": _obj({}, []),
         "input_example": {},
         "output_schema": _obj(
@@ -616,7 +616,7 @@ ROUTES: dict[str, dict] = {
             "unsettled. Use this when an agent's card claims more "
             "than its endpoints do."
         ),
-        "tags": ["x402", "agents", "erc-8004", "verification", "identity"],
+        "tags": ["x402", "agents", "erc-8004", "verification", "identity", "agent-card", "manifest", "preflight"],
         "input_schema": _obj(
             {"agent_id": _IN, "agent_url": _N},
             [],
@@ -657,7 +657,7 @@ ROUTES: dict[str, dict] = {
             "needs to find a video mid-task and cannot drive a browser or "
             "hold a Google API key."
         ),
-        "tags": ["search", "youtube", "video", "data", "agents"],
+        "tags": ["search", "youtube", "video", "data", "agents", "youtube-search", "video-search"],
         "input_schema": _obj(
             {"query": _S, "max_results": {"type": "integer", "minimum": 1, "maximum": 20}},
             ["query"],
@@ -707,7 +707,7 @@ ROUTES: dict[str, dict] = {
             "agent needs to read a page inside a workflow without a browser "
             "and without wading through navigation and boilerplate."
         ),
-        "tags": ["fetch", "markdown", "web", "reading", "agents"],
+        "tags": ["fetch", "markdown", "web", "reading", "agents", "web-fetch", "content-extraction"],
         "input_schema": _obj({"url": _S}, ["url"]),
         "input_example": {"url": "https://www.x402.org/"},
         "output_schema": _obj(
@@ -736,7 +736,7 @@ ROUTES: dict[str, dict] = {
             "is choosing a dependency, a repo to contribute to, or a project "
             "to trust, and needs the quick read before the deep one."
         ),
-        "tags": ["github", "repos", "data", "agents"],
+        "tags": ["github", "repos", "data", "agents", "github-repo", "repository-health"],
         "input_schema": _obj({"repo": _S}, ["repo"]),
         "input_example": {"repo": "QuincyGB/token-verdict"},
         "output_schema": _obj(
@@ -781,7 +781,7 @@ ROUTES: dict[str, dict] = {
             "listing price with its rationale. Use this when you operate an "
             "x402 route and are setting or changing its price."
         ),
-        "tags": ["x402", "bazaar", "pricing", "sellers", "agents"],
+        "tags": ["x402", "bazaar", "pricing", "sellers", "agents", "pricing-comps", "catalogue", "market-data"],
         "input_schema": _obj({"keywords": _S, "description": _S}, ["keywords"]),
         "input_example": {"keywords": "token risk verdict"},
         "output_schema": _obj(
@@ -831,7 +831,7 @@ ROUTES: dict[str, dict] = {
             "you are registering an agent and want the card right the first "
             "time."
         ),
-        "tags": ["agents", "a2a", "agent-card", "identity", "sellers"],
+        "tags": ["agents", "a2a", "agent-card", "identity", "sellers", "manifest"],
         "input_schema": _obj(
             {
                 "mode": {"type": "string", "enum": ["generate", "grade"]},
@@ -879,7 +879,7 @@ ROUTES: dict[str, dict] = {
             "ages past 24 hours. Use this when your agent is looking for "
             "paid work."
         ),
-        "tags": ["jobs", "bounties", "agents", "work", "digest"],
+        "tags": ["jobs", "bounties", "agents", "work", "digest", "agent-jobs", "bounty-board"],
         "input_schema": _obj(
             {"capabilities": {"type": "array", "items": _S}, "limit": _I},
             [],
@@ -942,7 +942,7 @@ ROUTES: dict[str, dict] = {
             "credits when you send pack_id, so a loop makes one payment, "
             "not hundreds."
         ),
-        "tags": ["monitoring", "x402", "change-detection", "diff", "agents"],
+        "tags": ["monitoring", "x402", "change-detection", "diff", "agents", "drift", "uptime", "endpoint-verification", "payto"],
         "input_schema": _obj({"url": _S, "watch_id": _S, "pack_id": _S}, ["url"]),
         "input_example": {
             "url": "https://token-verdict-production.up.railway.app/v1/verdict",
@@ -1005,7 +1005,7 @@ ROUTES: dict[str, dict] = {
             "down by network. Use this when a router needs what changed "
             "since its last sync."
         ),
-        "tags": ["index", "x402", "changelog", "catalog", "monitoring", "agents"],
+        "tags": ["index", "x402", "changelog", "catalog", "monitoring", "agents", "drift", "catalogue-diff", "catalogue"],
         "input_schema": _obj(
             {"resource_contains": _S, "pay_to": _S, "service_name": _S, "network": _S, "limit": _I},
             [],
@@ -1078,7 +1078,7 @@ ROUTES: dict[str, dict] = {
             "token and a stall in the same workflow and wants one "
             "receipt instead of four payments."
         ),
-        "tags": ["bundle", "x402", "verdict", "audit", "agents", "fleet"],
+        "tags": ["bundle", "x402", "verdict", "audit", "agents", "fleet", "fleet-audit", "preflight", "bundle-report"],
         "input_schema": _obj(
             {"address": _S, "chain": _S, "service_url": _S, "listing_url": _S},
             ["address", "service_url", "listing_url"],
@@ -1130,7 +1130,7 @@ ROUTES: dict[str, dict] = {
             "Use this when anything checks the same endpoint more than "
             "~3 times a week."
         ),
-        "tags": ["monitoring", "x402", "change-detection", "prepaid", "agents"],
+        "tags": ["monitoring", "x402", "change-detection", "prepaid", "agents", "drift", "uptime"],
         "input_schema": _obj({"url": _S}, ["url"]),
         "input_example": {
             "url": "https://token-verdict-production.up.railway.app/v1/verdict",
@@ -1179,7 +1179,7 @@ ROUTES: dict[str, dict] = {
             "it checks. Use this when you run more than one x402 "
             "stall and want one honest answer about all of them."
         ),
-        "tags": ["x402", "monitoring", "health-check", "sellers", "agents"],
+        "tags": ["x402", "monitoring", "health-check", "sellers", "agents", "fleet-health", "uptime", "endpoint-verification", "drift"],
         "input_schema": _obj(
             {
                 "resources": {"type": "array", "items": _S},
@@ -1316,7 +1316,7 @@ ROUTES: dict[str, dict] = {
             "the latest table is free at POST /v1/fleet-check/status. "
             "Use this when your stalls should be watched continuously."
         ),
-        "tags": ["x402", "monitoring", "prepaid", "health-check", "agents"],
+        "tags": ["x402", "monitoring", "prepaid", "health-check", "agents", "fleet-health", "uptime", "endpoint-verification", "drift"],
         "input_schema": _obj(
             {
                 "resources": {"type": "array", "items": _S},
@@ -1395,7 +1395,7 @@ ROUTES: dict[str, dict] = {
             "than one fleet service and wants one budget, not a "
             "payment per call."
         ),
-        "tags": ["prepaid", "x402", "budget", "agents", "fleet"],
+        "tags": ["prepaid", "x402", "budget", "agents", "fleet", "prepaid-balance", "fleet-pass"],
         "input_schema": _obj({}, []),
         "input_example": {},
         "output_schema": _obj(
@@ -1441,7 +1441,7 @@ ROUTES: dict[str, dict] = {
             "loop calls the fleet often enough that a $5 pass would "
             "run dry mid-run."
         ),
-        "tags": ["prepaid", "x402", "budget", "agents", "fleet", "frameworks"],
+        "tags": ["prepaid", "x402", "budget", "agents", "fleet", "frameworks", "prepaid-balance", "fleet-pass"],
         "input_schema": _obj({}, []),
         "input_example": {},
         "output_schema": _obj(
@@ -1486,7 +1486,7 @@ ROUTES: dict[str, dict] = {
             "is unpaid. Use this when a checker's parser keeps choking "
             "on sellers' signs."
         ),
-        "tags": ["x402", "inspector", "challenge", "sdk", "verification"],
+        "tags": ["x402", "inspector", "challenge", "sdk", "verification", "discovery", "manifest", "preflight", "challenge-parse"],
         "input_schema": _obj(
             {
                 "url": _S,
@@ -1555,7 +1555,7 @@ ROUTES: dict[str, dict] = {
             "are empty. Unknown: found=false. Use this when judging "
             "a stall needs its history, not just its current sign."
         ),
-        "tags": ["x402", "inspector", "history", "reputation", "monitoring"],
+        "tags": ["x402", "inspector", "history", "reputation", "monitoring", "track-record", "drift", "catalogue-presence"],
         "input_schema": _obj(
             {"url": _N, "origin": _N, "pay_to": _N},
             [],
@@ -1589,7 +1589,7 @@ ROUTES: dict[str, dict] = {
             "is unpaid. Use this when your agent is about to pay an "
             "endpoint it does not know."
         ),
-        "tags": ["x402", "inspector", "trust", "pre-pay", "security"],
+        "tags": ["x402", "inspector", "trust", "pre-pay", "security", "pre-trade-guard", "payto", "preflight", "trust-verdict"],
         "input_schema": _obj({"url": _S}, ["url"]),
         "input_example": {"url": "https://example.com/v1/verdict"},
         "output_schema": _obj(
@@ -1639,7 +1639,7 @@ ROUTES: dict[str, dict] = {
             "only SSRF refusals are 422. Use this when your agent "
             "wants one endpoint's complete picture before paying it."
         ),
-        "tags": ["x402", "inspector", "bundle", "pre-pay", "monitoring"],
+        "tags": ["x402", "inspector", "bundle", "pre-pay", "monitoring", "preflight", "endpoint-verification", "delivery-verified", "payto"],
         "input_schema": _obj(
             {"url": _S, "watch_id": _N},
             ["url"],
@@ -1684,7 +1684,7 @@ ROUTES: dict[str, dict] = {
             "created free at POST /v1/payto-pin. Use this when a payTo "
             "swap must be caught before you pay the route again."
         ),
-        "tags": ["x402", "inspector", "payto", "monitoring", "verification"],
+        "tags": ["x402", "inspector", "payto", "monitoring", "verification", "drift", "pin-verify"],
         "input_schema": _obj(
             {"pin_id": _N, "url": _N, "secret": _N, "webhook_url": _N},
             [],
@@ -1743,7 +1743,7 @@ ROUTES: dict[str, dict] = {
             "returns 402 rather than charging per call. Use this when "
             "your agent runs the toolkit regularly."
         ),
-        "tags": ["x402", "inspector", "prepaid", "agents", "toolkit"],
+        "tags": ["x402", "inspector", "prepaid", "agents", "toolkit", "inspector-toolkit", "preflight"],
         "input_schema": _obj({}, []),
         "input_example": {},
         # Generated from a real local run of the buy handler (payment
@@ -1791,7 +1791,7 @@ ROUTES: dict[str, dict] = {
             "when you want the town-wide state of the x402 catalogue "
             "before buying the full per-route pull."
         ),
-        "tags": ["x402", "inspector", "dataset", "catalogue", "monitoring"],
+        "tags": ["x402", "inspector", "dataset", "catalogue", "monitoring", "observation-ledger"],
         "input_schema": _obj({}, []),
         "input_example": {},
         "output_schema": _obj(
@@ -1914,7 +1914,7 @@ ROUTES: dict[str, dict] = {
             "you need route-level state for monitoring, grading, "
             "or dataset work."
         ),
-        "tags": ["x402", "inspector", "dataset", "catalogue", "monitoring"],
+        "tags": ["x402", "inspector", "dataset", "catalogue", "monitoring", "observation-ledger"],
         "input_schema": _obj({}, []),
         "input_example": {},
         "output_schema": _obj(
