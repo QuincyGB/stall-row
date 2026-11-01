@@ -3933,6 +3933,21 @@ async def fleet_status_json():
     return _serve_data_file("fleet-status.json", "application/json")
 
 
+@app.get("/echo", response_class=HTMLResponse)
+async def catalogue_echo_page():
+    # Catalogue Echo page (Next-20 Item 6): committed files served
+    # VERBATIM, generated VM-side by the fleet's echo_auditor.py from
+    # a fresh catalogue read against the canonical route registry.
+    # Docs surface only — no priced route, no discovery entry,
+    # /health's route count does not move.
+    return _serve_data_file("echo-status.html", "text/html; charset=utf-8")
+
+
+@app.get("/echo.json")
+async def catalogue_echo_json():
+    return _serve_data_file("echo-status.json", "application/json")
+
+
 @app.get("/quickstart/curl")
 async def quickstart_curl():
     return _serve_data_text("quickstart-curl.txt")

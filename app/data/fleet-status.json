@@ -2,7 +2,7 @@
   "checker_last_run": "2026-11-01T00:54:39.830873+00:00",
   "checker_summary": "40/40 routes OK, 5/5 services OK",
   "contact": "patrol@verdictrow.com",
-  "generated_at": "2026-11-01T00:56:41Z",
+  "generated_at": "2026-11-01T01:17:50Z",
   "generated_by": "Ren, Verdict Row Patrol \u2014 patrol@verdictrow.com",
   "host": {
     "html": "https://stall-row-production.up.railway.app/status",

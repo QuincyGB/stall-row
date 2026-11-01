@@ -1,0 +1,2486 @@
+{
+  "contact": "patrol@verdictrow.com",
+  "generated_at": "2026-11-01T01:16:34Z",
+  "generated_by": "Ren, Verdict Row Patrol \u2014 patrol@verdictrow.com",
+  "host": {
+    "html": "https://stall-row-production.up.railway.app/echo",
+    "json": "https://stall-row-production.up.railway.app/echo.json",
+    "note": "Hosted on StallRow, the fleet hub, beside the fleet status page at /status."
+  },
+  "kind": "verdict-row-catalogue-echo/v1",
+  "method": "Fresh free catalogue GETs at build time via catalogue_watch's host-allowlisted transport. A cell is ECHO-OK only when every field the catalogue exposes matches the registry; fields a catalogue does not expose are recorded, never guessed. A failed read is UNREADABLE, never OK.",
+  "registry_generated_at": "2026-10-31T23:47:07Z",
+  "routes": [
+    {
+      "amount_units": "500000",
+      "cells": {
+        "cdp": {
+          "detail": "listed but field(s) differ: description, tags",
+          "diffs": [
+            {
+              "expected": "Repair one x402 route's discovery metadata: a Bazaar extension with a full output schema inferred from your sample, a sub-500-char description with a use-when sentence, OpenAPI and well-known snippets, and paste-in instructions. Send mode 'compact' for the repaired fields only (description, extension info, changes) in a smaller response. Ships only if it passes both x402 SDK validators. Use this when your listing is hollow, invalid, or invisible.",
+              "field": "description",
+              "listed": "Repair one x402 route's Bazaar discovery metadata in one call. Send a resource URL and one real sample output; get the defect report plus a complete discovery package \u2014 full output schema inferred from the sample, a sub-500-char description with a use-when sentence, OpenAPI and well-known snippets, paste-in instructions \u2014 that ships only after passing both x402 SDK validators. Use this when your listing is hollow, invalid, or invisible in the Bazaar."
+            },
+            {
+              "expected": [
+                "agents",
+                "bazaar",
+                "discovery",
+                "repair",
+                "schema",
+                "x402"
+              ],
+              "field": "tags",
+              "listed": [
+                "bazaar",
+                "discovery",
+                "schema",
+                "validation",
+                "x402"
+              ]
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Repair one x402 route's discovery metadata: a Bazaar extension with a full output schema inferred from your sample, a sub-500-char description with a use-when sentence, OpenAPI and well-known snippets, and paste-in instructions. Send mode 'compact' for the repaired fields only (description, extension info, changes) in a smaller response. Ships only if it passes both x402 SDK validators. Use this when your listing is hollow, invalid, or invisible.",
+              "field": "description",
+              "listed": "Repair one x402 route's Bazaar discovery metadata. Send a resource URL and one real sample; get the defect report plus a package that ships only after passing both x402 SDK validators: full output schema inferred from the sample, a sub-500-char description with a use-when sentence, OpenAPI and well-known snippets, instructions. Mode 'compact' returns the repaired fields only (description, extension info, changes). Use this when your listing is hollow, invalid, or invisible in the Bazaar."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "MISMATCH"
+        },
+        "x402scan": {
+          "detail": "listed but field(s) differ: description, tags",
+          "diffs": [
+            {
+              "expected": "Repair one x402 route's discovery metadata: a Bazaar extension with a full output schema inferred from your sample, a sub-500-char description with a use-when sentence, OpenAPI and well-known snippets, and paste-in instructions. Send mode 'compact' for the repaired fields only (description, extension info, changes) in a smaller response. Ships only if it passes both x402 SDK validators. Use this when your listing is hollow, invalid, or invisible.",
+              "field": "description",
+              "listed": "Repair one x402 route's Bazaar discovery metadata in one call. Send a resource URL and one real sample output; get the defect report plus a complete discovery package \u2014 full output schema inferred from the sample, a sub-500-char description with a use-when sentence, OpenAPI and well-known snippets, paste-in instructions \u2014 that ships only after passing both x402 SDK validators. Use this when your listing is hollow, invalid, or invisible in the Bazaar."
+            },
+            {
+              "expected": [
+                "agents",
+                "bazaar",
+                "discovery",
+                "repair",
+                "schema",
+                "x402"
+              ],
+              "field": "tags",
+              "listed": [
+                "agents",
+                "bazaar",
+                "discovery",
+                "schema",
+                "validation",
+                "x402"
+              ]
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        }
+      },
+      "path": "/v1/fix",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.50",
+      "resource": "https://list-smith-production.up.railway.app/v1/fix",
+      "route": "list-smith /v1/fix",
+      "stall": "list-smith"
+    },
+    {
+      "amount_units": "100000",
+      "cells": {
+        "cdp": {
+          "detail": "listed but field(s) differ: description, tags",
+          "diffs": [
+            {
+              "expected": "Grade one x402 route's discovery metadata: SDK validation verdicts, schema-quality score, itemized defects with severities, and a 0-100 grade. Diagnosis only \u2014 no repaired content. Use this when you want to know what is broken before paying for the fix.",
+              "field": "description",
+              "listed": "Grade one x402 route's Bazaar discovery metadata. Returns the diagnosis only: both x402 SDK validator verdicts, the schema-quality score, itemized defects with severities (hollow output schemas, over-500-char descriptions, wrong asset addresses, failed validation), and a 0-100 grade. Use this when you operate an x402 route and want to know exactly what is broken before paying for the repair."
+            },
+            {
+              "expected": [
+                "agents",
+                "bazaar",
+                "discovery",
+                "grading",
+                "validation",
+                "x402"
+              ],
+              "field": "tags",
+              "listed": [
+                "bazaar",
+                "discovery",
+                "schema",
+                "validation",
+                "x402"
+              ]
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Grade one x402 route's discovery metadata: SDK validation verdicts, schema-quality score, itemized defects with severities, and a 0-100 grade. Diagnosis only \u2014 no repaired content. Use this when you want to know what is broken before paying for the fix.",
+              "field": "description",
+              "listed": "Grade one x402 route's Bazaar discovery metadata. Returns the diagnosis only: both x402 SDK validator verdicts, the schema-quality score, itemized defects with severities (hollow output schemas, over-500-char descriptions, wrong asset addresses, failed validation), and a 0-100 grade. Use this when you operate an x402 route and want to know exactly what is broken before paying for the repair."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "MISMATCH"
+        },
+        "x402scan": {
+          "detail": "listed but field(s) differ: description, tags",
+          "diffs": [
+            {
+              "expected": "Grade one x402 route's discovery metadata: SDK validation verdicts, schema-quality score, itemized defects with severities, and a 0-100 grade. Diagnosis only \u2014 no repaired content. Use this when you want to know what is broken before paying for the fix.",
+              "field": "description",
+              "listed": "Grade one x402 route's Bazaar discovery metadata. Returns the diagnosis only: both x402 SDK validator verdicts, the schema-quality score, itemized defects with severities (hollow output schemas, over-500-char descriptions, wrong asset addresses, failed validation), and a 0-100 grade. Use this when you operate an x402 route and want to know exactly what is broken before paying for the repair."
+            },
+            {
+              "expected": [
+                "agents",
+                "bazaar",
+                "discovery",
+                "grading",
+                "validation",
+                "x402"
+              ],
+              "field": "tags",
+              "listed": [
+                "agents",
+                "bazaar",
+                "discovery",
+                "schema",
+                "validation",
+                "x402"
+              ]
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        }
+      },
+      "path": "/v1/grade",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.10",
+      "resource": "https://list-smith-production.up.railway.app/v1/grade",
+      "route": "list-smith /v1/grade",
+      "stall": "list-smith"
+    },
+    {
+      "amount_units": "500000",
+      "cells": {
+        "cdp": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Security-audit one x402 endpoint: eight automated, non-destructive, unpaid checks (paywall, challenge sanity, garbage/forged payment rejection, exposure surface, error hygiene, body cap, discovery consistency) with a SECURE / FINDINGS / EXPOSED verdict and a fix note per finding. Automated security checks, not a penetration test.",
+              "field": "description",
+              "listed": "Automated security checks for one x402 endpoint \u2014 not a penetration test. Eight non-destructive, unpaid probes: paywall presence, challenge sanity, garbage and forged (invalid-signature) payment rejection, exposure surface, error hygiene, body-size cap, discovery consistency. Returns SECURE / FINDINGS / EXPOSED with a fix note per finding. Use this when you operate an x402 route and want its locks checked the way an attacker would rattle them."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Security-audit one x402 endpoint: eight automated, non-destructive, unpaid checks (paywall, challenge sanity, garbage/forged payment rejection, exposure surface, error hygiene, body cap, discovery consistency) with a SECURE / FINDINGS / EXPOSED verdict and a fix note per finding. Automated security checks, not a penetration test.",
+              "field": "description",
+              "listed": "Automated security checks for one x402 endpoint \u2014 not a penetration test. Eight non-destructive, unpaid probes: paywall presence, challenge sanity, garbage and forged (invalid-signature) payment rejection, exposure surface, error hygiene, body-size cap, discovery consistency. Returns SECURE / FINDINGS / EXPOSED with a fix note per finding. Use this when you operate an x402 route and want its locks checked the way an attacker would rattle them."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "MISMATCH"
+        },
+        "x402scan": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Security-audit one x402 endpoint: eight automated, non-destructive, unpaid checks (paywall, challenge sanity, garbage/forged payment rejection, exposure surface, error hygiene, body cap, discovery consistency) with a SECURE / FINDINGS / EXPOSED verdict and a fix note per finding. Automated security checks, not a penetration test.",
+              "field": "description",
+              "listed": "Automated security checks for one x402 endpoint \u2014 not a penetration test. Eight non-destructive, unpaid probes: paywall presence, challenge sanity, garbage and forged (invalid-signature) payment rejection, exposure surface, error hygiene, body-size cap, discovery consistency. Returns SECURE / FINDINGS / EXPOSED with a fix note per finding. Use this when you operate an x402 route and want its locks checked the way an attacker would rattle them."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        }
+      },
+      "path": "/v1/audit",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.50",
+      "resource": "https://lock-smith-production.up.railway.app/v1/audit",
+      "route": "lock-smith /v1/audit",
+      "stall": "lock-smith"
+    },
+    {
+      "amount_units": "50000",
+      "cells": {
+        "cdp": {
+          "detail": "listed but field(s) differ: description, tags",
+          "diffs": [
+            {
+              "expected": "Trust & liveness check for one x402 resource URL: live 402 probe (never pays the target), terms, discovery-schema quality, catalog presence, diff. Use this when auditing an unfamiliar x402 endpoint before paying or relying on it.",
+              "field": "description",
+              "listed": "Send any x402 resource URL, get a trust verdict on the endpoint itself. Returns TRUSTED / CAUTION / AVOID with a 0-100 score from an observation-only live probe (never pays the target): payment terms, Bazaar discovery-schema quality, CDP Bazaar and PayAI catalog presence, plus a diff against the previous check. Use this when an agent is about to pay an unfamiliar x402 endpoint and needs to know it is alive, honestly described, and unchanged first."
+            },
+            {
+              "expected": [
+                "agents",
+                "liveness",
+                "monitoring",
+                "trust",
+                "verification",
+                "x402"
+              ],
+              "field": "tags",
+              "listed": [
+                "liveness",
+                "monitoring",
+                "trust",
+                "verification",
+                "x402"
+              ]
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Trust & liveness check for one x402 resource URL: live 402 probe (never pays the target), terms, discovery-schema quality, catalog presence, diff. Use this when auditing an unfamiliar x402 endpoint before paying or relying on it.",
+              "field": "description",
+              "listed": "Send any x402 resource URL, get a trust verdict on the endpoint itself. Returns TRUSTED / CAUTION / AVOID with a 0-100 score from an observation-only live probe (never pays the target): payment terms, Bazaar discovery-schema quality, CDP Bazaar and PayAI catalog presence, plus a diff against the previous check. Use this when an agent is about to pay an unfamiliar x402 endpoint and needs to know it is alive, honestly described, and unchanged first."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "MISMATCH"
+        },
+        "x402scan": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Trust & liveness check for one x402 resource URL: live 402 probe (never pays the target), terms, discovery-schema quality, catalog presence, diff. Use this when auditing an unfamiliar x402 endpoint before paying or relying on it.",
+              "field": "description",
+              "listed": "Send any x402 resource URL, get a trust verdict on the endpoint itself. Returns TRUSTED / CAUTION / AVOID with a 0-100 score from an observation-only live probe (never pays the target): payment terms, Bazaar discovery-schema quality, CDP Bazaar and PayAI catalog presence, plus a diff against the previous check. Use this when an agent is about to pay an unfamiliar x402 endpoint and needs to know it is alive, honestly described, and unchanged first."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        }
+      },
+      "path": "/v1/check",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.05",
+      "resource": "https://route-verdict-production.up.railway.app/v1/check",
+      "route": "route-verdict /v1/check",
+      "stall": "route-verdict"
+    },
+    {
+      "amount_units": "5000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/agent-card-verify",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.005",
+      "resource": "https://stall-row-production.up.railway.app/v1/agent-card-verify",
+      "route": "stall-row /v1/agent-card-verify",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "5000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/allowance-audit",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.005",
+      "resource": "https://stall-row-production.up.railway.app/v1/allowance-audit",
+      "route": "stall-row /v1/allowance-audit",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "100000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/card-smith",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.1",
+      "resource": "https://stall-row-production.up.railway.app/v1/card-smith",
+      "route": "stall-row /v1/card-smith",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "1000000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/counterparty-report",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$1",
+      "resource": "https://stall-row-production.up.railway.app/v1/counterparty-report",
+      "route": "stall-row /v1/counterparty-report",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "5000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/flagged-paytos",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.005",
+      "resource": "https://stall-row-production.up.railway.app/v1/flagged-paytos",
+      "route": "stall-row /v1/flagged-paytos",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "100000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/fleet-check",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.1",
+      "resource": "https://stall-row-production.up.railway.app/v1/fleet-check",
+      "route": "stall-row /v1/fleet-check",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "5000000",
+      "cells": {
+        "cdp": {
+          "detail": "absent from catalogue read (by-design)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "by-design"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "payai": {
+          "detail": "absent from catalogue read (by-design)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "by-design"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "settled": {
+          "detail": "absent from catalogue read (by-design)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "by-design"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/fleet-check/pack",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$5",
+      "resource": "https://stall-row-production.up.railway.app/v1/fleet-check/pack",
+      "route": "stall-row /v1/fleet-check/pack",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "5000000",
+      "cells": {
+        "cdp": {
+          "detail": "absent from catalogue read (by-design)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "by-design"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "payai": {
+          "detail": "absent from catalogue read (by-design)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "by-design"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "settled": {
+          "detail": "absent from catalogue read (by-design)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "by-design"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/fleet-pass",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$5",
+      "resource": "https://stall-row-production.up.railway.app/v1/fleet-pass",
+      "route": "stall-row /v1/fleet-pass",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "20000000",
+      "cells": {
+        "cdp": {
+          "detail": "absent from catalogue read (by-design)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "by-design"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "payai": {
+          "detail": "absent from catalogue read (by-design)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "by-design"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "settled": {
+          "detail": "absent from catalogue read (by-design)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "by-design"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/fleet-pass-20",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$20",
+      "resource": "https://stall-row-production.up.railway.app/v1/fleet-pass-20",
+      "route": "stall-row /v1/fleet-pass-20",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "1000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/gas-oracle",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.001",
+      "resource": "https://stall-row-production.up.railway.app/v1/gas-oracle",
+      "route": "stall-row /v1/gas-oracle",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "5000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/grade-my-stall",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.005",
+      "resource": "https://stall-row-production.up.railway.app/v1/grade-my-stall",
+      "route": "stall-row /v1/grade-my-stall",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "10000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        }
+      },
+      "path": "/v1/guard",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.01",
+      "resource": "https://stall-row-production.up.railway.app/v1/guard",
+      "route": "stall-row /v1/guard",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "100000",
+      "cells": {
+        "cdp": {
+          "detail": "listed but field(s) differ: tags",
+          "diffs": [
+            {
+              "expected": [
+                "agents",
+                "catalog",
+                "changelog",
+                "index",
+                "monitoring",
+                "x402"
+              ],
+              "field": "tags",
+              "listed": [
+                "catalog",
+                "changelog",
+                "index",
+                "monitoring",
+                "x402"
+              ]
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/index/changes",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.1",
+      "resource": "https://stall-row-production.up.railway.app/v1/index/changes",
+      "route": "stall-row /v1/index/changes",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "50000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/job-scout",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.05",
+      "resource": "https://stall-row-production.up.railway.app/v1/job-scout",
+      "route": "stall-row /v1/job-scout",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "100000",
+      "cells": {
+        "cdp": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Ledger Dataset (summary) \u2014 per-origin rollup of the fleet's x402 observation ledger (Recheck history + held CDP snapshots + the committed patrol snapshot): routes, checks, change/recovery counts, patrol open defects and recoveries by class, last-seen times, provenance. Observation data only \u2014 no operator contacts. Use this when you want the town-wide state of the x402 catalogue before buying the full per-route pull.",
+              "field": "description",
+              "listed": "Ledger Dataset (summary) \u2014 per-origin rollup of the fleet's x402 observation ledger (Recheck history + held CDP catalogue snapshots): routes tracked, checks, change and recovery counts, derived defect classes, last-seen times, and full provenance (source counts, snapshot id). Observation data only \u2014 no operator contacts. Use this when you want the town-wide state of the x402 catalogue before buying the full per-route pull."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        },
+        "payai": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "settled": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Ledger Dataset (summary) \u2014 per-origin rollup of the fleet's x402 observation ledger (Recheck history + held CDP snapshots + the committed patrol snapshot): routes, checks, change/recovery counts, patrol open defects and recoveries by class, last-seen times, provenance. Observation data only \u2014 no operator contacts. Use this when you want the town-wide state of the x402 catalogue before buying the full per-route pull.",
+              "field": "description",
+              "listed": "Ledger Dataset (summary) \u2014 per-origin rollup of the fleet's x402 observation ledger (Recheck history + held CDP catalogue snapshots): routes tracked, checks, change and recovery counts, derived defect classes, last-seen times, and full provenance (source counts, snapshot id). Observation data only \u2014 no operator contacts. Use this when you want the town-wide state of the x402 catalogue before buying the full per-route pull."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "MISMATCH"
+        },
+        "x402scan": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        }
+      },
+      "path": "/v1/ledger-dataset",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.1",
+      "resource": "https://stall-row-production.up.railway.app/v1/ledger-dataset",
+      "route": "stall-row /v1/ledger-dataset",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "1000000",
+      "cells": {
+        "cdp": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Ledger Dataset (full) \u2014 every route in the fleet's x402 observation ledger: observed/listed terms, latest status, check/change/recovery counts, derived defect class, catalogue listing + usage counters, and its patrol block (open defect by class, first/last seen; or recovery + receipt id), plus the per-origin rollup and provenance. Sources: Recheck history, held CDP + patrol snapshots; observation data only. Use this when you need route-level state for monitoring, grading, or dataset work.",
+              "field": "description",
+              "listed": "Ledger Dataset (full) \u2014 every route in the fleet's x402 observation ledger with its current state: observed and listed terms, latest status, check/change/recovery counts, derived defect class, catalogue listing and usage counters, plus the per-origin rollup and full provenance. Built from the Recheck history and the CDP snapshots this service holds; observation data only. Use this when you need route-level state for monitoring, grading, or dataset work."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        },
+        "payai": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "settled": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Ledger Dataset (full) \u2014 every route in the fleet's x402 observation ledger: observed/listed terms, latest status, check/change/recovery counts, derived defect class, catalogue listing + usage counters, and its patrol block (open defect by class, first/last seen; or recovery + receipt id), plus the per-origin rollup and provenance. Sources: Recheck history, held CDP + patrol snapshots; observation data only. Use this when you need route-level state for monitoring, grading, or dataset work.",
+              "field": "description",
+              "listed": "Ledger Dataset (full) \u2014 every route in the fleet's x402 observation ledger with its current state: observed and listed terms, latest status, check/change/recovery counts, derived defect class, catalogue listing and usage counters, plus the per-origin rollup and full provenance. Built from the Recheck history and the CDP snapshots this service holds; observation data only. Use this when you need route-level state for monitoring, grading, or dataset work."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "MISMATCH"
+        },
+        "x402scan": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        }
+      },
+      "path": "/v1/ledger-dataset/full",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$1",
+      "resource": "https://stall-row-production.up.railway.app/v1/ledger-dataset/full",
+      "route": "stall-row /v1/ledger-dataset/full",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "750000",
+      "cells": {
+        "cdp": {
+          "detail": "listed but field(s) differ: tags",
+          "diffs": [
+            {
+              "expected": [
+                "agents",
+                "audit",
+                "bundle",
+                "fleet",
+                "verdict",
+                "x402"
+              ],
+              "field": "tags",
+              "listed": [
+                "agents",
+                "audit",
+                "bundle",
+                "verdict",
+                "x402"
+              ]
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/orchestrate",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.75",
+      "resource": "https://stall-row-production.up.railway.app/v1/orchestrate",
+      "route": "stall-row /v1/orchestrate",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "10000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/page-to-markdown",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.01",
+      "resource": "https://stall-row-production.up.railway.app/v1/page-to-markdown",
+      "route": "stall-row /v1/page-to-markdown",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "10000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "settled": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "x402scan": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        }
+      },
+      "path": "/v1/payto-pin/verify",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.01",
+      "resource": "https://stall-row-production.up.railway.app/v1/payto-pin/verify",
+      "route": "stall-row /v1/payto-pin/verify",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "50000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "settled": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "x402scan": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        }
+      },
+      "path": "/v1/physical",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.05",
+      "resource": "https://stall-row-production.up.railway.app/v1/physical",
+      "route": "stall-row /v1/physical",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "5000",
+      "cells": {
+        "cdp": {
+          "detail": "listed but field(s) differ: tags",
+          "diffs": [
+            {
+              "expected": [
+                "agents",
+                "payments",
+                "sanctions",
+                "security",
+                "verdict",
+                "x402"
+              ],
+              "field": "tags",
+              "listed": [
+                "payments",
+                "sanctions",
+                "security",
+                "verdict",
+                "x402"
+              ]
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/pre-trade-guard",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.005",
+      "resource": "https://stall-row-production.up.railway.app/v1/pre-trade-guard",
+      "route": "stall-row /v1/pre-trade-guard",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "50000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/price-check",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.05",
+      "resource": "https://stall-row-production.up.railway.app/v1/price-check",
+      "route": "stall-row /v1/price-check",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "2000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/receipt-verify",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.002",
+      "resource": "https://stall-row-production.up.railway.app/v1/receipt-verify",
+      "route": "stall-row /v1/receipt-verify",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "5000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/recheck",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.005",
+      "resource": "https://stall-row-production.up.railway.app/v1/recheck",
+      "route": "stall-row /v1/recheck",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "1000000",
+      "cells": {
+        "cdp": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Recheck watch pack \u2014 the default for monitoring loops: one $1.00 payment buys 250 change-checks for ONE endpoint ($0.004 per check instead of $0.005), good for 90 days. Returns an unguessable pack id \u2014 spend credits via POST /v1/recheck (body pack_id or X-Recheck-Pack header); read the balance free at POST /v1/recheck/pack-balance, and an exhausted pack returns 402 rather than charging per call. Use this when anything checks the same endpoint more than ~3 times a week.",
+              "field": "description",
+              "listed": "Recheck watch pack: one $1.00 payment buys 250 change-checks for ONE endpoint ($0.004 per check instead of $0.005), good for 90 days. Pack credits persist across redeploys on the service volume. Returns an unguessable pack id \u2014 spend credits via POST /v1/recheck (body pack_id or X-Recheck-Pack header), and read the balance free at POST /v1/recheck/pack-balance. Use this when a monitoring loop checks the same endpoint on a schedule and wants one payment instead of hundreds."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Recheck watch pack \u2014 the default for monitoring loops: one $1.00 payment buys 250 change-checks for ONE endpoint ($0.004 per check instead of $0.005), good for 90 days. Returns an unguessable pack id \u2014 spend credits via POST /v1/recheck (body pack_id or X-Recheck-Pack header); read the balance free at POST /v1/recheck/pack-balance, and an exhausted pack returns 402 rather than charging per call. Use this when anything checks the same endpoint more than ~3 times a week.",
+              "field": "description",
+              "listed": "Recheck watch pack: one $1.00 payment buys 250 change-checks for ONE endpoint ($0.004 per check instead of $0.005), good for 90 days. Pack credits persist across redeploys on the service volume. Returns an unguessable pack id \u2014 spend credits via POST /v1/recheck (body pack_id or X-Recheck-Pack header), and read the balance free at POST /v1/recheck/pack-balance. Use this when a monitoring loop checks the same endpoint on a schedule and wants one payment instead of hundreds."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "MISMATCH"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/recheck/pack",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$1",
+      "resource": "https://stall-row-production.up.railway.app/v1/recheck/pack",
+      "route": "stall-row /v1/recheck/pack",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "5000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/repo-vitals",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.005",
+      "resource": "https://stall-row-production.up.railway.app/v1/repo-vitals",
+      "route": "stall-row /v1/repo-vitals",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "10000",
+      "cells": {
+        "cdp": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Score Book \u2014 an x402 target's track record from our records: check history, prices/payTos carried, catalogue presence, and \u2014 for url/origin \u2014 patrol facts from the patrol snapshot (open defects by class, first/last seen; recoveries with receipt ids; snapshot provenance). Patrol is periodic \u2014 facts are as of the snapshot, never live; it holds no payTo data, so payTo patrol sections are empty. Unknown: found=false. Use this when judging a stall needs its history, not just its current sign.",
+              "field": "description",
+              "listed": "Score Book \u2014 one x402 resource's, origin's, or payTo's track record from this service's own stores: recorded check counts and outcomes, first/last seen, the distinct prices and payTos its live sign has carried (change counts), its current fingerprint, and its presence across the catalogue snapshots held. Nothing is probed or invented \u2014 a target outside our records answers found=false. Use this when judging a stall needs its history, not just its current sign."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        },
+        "payai": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "settled": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Score Book \u2014 an x402 target's track record from our records: check history, prices/payTos carried, catalogue presence, and \u2014 for url/origin \u2014 patrol facts from the patrol snapshot (open defects by class, first/last seen; recoveries with receipt ids; snapshot provenance). Patrol is periodic \u2014 facts are as of the snapshot, never live; it holds no payTo data, so payTo patrol sections are empty. Unknown: found=false. Use this when judging a stall needs its history, not just its current sign.",
+              "field": "description",
+              "listed": "Score Book \u2014 one x402 resource's, origin's, or payTo's track record from this service's own stores: recorded check counts and outcomes, first/last seen, the distinct prices and payTos its live sign has carried (change counts), its current fingerprint, and its presence across the catalogue snapshots held. Nothing is probed or invented \u2014 a target outside our records answers found=false. Use this when judging a stall needs its history, not just its current sign."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "MISMATCH"
+        },
+        "x402scan": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        }
+      },
+      "path": "/v1/score-book",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.01",
+      "resource": "https://stall-row-production.up.railway.app/v1/score-book",
+      "route": "stall-row /v1/score-book",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "10000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        }
+      },
+      "path": "/v1/sign-read",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.01",
+      "resource": "https://stall-row-production.up.railway.app/v1/sign-read",
+      "route": "stall-row /v1/sign-read",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "1000000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "settled": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        },
+        "x402scan": {
+          "detail": "absent from catalogue read (unexpected)",
+          "diffs": [
+            {
+              "field": "presence",
+              "kind": "unexpected"
+            }
+          ],
+          "fields_checked": [],
+          "status": "NOT-LISTED"
+        }
+      },
+      "path": "/v1/toolkit/pack",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$1",
+      "resource": "https://stall-row-production.up.railway.app/v1/toolkit/pack",
+      "route": "stall-row /v1/toolkit/pack",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "10000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/tube-search",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.01",
+      "resource": "https://stall-row-production.up.railway.app/v1/tube-search",
+      "route": "stall-row /v1/tube-search",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "2000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/tx-decoder",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.002",
+      "resource": "https://stall-row-production.up.railway.app/v1/tx-decoder",
+      "route": "stall-row /v1/tx-decoder",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "5000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/wallet-snapshot",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.005",
+      "resource": "https://stall-row-production.up.railway.app/v1/wallet-snapshot",
+      "route": "stall-row /v1/wallet-snapshot",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "20000",
+      "cells": {
+        "cdp": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "ECHO-OK"
+        },
+        "x402scan": {
+          "detail": "listed; exposed fields match (amount_units, description, pay_to, tags)",
+          "diffs": [],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "ECHO-OK"
+        }
+      },
+      "path": "/v1/wallet-verdict",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.02",
+      "resource": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+      "route": "stall-row /v1/wallet-verdict",
+      "stall": "stall-row"
+    },
+    {
+      "amount_units": "200000",
+      "cells": {
+        "cdp": {
+          "detail": "listed but field(s) differ: description, tags",
+          "diffs": [
+            {
+              "expected": "Screen 1-25 Base tokens in one flat-fee call: SOLID / CAUTION / DANGER verdicts with scores, riskiest first, plus summary counts; unfetchable tokens return UNKNOWN with a reason. Mode 'compact' returns verdict/score and counts only. Use this when screening tokens before trading. Screening the same feed on a schedule? Pair this with StallRow Recheck (stall-row-production.up.railway.app/v1/recheck) to watch the endpoints you depend on for price/payTo/schema changes between screens. Payable in USDC on Base or Solana.",
+              "field": "description",
+              "listed": "Screen up to 25 Base tokens in one flat-fee call: per-token SOLID / CAUTION / DANGER verdicts with scores and signals, sorted riskiest first, plus summary counts; tokens that cannot be fetched return UNKNOWN with a reason, and if most of the batch fails the call fails unsettled. Mode 'compact' returns per-token verdict and score plus the counts only. Use this when an agent holds a list of candidate tokens and needs the risky ones flagged before trading any of them."
+            },
+            {
+              "expected": [
+                "agents",
+                "batch",
+                "defi",
+                "risk",
+                "screening",
+                "tokens"
+              ],
+              "field": "tags",
+              "listed": [
+                "batch",
+                "defi",
+                "risk",
+                "screening",
+                "tokens"
+              ]
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Screen 1-25 Base tokens in one flat-fee call: SOLID / CAUTION / DANGER verdicts with scores, riskiest first, plus summary counts; unfetchable tokens return UNKNOWN with a reason. Mode 'compact' returns verdict/score and counts only. Use this when screening tokens before trading. Screening the same feed on a schedule? Pair this with StallRow Recheck (stall-row-production.up.railway.app/v1/recheck) to watch the endpoints you depend on for price/payTo/schema changes between screens. Payable in USDC on Base or Solana.",
+              "field": "description",
+              "listed": "Screen up to 25 Base tokens in one flat-fee call: per-token SOLID / CAUTION / DANGER verdicts with scores and signals, sorted riskiest first, plus summary counts; tokens that cannot be fetched return UNKNOWN with a reason, and if most of the batch fails the call fails unsettled. Mode 'compact' returns per-token verdict and score plus the counts only. Use this when an agent holds a list of candidate tokens and needs the risky ones flagged before trading any of them."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "MISMATCH"
+        },
+        "x402scan": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Screen 1-25 Base tokens in one flat-fee call: SOLID / CAUTION / DANGER verdicts with scores, riskiest first, plus summary counts; unfetchable tokens return UNKNOWN with a reason. Mode 'compact' returns verdict/score and counts only. Use this when screening tokens before trading. Screening the same feed on a schedule? Pair this with StallRow Recheck (stall-row-production.up.railway.app/v1/recheck) to watch the endpoints you depend on for price/payTo/schema changes between screens. Payable in USDC on Base or Solana.",
+              "field": "description",
+              "listed": "Screen up to 25 Base tokens in one flat-fee call: per-token SOLID / CAUTION / DANGER verdicts with scores and signals, sorted riskiest first, plus summary counts; tokens that cannot be fetched return UNKNOWN with a reason, and if most of the batch fails the call fails unsettled. Mode 'compact' returns per-token verdict and score plus the counts only. Use this when an agent holds a list of candidate tokens and needs the risky ones flagged before trading any of them. Payable in USDC on Base or Solana \u2014 same price on either rail."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        }
+      },
+      "path": "/v1/batch-verdict",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.20",
+      "resource": "https://token-verdict-production.up.railway.app/v1/batch-verdict",
+      "route": "token-verdict /v1/batch-verdict",
+      "stall": "token-verdict"
+    },
+    {
+      "amount_units": "50000",
+      "cells": {
+        "cdp": {
+          "detail": "listed but field(s) differ: description, tags",
+          "diffs": [
+            {
+              "expected": "Combined go/no-go before a trade: PROCEED / CAUTION / ABORT from the token's market verdict, the wallet's sanctions/age/poisoning check, and (with a spender) its ERC-20 approvals. Mode 'compact' returns the decision plus per-leg summaries. Use this when an agent is about to swap or pay and needs token + wallet + allowance risk in one call. Payable in USDC on Base or Solana.",
+              "field": "description",
+              "listed": "One combined go/no-go before an agent spends: PROCEED / CAUTION / ABORT from the token's market verdict, the counterparty wallet's sanctions, age and poisoning check, and \u2014 with a spender \u2014 its ERC-20 approvals. A leg that cannot be evaluated returns unknown and caps the verdict at CAUTION. Mode 'compact' returns the decision, the worst leg, and one summary per leg. Use this when an agent is about to swap, pay, or route funds and needs token + wallet risk in one call."
+            },
+            {
+              "expected": [
+                "agents",
+                "defi",
+                "pre-trade",
+                "risk",
+                "tokens",
+                "wallets"
+              ],
+              "field": "tags",
+              "listed": [
+                "defi",
+                "pre-trade",
+                "risk",
+                "tokens",
+                "wallets"
+              ]
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Combined go/no-go before a trade: PROCEED / CAUTION / ABORT from the token's market verdict, the wallet's sanctions/age/poisoning check, and (with a spender) its ERC-20 approvals. Mode 'compact' returns the decision plus per-leg summaries. Use this when an agent is about to swap or pay and needs token + wallet + allowance risk in one call. Payable in USDC on Base or Solana.",
+              "field": "description",
+              "listed": "One combined go/no-go before an agent spends: PROCEED / CAUTION / ABORT from the token's market verdict, the counterparty wallet's sanctions, age and poisoning check, and \u2014 with a spender \u2014 its ERC-20 approvals. A leg that cannot be evaluated returns unknown and caps the verdict at CAUTION. Mode 'compact' returns the decision, the worst leg, and one summary per leg. Use this when an agent is about to swap, pay, or route funds and needs token + wallet risk in one call."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "MISMATCH"
+        },
+        "x402scan": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Combined go/no-go before a trade: PROCEED / CAUTION / ABORT from the token's market verdict, the wallet's sanctions/age/poisoning check, and (with a spender) its ERC-20 approvals. Mode 'compact' returns the decision plus per-leg summaries. Use this when an agent is about to swap or pay and needs token + wallet + allowance risk in one call. Payable in USDC on Base or Solana.",
+              "field": "description",
+              "listed": "One combined go/no-go before an agent spends: PROCEED / CAUTION / ABORT from the token's market verdict, the counterparty wallet's sanctions, age and poisoning check, and \u2014 with a spender \u2014 its ERC-20 approvals. A leg that cannot be evaluated returns unknown and caps the verdict at CAUTION. Mode 'compact' returns the decision, the worst leg, and one summary per leg. Use this when an agent is about to swap, pay, or route funds and needs token + wallet risk in one call. Payable in USDC on Base or Solana \u2014 same price on either rail."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        }
+      },
+      "path": "/v1/pre-trade",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.05",
+      "resource": "https://token-verdict-production.up.railway.app/v1/pre-trade",
+      "route": "token-verdict /v1/pre-trade",
+      "stall": "token-verdict"
+    },
+    {
+      "amount_units": "20000",
+      "cells": {
+        "cdp": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Token risk verdict: SOLID / CAUTION / DANGER with score, six signals and a written take. Send a contract address. Use this when screening a token before buying, swapping, or routing funds into it.",
+              "field": "description",
+              "listed": "Send a token contract address, get a risk verdict. Returns SOLID / CAUTION / DANGER with a 0-100 score, six weighted market-structure signals (liquidity depth, volume churn, sell pressure, price action, trader breadth, pair age) and a written analyst take. Built for AI agents screening tokens before touching them. Use this when an agent is about to buy, swap, or route funds into a token and needs a fast risk screen first."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        },
+        "payai": {
+          "detail": "listed; exposed fields match (presence only)",
+          "diffs": [],
+          "fields_checked": [],
+          "status": "ECHO-OK"
+        },
+        "settled": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Token risk verdict: SOLID / CAUTION / DANGER with score, six signals and a written take. Send a contract address. Use this when screening a token before buying, swapping, or routing funds into it.",
+              "field": "description",
+              "listed": "Send a token contract address, get a risk verdict. Returns SOLID / CAUTION / DANGER with a 0-100 score, six weighted market-structure signals (liquidity depth, volume churn, sell pressure, price action, trader breadth, pair age) and a written analyst take. Built for AI agents screening tokens before touching them. Use this when an agent is about to buy, swap, or route funds into a token and needs a fast risk screen first. Payable in USDC on Base or Solana \u2014 same price on either rail."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to"
+          ],
+          "status": "MISMATCH"
+        },
+        "x402scan": {
+          "detail": "listed but field(s) differ: description",
+          "diffs": [
+            {
+              "expected": "Token risk verdict: SOLID / CAUTION / DANGER with score, six signals and a written take. Send a contract address. Use this when screening a token before buying, swapping, or routing funds into it.",
+              "field": "description",
+              "listed": "Send a token contract address, get a risk verdict. Returns SOLID / CAUTION / DANGER with a 0-100 score, six weighted market-structure signals (liquidity depth, volume churn, sell pressure, price action, trader breadth, pair age) and a written analyst take. Built for AI agents screening tokens before touching them. Use this when an agent is about to buy, swap, or route funds into a token and needs a fast risk screen first. Payable in USDC on Base or Solana \u2014 same price on either rail."
+            }
+          ],
+          "fields_checked": [
+            "amount_units",
+            "description",
+            "pay_to",
+            "tags"
+          ],
+          "status": "MISMATCH"
+        }
+      },
+      "path": "/v1/verdict",
+      "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "price": "$0.02",
+      "resource": "https://token-verdict-production.up.railway.app/v1/verdict",
+      "route": "token-verdict /v1/verdict",
+      "stall": "token-verdict"
+    }
+  ],
+  "sources": {
+    "cdp": {
+      "fields_exposed": [
+        "amount_units",
+        "pay_to",
+        "description",
+        "tags"
+      ],
+      "label": "CDP",
+      "status": "ok",
+      "total": 37
+    },
+    "payai": {
+      "fields_exposed": [
+        "amount_units (intermittent)",
+        "pay_to (intermittent)"
+      ],
+      "label": "PayAI",
+      "note": "listing-status carries no description/tags fields",
+      "status": "ok",
+      "unknown_count": 0
+    },
+    "settled": {
+      "fields_exposed": [
+        "amount_units",
+        "pay_to",
+        "description"
+      ],
+      "label": "Settled",
+      "note": "feed records expose no tags; peek-only rows are presence-verified without terms",
+      "status": "ok"
+    },
+    "x402scan": {
+      "fields_exposed": [
+        "amount_units",
+        "pay_to",
+        "description",
+        "tags"
+      ],
+      "label": "x402scan",
+      "note": "short metadata.description labels are display labels and are never compared; the nested resource object's full description is",
+      "pages": {
+        "list-smith": "HTTP 200",
+        "recipient": "HTTP 200",
+        "route-verdict": "HTTP 200",
+        "stall-row": "HTTP 200",
+        "token-verdict": "HTTP 200"
+      },
+      "status": "ok"
+    }
+  },
+  "title": "Verdict Row \u2014 Catalogue Echo",
+  "totals": {
+    "cdp": {
+      "echo_ok": 23,
+      "mismatch": 14,
+      "not_listed": 3,
+      "not_listed_by_design": 3,
+      "not_listed_unexpected": 0,
+      "total": 40,
+      "unreadable": 0
+    },
+    "payai": {
+      "echo_ok": 29,
+      "mismatch": 0,
+      "not_listed": 11,
+      "not_listed_by_design": 3,
+      "not_listed_unexpected": 8,
+      "total": 40,
+      "unreadable": 0
+    },
+    "settled": {
+      "echo_ok": 23,
+      "mismatch": 11,
+      "not_listed": 6,
+      "not_listed_by_design": 3,
+      "not_listed_unexpected": 3,
+      "total": 40,
+      "unreadable": 0
+    },
+    "x402scan": {
+      "echo_ok": 25,
+      "mismatch": 7,
+      "not_listed": 8,
+      "not_listed_by_design": 0,
+      "not_listed_unexpected": 8,
+      "total": 40,
+      "unreadable": 0
+    }
+  },
+  "truth_source": "route_registry.json (registry_compiler.py), generated from the five stalls' live discovery docs; registry generated_at 2026-10-31T23:47:07Z"
+}
