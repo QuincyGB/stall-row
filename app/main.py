@@ -3816,6 +3816,35 @@ async def stability_manifest_document():
         return JSONResponse({"detail": "Not Found"}, status_code=404)
     return Response(content=payload, media_type="application/json")
 
+@app.get("/.well-known/verdict-row.json")
+async def verdict_row_bundle_document():
+    # The Fleet Discovery Bundle, served VERBATIM as committed at
+    # app/data/verdict-row.json (generated + signed VM-side by the
+    # fleet's discovery_bundle.py from route_registry.json). Absent
+    # file -> 404, never fabricated.
+    path = os.path.join(os.path.dirname(__file__), "data", "verdict-row.json")
+    try:
+        with open(path, "rb") as f:
+            payload = f.read()
+    except OSError:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    return Response(content=payload, media_type="application/json")
+
+
+@app.get("/.well-known/a2a-agent-card.json")
+async def a2a_agent_card_document():
+    # The registry-generated A2A dialect card, served VERBATIM as
+    # committed at app/data/a2a-agent-card.json (generated VM-side by
+    # discovery_bundle.py). The existing /.well-known/agent-card.json
+    # is untouched. Absent file -> 404, never fabricated.
+    path = os.path.join(os.path.dirname(__file__), "data", "a2a-agent-card.json")
+    try:
+        with open(path, "rb") as f:
+            payload = f.read()
+    except OSError:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    return Response(content=payload, media_type="application/json")
+
 @app.get("/.well-known/gradeability-report.json")
 async def gradeability_report_document():
     # The Gradeability Self-Test Report, served VERBATIM as committed
