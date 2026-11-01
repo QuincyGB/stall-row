@@ -8,13 +8,24 @@ claimed that the service does not have. The HTTP surface is a free
 200 JSON document.
 """
 
+import json
 import os
 
 from fastapi.testclient import TestClient
 
 import app.main as main
 from app.config import PRICE_UNITS, load_settings
-from app.discovery import agent_card, x402_manifest
+from app.discovery import ROUTES, agent_card, x402_manifest
+
+EMPTY_BODY_PATHS = [
+    "/v1/gas-oracle",
+    "/v1/flagged-paytos",
+    "/v1/fleet-pass",
+    "/v1/fleet-pass-20",
+    "/v1/toolkit/pack",
+    "/v1/ledger-dataset",
+    "/v1/ledger-dataset/full",
+]
 
 
 def _card():
@@ -52,6 +63,21 @@ def test_card_skills_mirror_priced_routes():
         # The amount a verifier compares against the live challenge.
         assert entry["amount"] == str(base_accept["amount"])
         assert base_accept["payTo"] == settings.pay_to
+
+
+def test_card_empty_body_skills_carry_explicit_empty_example():
+    card, _settings = _card()
+    by_id = {s["id"]: s for s in card["skills"]}
+    for path in EMPTY_BODY_PATHS:
+        assert ROUTES[path]["input_example"] == {}, path
+        skill_id = path.strip("/").replace("/", "-")
+        # Same shape as every other skill: one JSON-string example,
+        # here the explicit empty body "{}" instead of an empty list.
+        assert by_id[skill_id]["examples"] == [json.dumps({})], path
+        assert by_id[skill_id]["examples"] == ["{}"], path
+    # No skill is left with an empty examples list.
+    for skill in card["skills"]:
+        assert skill["examples"], skill["id"]
 
 
 def test_card_http_surface_is_free_json():

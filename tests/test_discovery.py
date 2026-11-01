@@ -151,7 +151,14 @@ def test_manifest_lists_all_thirty_three_with_matching_accepts():
         assert a["payTo"] == OWNER
         assert a["network"] == "eip155:8453"
         assert len(r["description"]) < 500
-        assert r["outputSchema"] == ROUTES[path]["output_schema"]
+        assert r["outputSchema"] == {
+            **ROUTES[path]["output_schema"],
+            "example": ROUTES[path]["output_example"],
+        }
+        assert r["inputSchema"] == {
+            **ROUTES[path]["input_schema"],
+            "example": ROUTES[path]["input_example"],
+        }
 
 
 def test_live_manifest_endpoint_matches():
@@ -159,6 +166,32 @@ def test_live_manifest_endpoint_matches():
     body = client.get("/.well-known/x402").json()
     assert body["service"] == "stall-row"
     assert len([r for r in body["resources"] if r["method"] == "POST"]) == 33
+
+
+def test_manifest_embeds_worked_examples_for_every_priced_route():
+    manifest = x402_manifest(main.settings, "https://stall-row.example.com")
+    paid = [r for r in manifest["resources"] if r["method"] == "POST"]
+    assert len(paid) == 33
+    for r in paid:
+        path = r["resource"].removeprefix("https://stall-row.example.com")
+        assert "example" in r["inputSchema"], path
+        assert "example" in r["outputSchema"], path
+        assert r["inputSchema"]["example"] == ROUTES[path]["input_example"], path
+        assert r["outputSchema"]["example"] == ROUTES[path]["output_example"], path
+        # Embedding must not mutate the canonical ROUTES schemas.
+        assert "example" not in ROUTES[path]["input_schema"], path
+        assert "example" not in ROUTES[path]["output_schema"], path
+
+
+def test_live_manifest_embeds_worked_examples_for_every_priced_route():
+    client = TestClient(main.app, raise_server_exceptions=False)
+    body = client.get("/.well-known/x402").json()
+    paid = [r for r in body["resources"] if r["method"] == "POST"]
+    assert len(paid) == 33
+    for r in paid:
+        path = r["resource"][r["resource"].index("/v1/") :]
+        assert r["inputSchema"]["example"] == ROUTES[path]["input_example"], path
+        assert r["outputSchema"]["example"] == ROUTES[path]["output_example"], path
 
 
 def test_pack_output_example_fits_settled_sample_cap():

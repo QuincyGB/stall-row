@@ -2154,8 +2154,8 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
                 "description": r["description"],
                 "tags": r["tags"],
                 "accepts": accepts(path),
-                "inputSchema": r["input_schema"],
-                "outputSchema": r["output_schema"],
+                "inputSchema": {**r["input_schema"], "example": r["input_example"]},
+                "outputSchema": {**r["output_schema"], "example": r["output_example"]},
             }
         )
     resources.append(
@@ -2298,7 +2298,7 @@ def agent_card(settings: Settings, base_url: str) -> dict:
                 "tags": r.get("tags") or [],
                 "examples": (
                     [json.dumps(ROUTES[path]["input_example"])]
-                    if path in ROUTES and ROUTES[path].get("input_example")
+                    if path in ROUTES and "input_example" in ROUTES[path]
                     else []
                 ),
                 "inputModes": ["application/json"],
