@@ -3958,6 +3958,21 @@ async def llms(request: Request):
     return llms_txt(settings, _public_base(request))
 
 
+@app.get("/llms-full.txt", response_class=PlainTextResponse)
+async def llms_full_document():
+    # llms-full.txt, served VERBATIM as committed at
+    # app/data/llms-full.txt (generated VM-side by the fleet's
+    # llms_full.py from route_registry.json + this stall's served
+    # discovery/OpenAPI). Absent file -> 404, never fabricated.
+    path = os.path.join(os.path.dirname(__file__), "data", "llms-full.txt")
+    try:
+        with open(path, "rb") as f:
+            payload = f.read()
+    except OSError:
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
+    return PlainTextResponse(payload.decode("utf-8"))
+
+
 @app.get("/samples")
 async def samples_index_route():
     """Free: index of this stall's sample responses (one per priced

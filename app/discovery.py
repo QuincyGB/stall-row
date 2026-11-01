@@ -2261,6 +2261,7 @@ def gradeability_extension(base_url: str) -> dict:
 # unchanged) for readers that look for an explicitly-named A2A card.
 VERDICT_ROW_BUNDLE_PATH = "/.well-known/verdict-row.json"
 A2A_AGENT_CARD_PATH = "/.well-known/a2a-agent-card.json"
+LLMS_FULL_PATH = "/llms-full.txt"
 
 
 def verdict_row_extension(base_url: str) -> dict:
@@ -2481,6 +2482,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `GET {base_url}/.well-known/gradeability-report.json` — Gradeability Self-Test Report (latest self-test: listed price vs live 402 per priced route, challenge parse, spec checks, standing-checker result; signed, free)",
         f"- `GET {base_url}/.well-known/verdict-row.json` — Verdict Row Fleet Discovery Bundle (signed index of all five stalls: discovery docs, stability manifests, agent cards, gradeability reports, MCP server.json, fleet tools/status and feeds; one fetch walks the whole row, free)",
         f"- `GET {base_url}/.well-known/a2a-agent-card.json` — A2A agent card (registry-generated dialect twin of /.well-known/agent-card.json: skills mirror the priced routes at their registry prices, free)",
+        f"- `GET {base_url}/llms-full.txt` — llms-full.txt, the long-form companion to llms.txt (full route docs with worked request/response examples, pack mechanics, Recheck feed + hash-chain spec, watch/corrections policy; generated from the fleet route registry, free)",
         f"- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp — manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json — tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
         "- Inspector Quickstart Pack (curl / Python / TypeScript): https://stall-row-production.up.railway.app/quickstart/curl · https://stall-row-production.up.railway.app/quickstart/python · https://stall-row-production.up.railway.app/quickstart/typescript — one-page integration path: pin Recheck + RouteVerdict, read the feed, register a watch, fund a pack",
         "- Verdict Row Public Changelog: https://stall-row-production.up.railway.app/changelog.atom — subscribable Atom feed of fleet route / price / stability-manifest changes (JSON twin: https://stall-row-production.up.railway.app/changelog.json)",
@@ -2553,6 +2555,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/.well-known/gradeability-report.json — Gradeability Self-Test Report (latest self-test: listed vs live 402 per priced route; signed, free)",
         f"- GET {base_url}/.well-known/verdict-row.json — Verdict Row Fleet Discovery Bundle (signed index of all five stalls: discovery docs, stability manifests, agent cards, gradeability reports, MCP server.json, fleet tools/status and feeds; one fetch walks the whole row, free)",
         f"- GET {base_url}/.well-known/a2a-agent-card.json — A2A agent card (registry-generated dialect twin of /.well-known/agent-card.json: skills mirror the priced routes at their registry prices, free)",
+        f"- GET {base_url}/llms-full.txt — llms-full.txt, the long-form companion to llms.txt (full route docs with worked request/response examples, pack mechanics, Recheck feed + hash-chain spec, watch/corrections policy; generated from the fleet route registry, free)",
         f"- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp — manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json — tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
         "- Inspector Quickstart Pack (curl / Python / TypeScript): https://stall-row-production.up.railway.app/quickstart/curl · https://stall-row-production.up.railway.app/quickstart/python · https://stall-row-production.up.railway.app/quickstart/typescript — one-page integration path: pin Recheck + RouteVerdict, read the feed, register a watch, fund a pack",
         "- Verdict Row Public Changelog: https://stall-row-production.up.railway.app/changelog.atom — subscribable Atom feed of fleet route / price / stability-manifest changes (JSON twin: https://stall-row-production.up.railway.app/changelog.json)",
