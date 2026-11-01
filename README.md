@@ -1,6 +1,6 @@
 # StallRow — a row of x402 micro-services in one deployment
 
-Thirteen small paid endpoints under one roof, one facilitator
+Thirty-three small paid endpoints under one roof, one facilitator
 configuration, one Railway service. The strategy is a portfolio: many
 real stalls, each independently priced, listed, and settled, expecting
 one or two to hit — instead of betting the season on a single route.
@@ -207,3 +207,22 @@ CDP Bazaar; for PayAI, StallRow's facilitator must first be flipped
 to PayAI for that one call and flipped back, as was done for
 allowance-audit). Until then the route sells nothing and appears in
 no catalog — it is reachable only by direct URL.
+
+## Fleet & discovery links
+
+One of five Verdict Row stalls — 40 priced routes fleet-wide, one
+payTo (`0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F`), contact
+patrol@verdictrow.com (Ren, Verdict Row Patrol).
+
+- **Inspector Quickstart Pack** (hosted here):
+  [curl](https://stall-row-production.up.railway.app/quickstart/curl) ·
+  [Python](https://stall-row-production.up.railway.app/quickstart/python) ·
+  [TypeScript](https://stall-row-production.up.railway.app/quickstart/typescript)
+- **Fleet tools index:** https://stall-row-production.up.railway.app/tools
+  (machine-readable: https://stall-row-production.up.railway.app/tools.json)
+- **This stall's MCP server:** [stall-row-mcp](https://github.com/QuincyGB/stall-row-mcp) —
+  manifest (server.json):
+  https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json (stdio)
+- **Discovery bundle (fleet):** https://stall-row-production.up.railway.app/.well-known/verdict-row.json
+- **A2A agent card:** https://stall-row-production.up.railway.app/.well-known/a2a-agent-card.json
+- **Full agent docs:** https://stall-row-production.up.railway.app/llms-full.txt (index: https://stall-row-production.up.railway.app/llms.txt)
