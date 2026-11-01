@@ -468,26 +468,6 @@ async def _body_cap(request: Request, call_next):
     return await call_next(request)
 
 
-# TEMPORARY (2026-11-01): nohumans.directory listing-claim proof.
-# Serves each listing's one-time claim token as a response header on
-# its endpoint so the directory can verify control of the origin.
-# Removed in a follow-up commit once the claims complete.
-_NOHUMANS_CLAIM_TOKENS = {
-    "/v1/gas-oracle": "cf8983a5f45ac64cec10100eb84cf0f06114d0c8c326d20c",
-    "/v1/recheck": "259918619b28cce57c41d487380445a0c35c5830ccdef4ff",
-    "/v1/repo-vitals": "64606e5e9f4bd23ce4e6f899833a0760e3d917b282431355",
-}
-
-
-@app.middleware("http")
-async def _nohumans_claim_header(request: Request, call_next):
-    response = await call_next(request)
-    token = _NOHUMANS_CLAIM_TOKENS.get(request.url.path)
-    if token:
-        response.headers["x-nohumans-claim"] = token
-    return response
-
-
 # CORS for exactly two surfaces, both GitHub Pages: the public
 # one-link checker page calls POST /v1/probe cross-origin, and the
 # stall claim page calls /v1/claim/* cross-origin. The allowance is
