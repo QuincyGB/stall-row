@@ -19,22 +19,34 @@ responses and the unpaid 402 challenge never carry it.
 
 from __future__ import annotations
 
+import os
+
 from ..config import PRICE_UNITS
 from . import fleetpass as fleetpass_svc
 from . import recheck as recheck_svc
 
 LOOP_KEY = "verdict_row_loop"
 
+# This stall's canonical public origin — the same URL its committed
+# discovery/status files publish. Deliberately NOT derived from the
+# incoming request: a paid delivery's request has passed through
+# payment-middleware dispatch, and its base URL is not guaranteed to
+# be the public origin (observed live 2026-11-01: a settled
+# delivery's request base arrived as "testserver"). An env override
+# exists for staging, mirroring the fleet's other URL knobs.
+CANONICAL_BASE = os.environ.get(
+    "STALLROW_PUBLIC_BASE", "https://stall-row-production.up.railway.app"
+).rstrip("/")
+
 
 def _usd(units: int) -> float:
     return units / 1_000_000
 
 
-def loop_offer(base_url: str) -> dict:
-    """The loop block for a delivery served from ``base_url`` (this
-    stall's public origin). All repeat products named here live on
-    StallRow itself."""
-    base = base_url.rstrip("/")
+def loop_offer() -> dict:
+    """The loop block for a StallRow delivery. All repeat products
+    named here live on StallRow itself."""
+    base = CANONICAL_BASE
     single_units = PRICE_UNITS["/v1/recheck"]
     single_usd = _usd(single_units)
     pack_units = recheck_svc.PACK_PRICE_UNITS
@@ -142,10 +154,10 @@ def loop_offer(base_url: str) -> dict:
     }
 
 
-def attach_loop_offer(result, base_url: str):
+def attach_loop_offer(result):
     """Add the loop block to a successful delivery dict. Anything
     that is not a dict (error JSONResponses) passes through
     untouched, so failures never carry the offer."""
     if isinstance(result, dict):
-        result[LOOP_KEY] = loop_offer(base_url)
+        result[LOOP_KEY] = loop_offer()
     return result

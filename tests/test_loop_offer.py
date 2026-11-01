@@ -29,7 +29,7 @@ def _offers_by_id(block):
 
 
 def test_block_terms_match_the_enforcing_constants():
-    block = loop_offer.loop_offer(BASE)
+    block = loop_offer.loop_offer()
     offers = _offers_by_id(block)
 
     pack = offers["recheck_pack"]
@@ -63,12 +63,13 @@ def test_block_terms_match_the_enforcing_constants():
     assert feed["method"] == "GET"
     assert feed["price_usd"] == 0
 
-    assert block["discovery"] == f"{BASE}/.well-known/verdict-row.json"
+    assert block["discovery"] == f"{loop_offer.CANONICAL_BASE}/.well-known/verdict-row.json"
+    assert block["discovery"].startswith("https://stall-row-production.up.railway.app")
 
 
 def test_attach_passes_non_dicts_through():
     sentinel = object()
-    assert loop_offer.attach_loop_offer(sentinel, BASE) is sentinel
+    assert loop_offer.attach_loop_offer(sentinel) is sentinel
 
 
 def _http_env(monkeypatch, tmp_path):

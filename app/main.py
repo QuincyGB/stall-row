@@ -1595,7 +1595,7 @@ async def recheck(req: RecheckRequest, request: Request):
                 _fetch_client(), _recheck_store, req.url, req.watch_id,
                 pack_id, index_store=_index_store,
             )
-            return loop_offer_svc.attach_loop_offer(result, _public_base(request))
+            return loop_offer_svc.attach_loop_offer(result)
         except recheck_svc.PackError as e:
             return JSONResponse(
                 {"error": e.message, "code": e.code, "pack_id": pack_id},
@@ -1616,7 +1616,7 @@ async def recheck(req: RecheckRequest, request: Request):
         )
 
     result = await _run(go)
-    return loop_offer_svc.attach_loop_offer(result, _public_base(request))
+    return loop_offer_svc.attach_loop_offer(result)
 
 
 @app.post("/v1/recheck/batch")
