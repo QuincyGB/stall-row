@@ -155,6 +155,7 @@ from .services import pretrade as pretrade_svc
 from .services import probe as probe_svc
 from .services import reads as reads_svc
 from .services import fingerprint_spec as fingerprint_spec_svc
+from .services import loop_offer as loop_offer_svc
 from .services import recheck as recheck_svc
 from .services import recheck_batch as recheck_batch_svc
 from .services import signread as signread_svc
@@ -1590,10 +1591,11 @@ async def recheck(req: RecheckRequest, request: Request):
     pack_id = (req.pack_id or request.headers.get(PACK_HEADER) or "").strip()
     if pack_id:
         try:
-            return await recheck_svc.recheck_with_pack(
+            result = await recheck_svc.recheck_with_pack(
                 _fetch_client(), _recheck_store, req.url, req.watch_id,
                 pack_id, index_store=_index_store,
             )
+            return loop_offer_svc.attach_loop_offer(result, _public_base(request))
         except recheck_svc.PackError as e:
             return JSONResponse(
                 {"error": e.message, "code": e.code, "pack_id": pack_id},
@@ -1613,7 +1615,8 @@ async def recheck(req: RecheckRequest, request: Request):
             index_store=_index_store,
         )
 
-    return await _run(go)
+    result = await _run(go)
+    return loop_offer_svc.attach_loop_offer(result, _public_base(request))
 
 
 @app.post("/v1/recheck/batch")
