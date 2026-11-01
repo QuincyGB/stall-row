@@ -132,6 +132,7 @@ from .config import PRICE_UNITS, SOLANA_ACCEPT_PATHS, load_settings
 from .solana_rail import SvmReplayGuard, make_after_settle_hook, make_before_verify_hook
 from .discovery import OWNERSHIP_PROOFS, ROUTES, agent_card, llms_txt, route_extension, skill_md, x402_manifest
 from . import samples as samples_svc
+from .openapi_examples import add_worked_examples
 from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import agentcard as agentcard_svc
 from .services import claims as claims_svc
@@ -279,6 +280,7 @@ def _openapi_with_ownership_proofs():
     if app.openapi_schema:
         return app.openapi_schema
     schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
+    add_worked_examples(schema)
     schema["x-discovery"] = {"ownershipProofs": OWNERSHIP_PROOFS}
     schema["x-agentcash-provenance"] = {"ownershipProofs": OWNERSHIP_PROOFS}
     app.openapi_schema = schema
