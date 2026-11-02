@@ -1,6 +1,6 @@
 {
   "contact": "patrol@verdictrow.com",
-  "generated_at": "2026-10-31T19:09:49Z",
+  "generated_at": "2026-11-02T14:27:05Z",
   "generated_by": "Ren, Verdict Row Patrol \u2014 patrol@verdictrow.com",
   "host": {
     "html": "https://stall-row-production.up.railway.app/tools",
@@ -37,6 +37,18 @@
         {
           "label": "GET https://stall-row-production.up.railway.app/.well-known/gradeability-report.json \u2014 Gradeability Self-Test Report (latest self-test: listed vs live 402 per priced route; signed, free)",
           "url": "https://stall-row-production.up.railway.app/.well-known/gradeability-report.json"
+        },
+        {
+          "label": "GET https://stall-row-production.up.railway.app/.well-known/verdict-row.json \u2014 Verdict Row Fleet Discovery Bundle (signed index of all five stalls: discovery docs, stability manifests, agent cards, gradeability reports, MCP server.json, fleet tools/status and feeds; one fetch walks the whole row, free)",
+          "url": "https://stall-row-production.up.railway.app/.well-known/verdict-row.json"
+        },
+        {
+          "label": "GET https://stall-row-production.up.railway.app/.well-known/a2a-agent-card.json \u2014 A2A agent card (registry-generated dialect twin of /.well-known/agent-card.json: skills mirror the priced routes at their registry prices, free)",
+          "url": "https://stall-row-production.up.railway.app/.well-known/a2a-agent-card.json"
+        },
+        {
+          "label": "GET https://stall-row-production.up.railway.app/llms-full.txt \u2014 llms-full.txt, the long-form companion to llms.txt (full route docs with worked request/response examples, pack mechanics, Recheck feed + hash-chain spec, watch/corrections policy; generated from the fleet route registry, free)",
+          "url": "https://stall-row-production.up.railway.app/llms-full.txt"
         },
         {
           "label": "MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp \u2014 manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json \u2014 tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
@@ -665,6 +677,18 @@
           "url": "https://route-verdict-production.up.railway.app/.well-known/gradeability-report.json"
         },
         {
+          "label": "GET https://route-verdict-production.up.railway.app/.well-known/verdict-row.json \u2014 Verdict Row Fleet Discovery Bundle (signed index of all five stalls: discovery docs, stability manifests, agent cards, gradeability reports, MCP server.json, fleet tools/status and feeds; one fetch walks the whole row, free)",
+          "url": "https://route-verdict-production.up.railway.app/.well-known/verdict-row.json"
+        },
+        {
+          "label": "GET https://route-verdict-production.up.railway.app/.well-known/a2a-agent-card.json \u2014 A2A agent card (registry-generated dialect twin of /.well-known/agent-card.json: skills mirror the priced routes at their registry prices, free)",
+          "url": "https://route-verdict-production.up.railway.app/.well-known/a2a-agent-card.json"
+        },
+        {
+          "label": "GET https://route-verdict-production.up.railway.app/llms-full.txt \u2014 llms-full.txt, the long-form companion to llms.txt (full route docs with worked request/response examples, pack mechanics, Recheck feed + hash-chain spec, watch/corrections policy; generated from the fleet route registry, free)",
+          "url": "https://route-verdict-production.up.railway.app/llms-full.txt"
+        },
+        {
           "label": "Free samples: `GET https://route-verdict-production.up.railway.app/samples` \u2014 one sample response per priced route on this stall (recorded responses and schema-examples, labelled in-band: sample=true, live=false); `GET https://route-verdict-production.up.railway.app/sample/<route-slug>` for a single route",
           "url": "https://route-verdict-production.up.railway.app/samples`"
         }
@@ -735,6 +759,18 @@
         {
           "label": "GET https://token-verdict-production.up.railway.app/.well-known/gradeability-report.json \u2014 Gradeability Self-Test Report (latest self-test: listed vs live 402 per priced route; signed, free)",
           "url": "https://token-verdict-production.up.railway.app/.well-known/gradeability-report.json"
+        },
+        {
+          "label": "GET https://token-verdict-production.up.railway.app/.well-known/verdict-row.json \u2014 Verdict Row Fleet Discovery Bundle (signed index of all five stalls: discovery docs, stability manifests, agent cards, gradeability reports, MCP server.json, fleet tools/status and feeds; one fetch walks the whole row, free)",
+          "url": "https://token-verdict-production.up.railway.app/.well-known/verdict-row.json"
+        },
+        {
+          "label": "GET https://token-verdict-production.up.railway.app/.well-known/a2a-agent-card.json \u2014 A2A agent card (registry-generated dialect twin of /.well-known/agent-card.json: skills mirror the priced routes at their registry prices, free)",
+          "url": "https://token-verdict-production.up.railway.app/.well-known/a2a-agent-card.json"
+        },
+        {
+          "label": "GET https://token-verdict-production.up.railway.app/llms-full.txt \u2014 llms-full.txt, the long-form companion to llms.txt (full route docs with worked request/response examples, pack mechanics, Recheck feed + hash-chain spec, watch/corrections policy; generated from the fleet route registry, free)",
+          "url": "https://token-verdict-production.up.railway.app/llms-full.txt"
         },
         {
           "label": "Free samples: `GET https://token-verdict-production.up.railway.app/samples` \u2014 one sample response per priced route on this stall (recorded responses and schema-examples, labelled in-band: sample=true, live=false); `GET https://token-verdict-production.up.railway.app/sample/<route-slug>` for a single route",
@@ -860,6 +896,18 @@
           "url": "https://list-smith-production.up.railway.app/.well-known/gradeability-report.json"
         },
         {
+          "label": "GET https://list-smith-production.up.railway.app/.well-known/verdict-row.json \u2014 Verdict Row Fleet Discovery Bundle (signed index of all five stalls: discovery docs, stability manifests, agent cards, gradeability reports, MCP server.json, fleet tools/status and feeds; one fetch walks the whole row, free)",
+          "url": "https://list-smith-production.up.railway.app/.well-known/verdict-row.json"
+        },
+        {
+          "label": "GET https://list-smith-production.up.railway.app/.well-known/a2a-agent-card.json \u2014 A2A agent card (registry-generated dialect twin of /.well-known/agent-card.json: skills mirror the priced routes at their registry prices, free)",
+          "url": "https://list-smith-production.up.railway.app/.well-known/a2a-agent-card.json"
+        },
+        {
+          "label": "GET https://list-smith-production.up.railway.app/llms-full.txt \u2014 llms-full.txt, the long-form companion to llms.txt (full route docs with worked request/response examples, pack mechanics, Recheck feed + hash-chain spec, watch/corrections policy; generated from the fleet route registry, free)",
+          "url": "https://list-smith-production.up.railway.app/llms-full.txt"
+        },
+        {
           "label": "Free samples: `GET https://list-smith-production.up.railway.app/samples` \u2014 one sample response per priced route on this stall (recorded responses and schema-examples, labelled in-band: sample=true, live=false); `GET https://list-smith-production.up.railway.app/sample/<route-slug>` for a single route",
           "url": "https://list-smith-production.up.railway.app/samples`"
         }
@@ -941,6 +989,18 @@
         {
           "label": "GET https://lock-smith-production.up.railway.app/.well-known/gradeability-report.json \u2014 Gradeability Self-Test Report (latest self-test: listed vs live 402 per priced route; signed, free)",
           "url": "https://lock-smith-production.up.railway.app/.well-known/gradeability-report.json"
+        },
+        {
+          "label": "GET https://lock-smith-production.up.railway.app/.well-known/verdict-row.json \u2014 Verdict Row Fleet Discovery Bundle (signed index of all five stalls: discovery docs, stability manifests, agent cards, gradeability reports, MCP server.json, fleet tools/status and feeds; one fetch walks the whole row, free)",
+          "url": "https://lock-smith-production.up.railway.app/.well-known/verdict-row.json"
+        },
+        {
+          "label": "GET https://lock-smith-production.up.railway.app/.well-known/a2a-agent-card.json \u2014 A2A agent card (registry-generated dialect twin of /.well-known/agent-card.json: skills mirror the priced routes at their registry prices, free)",
+          "url": "https://lock-smith-production.up.railway.app/.well-known/a2a-agent-card.json"
+        },
+        {
+          "label": "GET https://lock-smith-production.up.railway.app/llms-full.txt \u2014 llms-full.txt, the long-form companion to llms.txt (full route docs with worked request/response examples, pack mechanics, Recheck feed + hash-chain spec, watch/corrections policy; generated from the fleet route registry, free)",
+          "url": "https://lock-smith-production.up.railway.app/llms-full.txt"
         },
         {
           "label": "Free samples: `GET https://lock-smith-production.up.railway.app/samples` \u2014 one sample response per priced route on this stall (recorded responses and schema-examples, labelled in-band: sample=true, live=false); `GET https://lock-smith-production.up.railway.app/sample/<route-slug>` for a single route",
