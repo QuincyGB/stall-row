@@ -48,6 +48,30 @@ Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt,
              register a signed callback for Recheck CHANGED events,
              managed by the caller's own secret — see
              services/hooksubs.py)
+        POST /v1/heartbeat/{register,status,run,pause,resume,cancel}
+             (Heartbeat Watch, Next-20 #9: liveness-only standing
+             watch over a resource SET, unpaid knocks at $0.001 per
+             knock from a pack/pass, transition-only alerts — see
+             services/heartbeat.py)
+        POST /v1/defect-watch/{register,status,run,pause,resume,
+             cancel} (Watch by Defect Class, Next-20 #10: subscribe
+             to a defect class market-wide, $0.005 per confirmed
+             event from a pack/pass — see services/defectwatch.py)
+        POST /v1/portfolio-watch/{register,status,run,pause,
+             resume,cancel} (Portfolio Watch, Next-20 #11: one
+             registration per operator family, expanded from the
+             Index at registration and on every evaluation — see
+             services/portfoliowatch.py)
+        POST /v1/stall-watch/{register,evaluate,pause,resume,
+             cancel}, GET /v1/stall-watch/status (Stall Watch,
+             Next-20 #12: claim-verified owner watch composing
+             claim + $1 pack + Standing Watch + signed recovery
+             receipts — see services/stallwatch.py)
+        POST /v1/watch/digest/flush, /v1/watch/digest/pending
+             (Alert Digest Mode, Next-20 #20: registrations with
+             delivery_mode=digest accumulate events and receive ONE
+             batched delivery per hourly/daily interval — see
+             services/digest.py)
         GET  /v1/recheck/fingerprint-spec (the fingerprint spec +
              test vectors, exactly as implemented — see
              services/fingerprint_spec.py)
@@ -176,6 +200,12 @@ from .services import rotalerts as rotalerts_svc
 from .services import sandbox as sandbox_svc
 from .services import timeline as timeline_svc
 from .services import watch as watch_svc
+from .services import heartbeat as heartbeat_svc
+from .services import defectwatch as defectwatch_svc
+from .services import portfoliowatch as portfoliowatch_svc
+from .services import stallwatch as stallwatch_svc
+from .services import digest as digest_svc
+from .services import watchfund as watchfund_svc
 from .services import hooksubs as hooksubs_svc
 from .services import scout as scout_svc
 from .services import seller as seller_svc
@@ -752,6 +782,19 @@ def _payment_key(request: Request) -> str | None:
     return None
 
 
+def _payer_of(request: Request, body_value=None) -> str | None:
+    """Item 5 rider: the payer identity a deep link pre-bound to
+    this call — the `payer` body field when the surface has one,
+    else the ?payer= query parameter. Recorded as payer_hint on the
+    minted pack/pass or the registration so the loop memory can
+    bind the credential to the wallet on its next delivery.
+    Additive only: absence changes nothing."""
+    hint = watchfund_svc.normalize_payer_hint(body_value)
+    if hint is None:
+        hint = watchfund_svc.normalize_payer_hint(request.query_params.get("payer"))
+    return hint
+
+
 def _clients() -> tuple[httpx.AsyncClient, Rpc, Blockscout]:
     client = httpx.AsyncClient(timeout=settings.fetch_timeout_s, follow_redirects=True)
     return client, Rpc(client, settings.rpc_url), Blockscout(client, settings.blockscout_base_url)
@@ -953,6 +996,7 @@ class OrchestrateRequest(BaseModel):
 
 class RecheckPackBuyRequest(BaseModel):
     url: str = Field(description="The ONE endpoint URL this pack's credits may check")
+    payer: str | None = Field(default=None, description="Item 5 rider: payer identity pre-bound by a ?payer= deep link (or this field); recorded as the pack's payer_hint")
 
 
 class RecheckPackBalanceRequest(BaseModel):
@@ -1892,7 +1936,9 @@ async def recheck_pack_buy(req: RecheckPackBuyRequest, request: Request):
             {"error": "payment identity unavailable; pack cannot be minted safely"},
             status_code=502,
         )
-    pack, created = _recheck_store.mint_pack(payment_key, url)
+    pack, created = _recheck_store.mint_pack(
+        payment_key, url, payer_hint=_payer_of(request, req.payer)
+    )
     return {
         **pack,
         "expiry_days": recheck_svc.PACK_TTL_DAYS,
@@ -1936,7 +1982,9 @@ async def toolkit_pack_buy(request: Request):
             {"error": "payment identity unavailable; pack cannot be minted safely"},
             status_code=502,
         )
-    pack, created = _recheck_store.mint_toolkit_pack(payment_key)
+    pack, created = _recheck_store.mint_toolkit_pack(
+        payment_key, payer_hint=_payer_of(request)
+    )
     return {
         **pack,
         "expiry_days": recheck_svc.TOOLKIT_PACK_TTL_DAYS,
@@ -2468,7 +2516,8 @@ async def fleet_pass_buy(request: Request):
             status_code=502,
         )
     fleet_pass, created = _recheck_store.mint_pass(
-        payment_key, fleetpass_svc.PASS_PRICE_UNITS, fleetpass_svc.PASS_TTL_DAYS
+        payment_key, fleetpass_svc.PASS_PRICE_UNITS, fleetpass_svc.PASS_TTL_DAYS,
+        payer_hint=_payer_of(request),
     )
     return {
         **fleet_pass,
@@ -2568,6 +2617,9 @@ class WatchRegisterRequest(BaseModel):
     fleet_pass_id: str | None = Field(default=None, description="Fund runs with this Fleet Pass ($0.005 per recheck run)")
     check_kind: str = Field(default="recheck", description="Which standing check to run: 'recheck' (default) or 'route_verdict' (RouteVerdict check of the watched URL; Fleet Pass only, $0.05 per run debited by RouteVerdict via X-Fleet-Pass)")
     watch_focus: str = Field(default="all", description="Change-detector focus (recheck leg): 'all' (default; any fingerprint field) or 'schema' — Contract Watch: alert only on output-schema fingerprint change, as SCHEMA_CHANGED, at the same $0.005 recheck run price funded from the pack/pass")
+    delivery_mode: str | None = Field(default=None, description="Alert Digest Mode (Next-20 #20): 'instant' (default — push each event as today) or 'digest' (events accumulate and are delivered as ONE batched digest per digest_interval)")
+    digest_interval: str | None = Field(default=None, description="Digest cadence when delivery_mode='digest': 'hourly' or 'daily' (default daily)")
+    payer: str | None = Field(default=None, description="Item 5 rider: payer identity pre-bound by a deep link; recorded as the registration's payer_hint")
 
 
 class WatchIdRequest(BaseModel):
@@ -2575,7 +2627,7 @@ class WatchIdRequest(BaseModel):
 
 
 @app.post("/v1/watch/register")
-async def watch_register(req: WatchRegisterRequest):
+async def watch_register(req: WatchRegisterRequest, request: Request):
     """Register a webhook watch. Free to register; every run spends
     from the named funding credential. Both URLs are SSRF-checked and
     the credential must actually cover this watch. With
@@ -2594,6 +2646,9 @@ async def watch_register(req: WatchRegisterRequest):
             req.fleet_pass_id,
             check_kind=req.check_kind,
             watch_focus=req.watch_focus,
+            delivery_mode=req.delivery_mode,
+            digest_interval=req.digest_interval,
+            payer=_payer_of(request, req.payer),
         )
     except watch_svc.WatchError as e:
         return JSONResponse({"error": e.message}, status_code=e.http_status)
@@ -2649,6 +2704,18 @@ async def _run_rotation_alerts() -> None:
             )
         except Exception:  # noqa: BLE001 — one subscription must not kill the loop
             log.exception("index subscription evaluation failed for %s", reg["reg_id"])
+    for reg in _recheck_store.active_defect_subs():
+        try:
+            await defectwatch_svc.evaluate(
+                _fetch_client(), _recheck_store, reg, index_store=_index_store
+            )
+        except Exception:  # noqa: BLE001 — one subscription must not kill the loop
+            log.exception("defect subscription evaluation failed for %s", reg["reg_id"])
+    for reg in _recheck_store.active_stall_watches():
+        try:
+            await stallwatch_svc.evaluate(_fetch_client(), _recheck_store, reg)
+        except Exception:  # noqa: BLE001 — one stall watch must not kill the loop
+            log.exception("stall watch evaluation failed for %s", reg["reg_id"])
 
 
 async def _run_fleet_check_packs() -> None:
@@ -2695,6 +2762,30 @@ async def _watch_ticker() -> None:
             await _run_rotation_alerts()
         except Exception:  # noqa: BLE001
             log.exception("rotation alert pass failed")
+        try:
+            for reg in _recheck_store.due_heartbeat_regs():
+                try:
+                    await heartbeat_svc.run_reg(
+                        _fetch_client(), _recheck_store, reg
+                    )
+                except Exception:  # noqa: BLE001 — one watch must not kill the loop
+                    log.exception("heartbeat run failed for %s", reg["reg_id"])
+        except Exception:  # noqa: BLE001
+            log.exception("heartbeat ticker pass failed")
+        try:
+            for reg in _recheck_store.due_portfolio_regs():
+                try:
+                    await portfoliowatch_svc.run_reg(
+                        _fetch_client(), _recheck_store, _index_store, reg
+                    )
+                except Exception:  # noqa: BLE001 — one watch must not kill the loop
+                    log.exception("portfolio run failed for %s", reg["reg_id"])
+        except Exception:  # noqa: BLE001
+            log.exception("portfolio ticker pass failed")
+        try:
+            await digest_svc.flush_digests(_fetch_client(), _recheck_store)
+        except Exception:  # noqa: BLE001
+            log.exception("digest flush pass failed")
 
 
 @app.on_event("startup")
@@ -2714,6 +2805,9 @@ class RotationRegisterRequest(BaseModel):
     webhook_url: str | None = Field(default=None, description="Public http(s) URL that receives alert pushes")
     email: str | None = Field(default=None, description="Optional contact email (stored; webhook is the live channel)")
     fleet_pass_id: str = Field(description="Fleet Pass funding each evaluation ($0.005 per run)")
+    delivery_mode: str | None = Field(default=None, description="Alert Digest Mode (Next-20 #20): 'instant' (default) or 'digest' with digest_interval 'hourly'|'daily'")
+    digest_interval: str | None = Field(default=None, description="Digest cadence when delivery_mode='digest' (default daily)")
+    payer: str | None = Field(default=None, description="Item 5 rider: payer identity pre-bound by a deep link; recorded as payer_hint")
 
 
 class RotationIdRequest(BaseModel):
@@ -2721,7 +2815,7 @@ class RotationIdRequest(BaseModel):
 
 
 @app.post("/v1/rotation-alerts/register")
-async def rotation_register(req: RotationRegisterRequest):
+async def rotation_register(req: RotationRegisterRequest, request: Request):
     """Register a rotation alert. Free to register; each evaluation
     spends $0.005 from the named Fleet Pass. The target (payTo and/or
     resource) and the webhook are validated before anything is
@@ -2734,6 +2828,9 @@ async def rotation_register(req: RotationRegisterRequest):
             req.webhook_url,
             req.email,
             req.fleet_pass_id,
+            delivery_mode=req.delivery_mode,
+            digest_interval=req.digest_interval,
+            payer=_payer_of(request, req.payer),
         )
     except rotalerts_svc.RotationError as e:
         return JSONResponse({"error": e.message}, status_code=e.http_status)
@@ -2775,6 +2872,9 @@ class WatchlistRegisterRequest(BaseModel):
     webhook_url: str | None = Field(default=None, description="Public http(s) URL that receives diff pushes")
     email: str | None = Field(default=None, description="Optional contact email (stored; webhook is the live channel)")
     fleet_pass_id: str = Field(description="Fleet Pass funding each evaluation ($0.005 per run)")
+    delivery_mode: str | None = Field(default=None, description="Alert Digest Mode (Next-20 #20): 'instant' (default) or 'digest' with digest_interval 'hourly'|'daily'")
+    digest_interval: str | None = Field(default=None, description="Digest cadence when delivery_mode='digest' (default daily)")
+    payer: str | None = Field(default=None, description="Item 5 rider: payer identity pre-bound by a deep link; recorded as payer_hint")
 
 
 class WatchlistIdRequest(BaseModel):
@@ -2782,7 +2882,7 @@ class WatchlistIdRequest(BaseModel):
 
 
 @app.post("/v1/watchlist/register")
-async def watchlist_register(req: WatchlistRegisterRequest):
+async def watchlist_register(req: WatchlistRegisterRequest, request: Request):
     """Register a router watchlist. Free to register; each
     evaluation spends $0.005 from the named Fleet Pass."""
     try:
@@ -2792,6 +2892,9 @@ async def watchlist_register(req: WatchlistRegisterRequest):
             req.webhook_url,
             req.email,
             req.fleet_pass_id,
+            delivery_mode=req.delivery_mode,
+            digest_interval=req.digest_interval,
+            payer=_payer_of(request, req.payer),
         )
     except watchlist_svc.WatchlistError as e:
         return JSONResponse({"error": e.message}, status_code=e.http_status)
@@ -2834,6 +2937,9 @@ class IndexSubRegisterRequest(BaseModel):
     webhook_url: str | None = Field(default=None, description="Public http(s) URL that receives diff pushes")
     email: str | None = Field(default=None, description="Optional contact email (stored; webhook is the live channel)")
     fleet_pass_id: str = Field(description="Fleet Pass funding each evaluation ($0.10 per delivered diff)")
+    delivery_mode: str | None = Field(default=None, description="Alert Digest Mode (Next-20 #20): 'instant' (default) or 'digest' with digest_interval 'hourly'|'daily'")
+    digest_interval: str | None = Field(default=None, description="Digest cadence when delivery_mode='digest' (default daily)")
+    payer: str | None = Field(default=None, description="Item 5 rider: payer identity pre-bound by a deep link; recorded as payer_hint")
 
 
 class IndexSubIdRequest(BaseModel):
@@ -2841,7 +2947,7 @@ class IndexSubIdRequest(BaseModel):
 
 
 @app.post("/v1/index/subscribe")
-async def index_subscribe(req: IndexSubRegisterRequest):
+async def index_subscribe(req: IndexSubRegisterRequest, request: Request):
     """Register an Index subscription. Free to register; each
     delivered evaluation spends $0.10 from the named Fleet Pass —
     the listed price of one POST /v1/index/changes call."""
@@ -2856,6 +2962,9 @@ async def index_subscribe(req: IndexSubRegisterRequest):
             req.email,
             req.fleet_pass_id,
             catalogue=req.catalogue,
+            delivery_mode=req.delivery_mode,
+            digest_interval=req.digest_interval,
+            payer=_payer_of(request, req.payer),
         )
     except indexsub_svc.IndexSubError as e:
         return JSONResponse({"error": e.message}, status_code=e.http_status)
@@ -2929,6 +3038,8 @@ class IndexSubUpdateRequest(BaseModel):
     catalogue: str | None = Field(default=None, description="New per-catalogue slice, comma-separated (null = all catalogues)")
     webhook_url: str | None = Field(default=None, description="New webhook URL (null clears it)")
     email: str | None = Field(default=None, description="New contact email (null clears it)")
+    delivery_mode: str | None = Field(default=None, description="New delivery shape (Next-20 #20): 'instant' or 'digest'")
+    digest_interval: str | None = Field(default=None, description="New digest cadence: 'hourly' or 'daily'")
 
 
 @app.post("/v1/index/subscription/update")
@@ -2943,6 +3054,7 @@ async def index_subscription_update(req: IndexSubUpdateRequest):
         for name in (
             "resource_contains", "pay_to", "service_name", "network",
             "catalogue", "webhook_url", "email",
+            "delivery_mode", "digest_interval",
         )
         if name in req.model_fields_set
     }
@@ -2972,6 +3084,7 @@ async def fleet_pass_20_buy(request: Request):
         payment_key,
         fleetpass_svc.PASS_V2_PRICE_UNITS,
         fleetpass_svc.PASS_TTL_DAYS,
+        payer_hint=_payer_of(request),
     )
     return {
         **fleet_pass,
@@ -3732,6 +3845,7 @@ class HookSubRegisterRequest(BaseModel):
     origin: str | None = Field(default=None, description="Optional filter: only changes under this origin (https://host); ignored when url is set — send one or neither")
     pack_id: str | None = Field(default=None, description="Funding credential (exactly one of pack_id / fleet_pass_id required): a Recheck pack — must be live with credits left, and the subscription's url filter must exactly equal the pack's URL")
     fleet_pass_id: str | None = Field(default=None, description="Funding credential (exactly one of pack_id / fleet_pass_id required): a Fleet Pass — must be live with balance for at least one Recheck check ($0.005)")
+    payer: str | None = Field(default=None, description="Item 5 rider: payer identity pre-bound by a deep link; recorded as the subscription's payer_hint")
 
 
 class HookSubSecretRequest(BaseModel):
@@ -3750,7 +3864,7 @@ class HookSubDeliveriesRequest(BaseModel):
 
 
 @app.post("/v1/recheck/webhooks")
-async def hooksub_register(req: HookSubRegisterRequest):
+async def hooksub_register(req: HookSubRegisterRequest, request: Request):
     """Self-serve Recheck change webhook: register a callback for
     CHANGED events — feed-wide, one resource URL, or one origin.
     No operator gate; registration is pack/pass-gated: exactly one
@@ -3775,6 +3889,7 @@ async def hooksub_register(req: HookSubRegisterRequest):
             req.origin,
             pack_id=req.pack_id,
             fleet_pass_id=req.fleet_pass_id,
+            payer=_payer_of(request, req.payer),
         )
     except hooksubs_svc.SubsError as e:
         return JSONResponse({"error": e.message}, status_code=e.http_status)
@@ -4106,6 +4221,472 @@ async def nudge_inbox_read(
         "nudges": _recheck_store.list_nudges(limit),
         "optouts": _recheck_store.list_optouts(),
     }
+
+
+# --- the watch-machinery cluster (Next-20 #9/#10/#11/#12/#20) --------------
+# Free-registration surfaces on the funded-debit pattern: nothing
+# here is a priced route. Registrations name a Recheck pack or a
+# Fleet Pass; the machinery debits that credential as it works
+# ($0.001 per heartbeat knock, $0.005 per defect event / underlying
+# watch run) and pauses on funding_failed rather than going
+# negative. Registration ids are the management credentials
+# (index-subscription v2 style). Every registration accepts
+# delivery_mode=instant (default, unchanged) or digest.
+
+
+class FundingDeliveryFields(BaseModel):
+    webhook_url: str | None = Field(default=None, description="Public http(s) URL that receives alert pushes")
+    email: str | None = Field(default=None, description="Optional contact email (stored; webhook is the live channel)")
+    pack_id: str | None = Field(default=None, description="Funding credential: a Recheck pack (exactly one of pack_id / fleet_pass_id)")
+    fleet_pass_id: str | None = Field(default=None, description="Funding credential: a Fleet Pass (exactly one of pack_id / fleet_pass_id)")
+    delivery_mode: str | None = Field(default=None, description="Alert Digest Mode (Next-20 #20): 'instant' (default) or 'digest' with digest_interval 'hourly'|'daily'")
+    digest_interval: str | None = Field(default=None, description="Digest cadence when delivery_mode='digest' (default daily)")
+    payer: str | None = Field(default=None, description="Item 5 rider: payer identity pre-bound by a deep link; recorded as payer_hint")
+
+
+class RegIdRequest(BaseModel):
+    reg_id: str = Field(description="The registration id (the credential)")
+
+
+class HeartbeatRegisterRequest(FundingDeliveryFields):
+    resources: list[str] = Field(description="The resource URLs (or origins) to knock — at least one, at most 100; a Recheck pack funds ONE resource only, a Fleet Pass any set")
+    interval_s: int | None = Field(default=None, description="Knock interval in seconds (default 3600, floor 300, cap 86400)")
+
+
+@app.post("/v1/heartbeat/register")
+async def heartbeat_register(req: HeartbeatRegisterRequest, request: Request):
+    """Register a Heartbeat Watch (Next-20 #9): a liveness-only
+    standing watch over a SET of resources. Free to register; the
+    ticker knocks each resource on the interval with UNPAID probes
+    (reachability + 402-presence + challenge-decodability — a
+    heartbeat never pays the target), debits $0.001 per knock from
+    the pack/pass, and pushes ONLY on up/down/degraded transitions,
+    never on steady state. Unfunded registrations pause."""
+    try:
+        return await heartbeat_svc.register(
+            _recheck_store,
+            req.resources,
+            req.webhook_url,
+            req.email,
+            req.interval_s,
+            req.pack_id,
+            req.fleet_pass_id,
+            delivery_mode=req.delivery_mode,
+            digest_interval=req.digest_interval,
+            payer=_payer_of(request, req.payer),
+        )
+    except heartbeat_svc.HeartbeatError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+@app.post("/v1/heartbeat/status")
+async def heartbeat_status(req: RegIdRequest):
+    """One Heartbeat Watch registration: config, per-resource
+    liveness states and recent deliveries."""
+    reg = _recheck_store.get_heartbeat_reg(req.reg_id)
+    if reg is None:
+        return JSONResponse({"error": "unknown reg_id"}, status_code=404)
+    return {
+        "registration": reg,
+        "states": reg.get("states", {}),
+        "deliveries": _recheck_store.deliveries_for(reg["reg_id"]),
+    }
+
+
+@app.post("/v1/heartbeat/run")
+async def heartbeat_run(req: RegIdRequest):
+    """Knock every resource in the set now: one $0.001 debit per
+    knock from the registration's credential, transition-only
+    alerts."""
+    reg = _recheck_store.get_heartbeat_reg(req.reg_id)
+    if reg is None:
+        return JSONResponse({"error": "unknown reg_id"}, status_code=404)
+    result = await heartbeat_svc.run_reg(_fetch_client(), _recheck_store, reg)
+    return {"registration": reg["reg_id"], **result}
+
+
+def _cluster_manage_response(table: str, getter, reg_id: str, action: str):
+    try:
+        reg = watchfund_svc.manage(_recheck_store, table, getter, reg_id, action)
+    except watchfund_svc.ClusterError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+    return {"registration": reg}
+
+
+@app.post("/v1/heartbeat/pause")
+async def heartbeat_pause(req: RegIdRequest):
+    """Pause a Heartbeat Watch (no knocks, no debits) until resumed."""
+    return _cluster_manage_response(
+        "heartbeat_regs", _recheck_store.get_heartbeat_reg, req.reg_id, "pause"
+    )
+
+
+@app.post("/v1/heartbeat/resume")
+async def heartbeat_resume(req: RegIdRequest):
+    """Resume a paused Heartbeat Watch."""
+    return _cluster_manage_response(
+        "heartbeat_regs", _recheck_store.get_heartbeat_reg, req.reg_id, "resume"
+    )
+
+
+@app.post("/v1/heartbeat/cancel")
+async def heartbeat_cancel(req: RegIdRequest):
+    """Cancel a Heartbeat Watch (terminal; register a new one to
+    watch again)."""
+    return _cluster_manage_response(
+        "heartbeat_regs", _recheck_store.get_heartbeat_reg, req.reg_id, "cancel"
+    )
+
+
+class DefectWatchRegisterRequest(FundingDeliveryFields):
+    defect_class: str = Field(description="The defect class to watch — one of: " + ", ".join(defectwatch_svc.DEFECT_CLASSES))
+    origin: str | None = Field(default=None, description="Optional scope: only events on exactly this origin")
+    resource_contains: str | None = Field(default=None, description="Optional scope: only events whose resource URL contains this text (a pack-funded subscription must use exactly this, equal to the pack's URL)")
+    service_name: str | None = Field(default=None, description="Optional scope: only events whose service name contains this text (case-insensitive) — e.g. an LLM route family")
+
+
+@app.post("/v1/defect-watch/register")
+async def defect_watch_register(req: DefectWatchRegisterRequest, request: Request):
+    """Register a Defect-Class Watch (Next-20 #10): subscribe to
+    one defect class from the fleet's patrol/drift taxonomy,
+    optionally scoped by origin, resource substring or service
+    name. Free to register; each CONFIRMED event (drift/firehose
+    machinery) is delivered and debited $0.005 from the pack/pass.
+    The first evaluation baselines silently. Management is
+    console-free, Index-Subscription v2 style."""
+    try:
+        return await defectwatch_svc.register(
+            _recheck_store,
+            req.defect_class,
+            origin=req.origin,
+            resource_contains=req.resource_contains,
+            service_name=req.service_name,
+            webhook_url=req.webhook_url,
+            email=req.email,
+            pack_id=req.pack_id,
+            fleet_pass_id=req.fleet_pass_id,
+            delivery_mode=req.delivery_mode,
+            digest_interval=req.digest_interval,
+            payer=_payer_of(request, req.payer),
+        )
+    except defectwatch_svc.DefectWatchError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+@app.post("/v1/defect-watch/status")
+async def defect_watch_status(req: RegIdRequest):
+    """One Defect-Class Watch subscription and its deliveries."""
+    reg = _recheck_store.get_defect_sub(req.reg_id)
+    if reg is None:
+        return JSONResponse({"error": "unknown reg_id"}, status_code=404)
+    return {
+        "registration": reg,
+        "deliveries": _recheck_store.deliveries_for(reg["reg_id"]),
+    }
+
+
+@app.post("/v1/defect-watch/run")
+async def defect_watch_run(req: RegIdRequest):
+    """Evaluate now against the latest confirmed events: each new
+    matching event is delivered and debited $0.005."""
+    reg = _recheck_store.get_defect_sub(req.reg_id)
+    if reg is None:
+        return JSONResponse({"error": "unknown reg_id"}, status_code=404)
+    result = await defectwatch_svc.evaluate(
+        _fetch_client(), _recheck_store, reg, index_store=_index_store
+    )
+    return {"registration": reg["reg_id"], **result}
+
+
+@app.post("/v1/defect-watch/pause")
+async def defect_watch_pause(req: RegIdRequest):
+    """Pause a Defect-Class Watch (no evaluations, no debits)."""
+    try:
+        return {"registration": defectwatch_svc.pause(_recheck_store, req.reg_id)}
+    except defectwatch_svc.DefectWatchError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+@app.post("/v1/defect-watch/resume")
+async def defect_watch_resume(req: RegIdRequest):
+    """Resume a paused Defect-Class Watch."""
+    try:
+        return {"registration": defectwatch_svc.resume(_recheck_store, req.reg_id)}
+    except defectwatch_svc.DefectWatchError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+@app.post("/v1/defect-watch/cancel")
+async def defect_watch_cancel(req: RegIdRequest):
+    """Cancel a Defect-Class Watch (terminal)."""
+    try:
+        return {"registration": defectwatch_svc.cancel(_recheck_store, req.reg_id)}
+    except defectwatch_svc.DefectWatchError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+class PortfolioRegisterRequest(FundingDeliveryFields):
+    operator: str = Field(description="The operator family: a service_name or origin exactly as the Index holds it")
+    tier: str = Field(default="heartbeat", description="Watch tier for every route in the family: 'heartbeat' ($0.001 knocks), 'recheck' ($0.005 full checks) or 'digest' ($0.005 per evaluation family diff)")
+    interval_s: int | None = Field(default=None, description="Evaluation interval in seconds (heartbeat/recheck tiers; default 3600, floor 300)")
+    fleet_pass_id: str = Field(description="Fleet Pass funding the whole family (one balance for every route)")
+
+
+@app.post("/v1/portfolio-watch/register")
+async def portfolio_register(req: PortfolioRegisterRequest, request: Request):
+    """Register a Portfolio Watch (Next-20 #11): ONE registration
+    per operator family — name the operator (service_name or
+    origin, as the Index holds it) once and every route in the
+    family is watched under one Fleet Pass balance, one webhook,
+    one family-level event digest. The family is expanded from the
+    Index's current snapshot at registration AND re-expanded on
+    every evaluation, so later-added family routes join
+    automatically. Debits are the underlying watch products' rates
+    (heartbeat $0.001/knock, recheck $0.005/route, digest
+    $0.005/evaluation) — no portfolio price."""
+    try:
+        return await portfoliowatch_svc.register(
+            _recheck_store,
+            _index_store,
+            req.operator,
+            req.tier,
+            req.webhook_url,
+            req.email,
+            req.interval_s,
+            req.fleet_pass_id,
+            delivery_mode=req.delivery_mode,
+            digest_interval=req.digest_interval,
+            payer=_payer_of(request, req.payer),
+        )
+    except portfoliowatch_svc.PortfolioError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+@app.post("/v1/portfolio-watch/status")
+async def portfolio_status(req: RegIdRequest):
+    """One Portfolio Watch registration, its current family routes
+    and recent deliveries."""
+    reg = _recheck_store.get_portfolio_reg(req.reg_id)
+    if reg is None:
+        return JSONResponse({"error": "unknown reg_id"}, status_code=404)
+    return {
+        "registration": reg,
+        "deliveries": _recheck_store.deliveries_for(reg["reg_id"]),
+    }
+
+
+@app.post("/v1/portfolio-watch/run")
+async def portfolio_run(req: RegIdRequest):
+    """Evaluate the family now: re-expand from the Index, watch
+    every route at the registration's tier rates, deliver one
+    family-level payload."""
+    reg = _recheck_store.get_portfolio_reg(req.reg_id)
+    if reg is None:
+        return JSONResponse({"error": "unknown reg_id"}, status_code=404)
+    result = await portfoliowatch_svc.run_reg(
+        _fetch_client(), _recheck_store, _index_store, reg
+    )
+    return {"registration": reg["reg_id"], **result}
+
+
+@app.post("/v1/portfolio-watch/pause")
+async def portfolio_pause(req: RegIdRequest):
+    """Pause a Portfolio Watch."""
+    return _cluster_manage_response(
+        "portfolio_regs", _recheck_store.get_portfolio_reg, req.reg_id, "pause"
+    )
+
+
+@app.post("/v1/portfolio-watch/resume")
+async def portfolio_resume(req: RegIdRequest):
+    """Resume a paused Portfolio Watch."""
+    return _cluster_manage_response(
+        "portfolio_regs", _recheck_store.get_portfolio_reg, req.reg_id, "resume"
+    )
+
+
+@app.post("/v1/portfolio-watch/cancel")
+async def portfolio_cancel(req: RegIdRequest):
+    """Cancel a Portfolio Watch (terminal)."""
+    return _cluster_manage_response(
+        "portfolio_regs", _recheck_store.get_portfolio_reg, req.reg_id, "cancel"
+    )
+
+
+class StallWatchRegisterRequest(BaseModel):
+    origin: str = Field(description="The claimed stall origin (https://host) — must match the claim session")
+    pack_id: str = Field(description="Your $1 Recheck pack, bound to a URL on the claimed origin: funds the composed Standing Watch")
+    webhook_url: str | None = Field(default=None, description="Public http(s) URL that receives drift/defect/recovery alerts")
+    email: str | None = Field(default=None, description="Optional contact email (stored; webhook is the live channel)")
+    delivery_mode: str | None = Field(default=None, description="Alert Digest Mode (Next-20 #20): 'instant' (default) or 'digest' with digest_interval 'hourly'|'daily'")
+    digest_interval: str | None = Field(default=None, description="Digest cadence when delivery_mode='digest' (default daily)")
+    payer: str | None = Field(default=None, description="Item 5 rider: payer identity pre-bound by a deep link; recorded as payer_hint")
+
+
+@app.post("/v1/stall-watch/register")
+async def stall_watch_register(req: StallWatchRegisterRequest, request: Request):
+    """Register Stall Watch (Next-20 #12) for YOUR OWN stall:
+    claim-verified (send the claim session as X-Claim-Session, the
+    same credential as /v1/claims/status). One call composes the
+    existing pieces — the verified claim, your $1 Recheck pack,
+    a Standing Watch on the pack's URL, and recovery-receipt
+    attachment — into one registration that alerts on your stall's
+    drift/defect/recovery events, with the patrol's signed
+    recovery receipt attached to every recovery event. No new
+    price: the composed watch's runs spend the pack's own credits
+    at the listed $0.005 Recheck rate."""
+    token = _session_token_from(request)
+    if not token:
+        return JSONResponse(
+            {"error": "a claim-session credential is required (X-Claim-Session header)"},
+            status_code=401,
+        )
+    try:
+        return await stallwatch_svc.register(
+            _recheck_store,
+            req.origin,
+            token,
+            req.pack_id,
+            webhook_url=req.webhook_url,
+            email=req.email,
+            delivery_mode=req.delivery_mode,
+            digest_interval=req.digest_interval,
+            payer=_payer_of(request, req.payer),
+        )
+    except claims_svc.ClaimError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+    except stallwatch_svc.StallWatchError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+    except watch_svc.WatchError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+@app.get("/v1/stall-watch/status")
+async def stall_watch_status_get(request: Request, origin: str):
+    """Stall Watch status for a claimed origin (claim-session
+    gated, like /v1/claims/status): registration, composed watch,
+    pack and recent deliveries."""
+    token = _session_token_from(request)
+    if not token:
+        return JSONResponse(
+            {"error": "a claim-session credential is required (X-Claim-Session header)"},
+            status_code=401,
+        )
+    try:
+        return stallwatch_svc.status(_recheck_store, origin, token)
+    except claims_svc.ClaimError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+    except stallwatch_svc.StallWatchError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+@app.post("/v1/stall-watch/evaluate")
+async def stall_watch_evaluate(req: RegIdRequest):
+    """Evaluate one Stall Watch now against the patrol book:
+    deliver any new drift/defect/recovery events for the stall
+    (recovery events carry the signed recovery receipt)."""
+    reg = _recheck_store.get_stall_watch(req.reg_id)
+    if reg is None:
+        return JSONResponse({"error": "unknown reg_id"}, status_code=404)
+    result = await stallwatch_svc.evaluate(_fetch_client(), _recheck_store, reg)
+    return {"registration": reg["reg_id"], **result}
+
+
+@app.post("/v1/stall-watch/pause")
+async def stall_watch_pause(req: RegIdRequest):
+    """Pause a Stall Watch."""
+    return _cluster_manage_response(
+        "stall_watch_regs", _recheck_store.get_stall_watch, req.reg_id, "pause"
+    )
+
+
+@app.post("/v1/stall-watch/resume")
+async def stall_watch_resume(req: RegIdRequest):
+    """Resume a paused Stall Watch."""
+    return _cluster_manage_response(
+        "stall_watch_regs", _recheck_store.get_stall_watch, req.reg_id, "resume"
+    )
+
+
+@app.post("/v1/stall-watch/cancel")
+async def stall_watch_cancel(req: RegIdRequest):
+    """Cancel a Stall Watch (terminal). The composed Standing
+    Watch registration is left as-is; manage it via /v1/watch/*."""
+    return _cluster_manage_response(
+        "stall_watch_regs", _recheck_store.get_stall_watch, req.reg_id, "cancel"
+    )
+
+
+class DigestFlushRequest(BaseModel):
+    kind: str = Field(description="Registration family: watch | rotation | watchlist | index_sub | heartbeat | defect_class | portfolio | stall_watch")
+    reg_id: str = Field(description="The registration id whose queued digest should flush now")
+
+
+_DIGEST_GETTERS = {
+    "watch": ("watch", _recheck_store.get_watch_reg),
+    "rotation": ("rotation", _recheck_store.get_rotation_reg),
+    "watchlist": ("watchlist", _recheck_store.get_watchlist_reg),
+    "index_sub": ("index_sub", _recheck_store.get_index_sub),
+    "heartbeat": ("heartbeat", _recheck_store.get_heartbeat_reg),
+    "defect_class": ("defect_class", _recheck_store.get_defect_sub),
+    "portfolio": ("portfolio", _recheck_store.get_portfolio_reg),
+    "stall_watch": ("stall_watch", _recheck_store.get_stall_watch),
+}
+
+
+def _digest_reg(kind: str | None, reg_id: str | None):
+    entry = _DIGEST_GETTERS.get((kind or "").strip().lower())
+    if entry is None:
+        return None, None, None
+    queue_kind, getter = entry
+    reg = getter((reg_id or "").strip())
+    if reg is None:
+        return queue_kind, None, None
+    rid = reg.get("reg_id") or reg.get("watch_reg_id")
+    return queue_kind, reg, rid
+
+
+@app.post("/v1/watch/digest/pending")
+async def digest_pending(req: DigestFlushRequest):
+    """The events currently queued for a digest registration
+    (Alert Digest Mode, Next-20 #20): what the next batched
+    delivery will carry. Free; the registration id is the
+    credential."""
+    queue_kind, reg, rid = _digest_reg(req.kind, req.reg_id)
+    if reg is None:
+        return JSONResponse(
+            {"error": "unknown registration for that kind"}, status_code=404
+        )
+    key = digest_svc.queue_key_for(queue_kind, rid, reg.get("digest_interval"))
+    rows = _recheck_store.pending_digests(key)
+    return {
+        "kind": queue_kind,
+        "reg_id": rid,
+        "delivery_mode": reg.get("delivery_mode"),
+        "digest_interval": reg.get("digest_interval"),
+        "pending_events": len(rows),
+        "events": [json.loads(r["payload_json"]) for r in rows],
+    }
+
+
+@app.post("/v1/watch/digest/flush")
+async def digest_flush(req: DigestFlushRequest):
+    """Flush a digest registration's queue now: ONE batched
+    digest delivery (counts by class, events, period bounds) to
+    its webhook. The ticker also flushes automatically once the
+    oldest queued event ages past the digest interval. Free —
+    debits already happened per underlying event/knock."""
+    queue_kind, reg, rid = _digest_reg(req.kind, req.reg_id)
+    if reg is None:
+        return JSONResponse(
+            {"error": "unknown registration for that kind"}, status_code=404
+        )
+    key = digest_svc.queue_key_for(queue_kind, rid, reg.get("digest_interval"))
+    results = await digest_svc.flush_digests(
+        _fetch_client(), _recheck_store, queue_key=key, force=True
+    )
+    return {"kind": queue_kind, "reg_id": rid, "flush": results}
+
 
 
 # --- free routes -----------------------------------------------------------------

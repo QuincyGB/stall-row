@@ -233,6 +233,9 @@ def _pack_view(row: dict, now_epoch: float | None = None) -> dict:
         "created_at": _iso_of(row["created_epoch"]),
         "expires_at": _iso_of(row["expires_epoch"]),
         "expired": now >= row["expires_epoch"],
+        # Item 5 rider: the payer identity a ?payer= deep link
+        # presented at mint time, or None when none was presented.
+        "payer_hint": row.get("payer_hint"),
     }
 
 
@@ -247,6 +250,7 @@ def _toolkit_pack_view(row: dict, now_epoch: float | None = None) -> dict:
         "created_at": _iso_of(row["created_epoch"]),
         "expires_at": _iso_of(row["expires_epoch"]),
         "expired": now >= row["expires_epoch"],
+        "payer_hint": row.get("payer_hint"),
     }
 
 
@@ -767,6 +771,134 @@ class WatchStore:
                 )
                 """
             )
+            # --- Watch-machinery cluster (Next-20 #9/#10/#11/#12/#20) ---
+            # Heartbeat Watch registrations (#9): a set of resources
+            # knocked on an interval at KNOCK_PRICE_UNITS each, state
+            # per resource in heartbeat_states. Defect-class
+            # subscriptions (#10): a defect class + optional scope,
+            # evaluated against the eventfeed's confirmed events.
+            # Portfolio Watch (#11): one operator-family registration
+            # whose routes expand from the Index at registration and
+            # on every evaluation. Stall Watch (#12): a claim-verified
+            # owner registration composing claim + pack + watch.
+            # Digest queue (#20): pending batched deliveries for any
+            # registration whose delivery_mode is "digest".
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS heartbeat_regs (
+                    reg_id TEXT PRIMARY KEY,
+                    resources_json TEXT NOT NULL,
+                    webhook_url TEXT,
+                    email TEXT,
+                    interval_s INTEGER NOT NULL,
+                    funding_id TEXT NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    last_run_epoch REAL,
+                    last_status TEXT,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    delivery_mode TEXT NOT NULL DEFAULT 'instant',
+                    digest_interval TEXT,
+                    payer_hint TEXT
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS heartbeat_states (
+                    reg_id TEXT NOT NULL,
+                    resource TEXT NOT NULL,
+                    state TEXT,
+                    detail_json TEXT,
+                    updated_epoch REAL,
+                    PRIMARY KEY (reg_id, resource)
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS defect_subs (
+                    reg_id TEXT PRIMARY KEY,
+                    defect_class TEXT NOT NULL,
+                    origin TEXT,
+                    resource_contains TEXT,
+                    service_name TEXT,
+                    webhook_url TEXT,
+                    email TEXT,
+                    funding_id TEXT NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    last_status TEXT,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    seen_keys_json TEXT NOT NULL DEFAULT '[]',
+                    delivery_mode TEXT NOT NULL DEFAULT 'instant',
+                    digest_interval TEXT,
+                    payer_hint TEXT
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS portfolio_regs (
+                    reg_id TEXT PRIMARY KEY,
+                    operator TEXT NOT NULL,
+                    match_kind TEXT NOT NULL,
+                    tier TEXT NOT NULL,
+                    webhook_url TEXT,
+                    email TEXT,
+                    interval_s INTEGER NOT NULL,
+                    funding_id TEXT NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    last_run_epoch REAL,
+                    last_status TEXT,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    delivery_mode TEXT NOT NULL DEFAULT 'instant',
+                    digest_interval TEXT,
+                    payer_hint TEXT,
+                    routes_json TEXT NOT NULL DEFAULT '[]'
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS stall_watch_regs (
+                    reg_id TEXT PRIMARY KEY,
+                    origin TEXT NOT NULL,
+                    pack_id TEXT NOT NULL,
+                    watch_reg_id TEXT,
+                    webhook_url TEXT,
+                    email TEXT,
+                    created_epoch REAL NOT NULL,
+                    last_status TEXT,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    seen_recoveries_json TEXT NOT NULL DEFAULT '[]',
+                    delivery_mode TEXT NOT NULL DEFAULT 'instant',
+                    digest_interval TEXT,
+                    payer_hint TEXT
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS pack_unit_remainders (
+                    pack_id TEXT PRIMARY KEY,
+                    remainder_units INTEGER NOT NULL DEFAULT 0
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS digest_queue (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    queue_key TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    reg_id TEXT NOT NULL,
+                    webhook_url TEXT,
+                    email TEXT,
+                    payload_json TEXT NOT NULL,
+                    queued_epoch REAL NOT NULL,
+                    delivered_epoch REAL
+                )
+                """
+            )
             cols = {
                 row[1]
                 for row in self._conn.execute(
@@ -841,6 +973,55 @@ class WatchStore:
                 if col not in sub_cols:
                     self._conn.execute(
                         f"ALTER TABLE recheck_webhook_subs ADD COLUMN {col} {decl}"
+                    )
+            # Item 5 rider: payer_hint — the pre-binding identity a
+            # ?payer= deep link presented at mint/registration time.
+            # Additive only: NULL on every pre-existing row and on
+            # any mint/registration that presents no payer.
+            for table in (
+                "recheck_packs",
+                "toolkit_packs",
+                "fleet_passes",
+                "watch_regs",
+                "rotation_regs",
+                "watchlist_regs",
+                "index_subs",
+                "recheck_webhook_subs",
+            ):
+                tcols = {
+                    row[1]
+                    for row in self._conn.execute(
+                        f"PRAGMA table_info({table})"
+                    )
+                }
+                if "payer_hint" not in tcols:
+                    self._conn.execute(
+                        f"ALTER TABLE {table} ADD COLUMN payer_hint TEXT"
+                    )
+            # Alert Digest Mode (Next-20 #20): delivery shape on the
+            # existing watch-family registrations. 'instant' is the
+            # default and the pre-existing behaviour — every old row
+            # keeps it; digest rows also carry their interval.
+            for table in (
+                "watch_regs",
+                "rotation_regs",
+                "watchlist_regs",
+                "index_subs",
+            ):
+                tcols = {
+                    row[1]
+                    for row in self._conn.execute(
+                        f"PRAGMA table_info({table})"
+                    )
+                }
+                if "delivery_mode" not in tcols:
+                    self._conn.execute(
+                        f"ALTER TABLE {table} ADD COLUMN delivery_mode "
+                        "TEXT NOT NULL DEFAULT 'instant'"
+                    )
+                if "digest_interval" not in tcols:
+                    self._conn.execute(
+                        f"ALTER TABLE {table} ADD COLUMN digest_interval TEXT"
                     )
             self._conn.commit()
         self._seed_history_from_watches()
@@ -1613,6 +1794,7 @@ class WatchStore:
         filter_origin: str | None,
         funding_kind: str | None = None,
         funding_id: str | None = None,
+        payer_hint: str | None = None,
     ) -> dict:
         now = time.time()
         with self._lock:
@@ -1620,8 +1802,8 @@ class WatchStore:
                 "INSERT INTO recheck_webhook_subs (sub_id, "
                 "callback_url, secret, filter_url, filter_origin, "
                 "enabled, created_epoch, updated_epoch, funding_kind, "
-                "funding_id, funding_status) VALUES "
-                "(?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 'ok')",
+                "funding_id, funding_status, payer_hint) VALUES "
+                "(?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 'ok', ?)",
                 (
                     sub_id,
                     callback_url,
@@ -1632,6 +1814,7 @@ class WatchStore:
                     now,
                     funding_kind,
                     funding_id,
+                    payer_hint,
                 ),
             )
             self._conn.commit()
@@ -1642,7 +1825,7 @@ class WatchStore:
             row = self._conn.execute(
                 "SELECT sub_id, callback_url, secret, filter_url, "
                 "filter_origin, enabled, created_epoch, funding_kind, "
-                "funding_id, funding_status FROM "
+                "funding_id, funding_status, payer_hint FROM "
                 "recheck_webhook_subs WHERE sub_id = ?",
                 (sub_id,),
             ).fetchone()
@@ -1659,6 +1842,7 @@ class WatchStore:
             "funding_kind": row[7],
             "funding_id": row[8],
             "funding_status": row[9] or "ok",
+            "payer_hint": row[10] if len(row) > 10 else None,
         }
 
     def mark_webhook_sub_lapsed(self, sub_id: str) -> None:
@@ -2033,7 +2217,7 @@ class WatchStore:
 
     _PACK_COLS = (
         "pack_id, url, credits_total, credits_remaining, "
-        "created_epoch, expires_epoch, payment_key"
+        "created_epoch, expires_epoch, payment_key, payer_hint"
     )
 
     def _pack_row(self, where: str, params: tuple) -> dict | None:
@@ -2050,6 +2234,7 @@ class WatchStore:
             "created_epoch": row[4],
             "expires_epoch": row[5],
             "payment_key": row[6],
+            "payer_hint": row[7] if len(row) > 7 else None,
         }
 
     def mint_pack(
@@ -2059,6 +2244,7 @@ class WatchStore:
         credits_total: int = PACK_CREDITS,
         ttl_days: int = PACK_TTL_DAYS,
         now_epoch: float | None = None,
+        payer_hint: str | None = None,
     ) -> tuple[dict, bool]:
         """Create a pack for one settled payment. Idempotent on
         payment_key: a re-presented payment returns the pack it
@@ -2071,8 +2257,8 @@ class WatchStore:
                 cur = self._conn.execute(
                     "INSERT OR IGNORE INTO recheck_packs "
                     "(pack_id, url, credits_total, credits_remaining, "
-                    "created_epoch, expires_epoch, payment_key) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    "created_epoch, expires_epoch, payment_key, payer_hint) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         pack_id,
                         url,
@@ -2081,6 +2267,7 @@ class WatchStore:
                         now,
                         now + ttl_days * 86_400,
                         payment_key,
+                        payer_hint,
                     ),
                 )
                 self._conn.commit()
@@ -2287,7 +2474,7 @@ class WatchStore:
 
     _TK_PACK_COLS = (
         "pack_id, credits_total, credits_remaining, "
-        "created_epoch, expires_epoch, payment_key"
+        "created_epoch, expires_epoch, payment_key, payer_hint"
     )
 
     def _tk_pack_row(self, where: str, params: tuple) -> dict | None:
@@ -2304,6 +2491,7 @@ class WatchStore:
             "created_epoch": row[3],
             "expires_epoch": row[4],
             "payment_key": row[5],
+            "payer_hint": row[6] if len(row) > 6 else None,
         }
 
     def mint_toolkit_pack(
@@ -2312,6 +2500,7 @@ class WatchStore:
         credits_total: int = TOOLKIT_PACK_CREDITS,
         ttl_days: int = TOOLKIT_PACK_TTL_DAYS,
         now_epoch: float | None = None,
+        payer_hint: str | None = None,
     ) -> tuple[dict, bool]:
         """Create a toolkit pack for one settled payment. Idempotent
         on payment_key, exactly like mint_pack: a re-presented
@@ -2324,8 +2513,8 @@ class WatchStore:
                 cur = self._conn.execute(
                     "INSERT OR IGNORE INTO toolkit_packs "
                     "(pack_id, credits_total, credits_remaining, "
-                    "created_epoch, expires_epoch, payment_key) "
-                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    "created_epoch, expires_epoch, payment_key, payer_hint) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (
                         pack_id,
                         credits_total,
@@ -2333,6 +2522,7 @@ class WatchStore:
                         now,
                         now + ttl_days * 86_400,
                         payment_key,
+                        payer_hint,
                     ),
                 )
                 self._conn.commit()
@@ -3285,7 +3475,7 @@ class WatchStore:
 
     _PASS_COLS = (
         "pass_id, balance_units, total_units, created_epoch, "
-        "expires_epoch, payment_key"
+        "expires_epoch, payment_key, payer_hint"
     )
 
     def _pass_row(self, where: str, params: tuple) -> dict | None:
@@ -3301,6 +3491,7 @@ class WatchStore:
             "created_epoch": row[3],
             "expires_epoch": row[4],
             "payment_key": row[5],
+            "payer_hint": row[6] if len(row) > 6 else None,
         }
 
     @staticmethod
@@ -3315,6 +3506,8 @@ class WatchStore:
             "created_at": _iso_of(row["created_epoch"]),
             "expires_at": _iso_of(row["expires_epoch"]),
             "expired": now >= row["expires_epoch"],
+            # Item 5 rider: payer identity presented at mint, or None.
+            "payer_hint": row.get("payer_hint"),
         }
 
     def mint_pass(
@@ -3323,6 +3516,7 @@ class WatchStore:
         total_units: int,
         ttl_days: int,
         now_epoch: float | None = None,
+        payer_hint: str | None = None,
     ) -> tuple[dict, bool]:
         """Create a Fleet Pass for one settled payment. Idempotent on
         payment_key, exactly like mint_pack."""
@@ -3333,7 +3527,8 @@ class WatchStore:
                 cur = self._conn.execute(
                     "INSERT OR IGNORE INTO fleet_passes "
                     "(pass_id, balance_units, total_units, created_epoch, "
-                    "expires_epoch, payment_key) VALUES (?, ?, ?, ?, ?, ?)",
+                    "expires_epoch, payment_key, payer_hint) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (
                         pass_id,
                         total_units,
@@ -3341,6 +3536,7 @@ class WatchStore:
                         now,
                         now + ttl_days * 86_400,
                         payment_key,
+                        payer_hint,
                     ),
                 )
                 self._conn.commit()
@@ -3433,6 +3629,157 @@ class WatchStore:
             self._conn.commit()
             return True
 
+    # --- generic prepaid unit balances (watch cluster, Next-20 #9/#10) ---
+    # Heartbeat knocks ($0.001) and defect-class events ($0.005) are
+    # priced in UNITS, but a Recheck pack's balance is CREDITS (one
+    # credit = PACK_PRICE_UNITS / PACK_CREDITS = 4000 units of prepaid
+    # value). Debiting whole credits per knock would overcharge
+    # against the spec rates, so a pack presented to a unit-priced
+    # watch product funds it through fractional-credit accounting:
+    # the pack's credits_remaining stays the credit count, and a
+    # per-pack unit remainder is kept in pack_unit_remainders; each
+    # unit debit consumes units from the remainder first, converting
+    # one credit (4000 units) into remainder whenever it runs dry.
+    # A debit that cannot be covered
+    # raises PackError without touching anything — never negative,
+    # never a per-call fallback. Fleet Pass funding for the same
+    # products uses debit_pass directly (its balance IS units).
+
+    def pack_unit_value(self) -> int:
+        return PACK_PRICE_UNITS // PACK_CREDITS
+
+    def debit_pack_units(
+        self,
+        pack_id: str,
+        units: int,
+        now_epoch: float | None = None,
+    ) -> dict:
+        """Atomically debit `units` of prepaid value from a Recheck
+        pack (fractional-credit accounting, see above). Raises
+        PackError (unknown 404 / expired 410 / insufficient 402)
+        without debiting. Returns the pack view plus debited_units
+        and a refund token (the units debited) for refund_pack_units."""
+        now = time.time() if now_epoch is None else now_epoch
+        unit_value = self.pack_unit_value()
+        with self._lock:
+            row = self._pack_row("pack_id = ?", (pack_id,))
+            if row is None:
+                raise PackError("unknown_pack", "unknown pack_id", 404)
+            if now >= row["expires_epoch"]:
+                raise PackError(
+                    "pack_expired",
+                    "this pack has expired; buy a new pack or pay per call",
+                    410,
+                )
+            rem_row = self._conn.execute(
+                "SELECT remainder_units FROM pack_unit_remainders "
+                "WHERE pack_id = ?",
+                (pack_id,),
+            ).fetchone()
+            remainder = int(rem_row[0]) if rem_row else 0
+            available = remainder + row["credits_remaining"] * unit_value
+            if available < units:
+                raise PackError(
+                    "pack_insufficient",
+                    "pack balance cannot fund this debit",
+                    402,
+                )
+            needed = units
+            credits_used = 0
+            while needed > 0:
+                if remainder == 0:
+                    credits_used += 1
+                    remainder = unit_value
+                take = min(remainder, needed)
+                remainder -= take
+                needed -= take
+            if credits_used:
+                self._conn.execute(
+                    "UPDATE recheck_packs SET credits_remaining = "
+                    "credits_remaining - ? WHERE pack_id = ?",
+                    (credits_used, pack_id),
+                )
+            self._conn.execute(
+                "INSERT OR REPLACE INTO pack_unit_remainders "
+                "(pack_id, remainder_units) VALUES (?, ?)",
+                (pack_id, remainder),
+            )
+            self._conn.commit()
+            row = self._pack_row("pack_id = ?", (pack_id,))
+            assert row is not None
+            view = _pack_view(row, now)
+            view["debited_units"] = units
+            view["unit_remainder"] = remainder
+            return view
+
+    def refund_pack_units(self, pack_id: str, units: int) -> None:
+        """Return a unit debit after our side failed to deliver.
+        The units go back into the pack's remainder (converting back
+        into whole credits when the remainder fills a credit), so a
+        refund restores exactly the pre-debit spendable balance."""
+        unit_value = self.pack_unit_value()
+        with self._lock:
+            row = self._pack_row("pack_id = ?", (pack_id,))
+            if row is None:
+                return
+            rem_row = self._conn.execute(
+                "SELECT remainder_units FROM pack_unit_remainders "
+                "WHERE pack_id = ?",
+                (pack_id,),
+            ).fetchone()
+            remainder = (int(rem_row[0]) if rem_row else 0) + units
+            credits_back, remainder = divmod(remainder, unit_value)
+            if credits_back:
+                self._conn.execute(
+                    "UPDATE recheck_packs SET credits_remaining = "
+                    "MIN(credits_remaining + ?, credits_total) "
+                    "WHERE pack_id = ?",
+                    (credits_back, pack_id),
+                )
+            self._conn.execute(
+                "INSERT OR REPLACE INTO pack_unit_remainders "
+                "(pack_id, remainder_units) VALUES (?, ?)",
+                (pack_id, remainder),
+            )
+            self._conn.commit()
+
+    def pack_spendable_units(self, pack_id: str) -> int | None:
+        """Total spendable prepaid value of a pack in units
+        (credits * unit value + remainder), or None if unknown."""
+        with self._lock:
+            row = self._pack_row("pack_id = ?", (pack_id,))
+            if row is None:
+                return None
+            rem_row = self._conn.execute(
+                "SELECT remainder_units FROM pack_unit_remainders "
+                "WHERE pack_id = ?",
+                (pack_id,),
+            ).fetchone()
+        remainder = int(rem_row[0]) if rem_row else 0
+        return remainder + row["credits_remaining"] * self.pack_unit_value()
+
+    def set_payer_hint(self, table: str, key_col: str, key: str, hint: str | None) -> bool:
+        """Item 5 rider: record a presented payer identity on an
+        existing credential/registration row. Only the named tables
+        are writable this way; a hint is set only when one was
+        presented (absence changes nothing)."""
+        if table not in (
+            "recheck_packs", "toolkit_packs", "fleet_passes", "watch_regs",
+            "rotation_regs", "watchlist_regs", "index_subs",
+            "recheck_webhook_subs", "heartbeat_regs", "defect_subs",
+            "portfolio_regs", "stall_watch_regs",
+        ):
+            raise ValueError(f"payer_hint not supported on {table}")
+        if not hint:
+            return False
+        with self._lock:
+            cur = self._conn.execute(
+                f"UPDATE {table} SET payer_hint = ? WHERE {key_col} = ?",
+                (hint, key),
+            )
+            self._conn.commit()
+            return cur.rowcount == 1
+
     def pass_debit_count(self, pass_id: str) -> int:
         with self._lock:
             row = self._conn.execute(
@@ -3524,6 +3871,9 @@ class WatchStore:
         now_epoch: float | None = None,
         check_kind: str = "recheck",
         watch_focus: str = "all",
+        delivery_mode: str = "instant",
+        digest_interval: str | None = None,
+        payer_hint: str | None = None,
     ) -> dict:
         now = time.time() if now_epoch is None else now_epoch
         watch_reg_id = "watch_" + secrets.token_hex(8)
@@ -3532,8 +3882,9 @@ class WatchStore:
                 "INSERT INTO watch_regs "
                 "(watch_reg_id, url, webhook_url, email, interval_s, "
                 "funding_kind, funding_id, created_epoch, active, "
-                "check_kind, watch_focus) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
+                "check_kind, watch_focus, delivery_mode, digest_interval, "
+                "payer_hint) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)",
                 (
                     watch_reg_id,
                     url,
@@ -3545,6 +3896,9 @@ class WatchStore:
                     now,
                     check_kind,
                     watch_focus,
+                    delivery_mode,
+                    digest_interval,
+                    payer_hint,
                 ),
             )
             self._conn.commit()
@@ -3555,7 +3909,8 @@ class WatchStore:
             row = self._conn.execute(
                 "SELECT watch_reg_id, url, webhook_url, email, interval_s, "
                 "funding_kind, funding_id, created_epoch, last_run_epoch, "
-                "last_status, active, check_kind, last_summary, watch_focus "
+                "last_status, active, check_kind, last_summary, watch_focus, "
+                "delivery_mode, digest_interval, payer_hint "
                 "FROM watch_regs WHERE watch_reg_id = ?",
                 (watch_reg_id,),
             ).fetchone()
@@ -3583,6 +3938,9 @@ class WatchStore:
             "check_kind": row[11] or "recheck",
             "last_summary": last_summary,
             "watch_focus": row[13] or "all",
+            "delivery_mode": (row[14] if len(row) > 14 else None) or "instant",
+            "digest_interval": row[15] if len(row) > 15 else None,
+            "payer_hint": row[16] if len(row) > 16 else None,
         }
 
     def route_verdict_summaries_for_url(self, url: str) -> list[dict]:
@@ -3706,7 +4064,8 @@ class WatchStore:
 
     _ROTATION_COLS = (
         "reg_id, pay_to, resource, webhook_url, email, funding_id, "
-        "created_epoch, last_eval_snapshot_id, last_status, active"
+        "created_epoch, last_eval_snapshot_id, last_status, active, "
+        "delivery_mode, digest_interval, payer_hint"
     )
 
     def _rotation_view(self, row) -> dict:
@@ -3722,6 +4081,9 @@ class WatchStore:
             "last_eval_snapshot_id": row[7],
             "last_status": row[8],
             "active": bool(row[9]),
+            "delivery_mode": (row[10] if len(row) > 10 else None) or "instant",
+            "digest_interval": row[11] if len(row) > 11 else None,
+            "payer_hint": row[12] if len(row) > 12 else None,
         }
 
     def register_rotation(
@@ -3732,6 +4094,9 @@ class WatchStore:
         email: str | None,
         funding_id: str,
         now_epoch: float | None = None,
+        delivery_mode: str = "instant",
+        digest_interval: str | None = None,
+        payer_hint: str | None = None,
     ) -> dict:
         now = time.time() if now_epoch is None else now_epoch
         reg_id = "rot_" + secrets.token_hex(8)
@@ -3739,9 +4104,11 @@ class WatchStore:
             self._conn.execute(
                 "INSERT INTO rotation_regs "
                 "(reg_id, pay_to, resource, webhook_url, email, "
-                "funding_id, created_epoch, active) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, 1)",
-                (reg_id, pay_to, resource, webhook_url, email, funding_id, now),
+                "funding_id, created_epoch, active, delivery_mode, "
+                "digest_interval, payer_hint) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)",
+                (reg_id, pay_to, resource, webhook_url, email, funding_id, now,
+                 delivery_mode, digest_interval, payer_hint),
             )
             self._conn.commit()
         return self.get_rotation_reg(reg_id)  # type: ignore[return-value]
@@ -3802,7 +4169,8 @@ class WatchStore:
 
     _WATCHLIST_COLS = (
         "reg_id, top_n, webhook_url, email, funding_id, "
-        "created_epoch, last_eval_snapshot_id, last_status, active"
+        "created_epoch, last_eval_snapshot_id, last_status, active, "
+        "delivery_mode, digest_interval, payer_hint"
     )
 
     def _watchlist_view(self, row) -> dict:
@@ -3817,6 +4185,9 @@ class WatchStore:
             "last_eval_snapshot_id": row[6],
             "last_status": row[7],
             "active": bool(row[8]),
+            "delivery_mode": (row[9] if len(row) > 9 else None) or "instant",
+            "digest_interval": row[10] if len(row) > 10 else None,
+            "payer_hint": row[11] if len(row) > 11 else None,
         }
 
     def register_watchlist(
@@ -3826,6 +4197,9 @@ class WatchStore:
         email: str | None,
         funding_id: str,
         now_epoch: float | None = None,
+        delivery_mode: str = "instant",
+        digest_interval: str | None = None,
+        payer_hint: str | None = None,
     ) -> dict:
         now = time.time() if now_epoch is None else now_epoch
         reg_id = "wl_" + secrets.token_hex(8)
@@ -3833,9 +4207,11 @@ class WatchStore:
             self._conn.execute(
                 "INSERT INTO watchlist_regs "
                 "(reg_id, top_n, webhook_url, email, "
-                "funding_id, created_epoch, active) "
-                "VALUES (?, ?, ?, ?, ?, ?, 1)",
-                (reg_id, top_n, webhook_url, email, funding_id, now),
+                "funding_id, created_epoch, active, delivery_mode, "
+                "digest_interval, payer_hint) "
+                "VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)",
+                (reg_id, top_n, webhook_url, email, funding_id, now,
+                 delivery_mode, digest_interval, payer_hint),
             )
             self._conn.commit()
         return self.get_watchlist_reg(reg_id)  # type: ignore[return-value]
@@ -3895,7 +4271,8 @@ class WatchStore:
     _INDEX_SUB_COLS = (
         "reg_id, resource_contains, pay_to, service_name, network, "
         "webhook_url, email, funding_id, created_epoch, "
-        "last_eval_snapshot_id, last_status, active, catalogue"
+        "last_eval_snapshot_id, last_status, active, catalogue, "
+        "delivery_mode, digest_interval, payer_hint"
     )
 
     def _index_sub_view(self, row) -> dict:
@@ -3915,6 +4292,9 @@ class WatchStore:
             "active": bool(row[11]),
             # v2 per-catalogue slice; NULL (every v1 row) = all.
             "catalogue": row[12] if len(row) > 12 else None,
+            "delivery_mode": (row[13] if len(row) > 13 else None) or "instant",
+            "digest_interval": row[14] if len(row) > 14 else None,
+            "payer_hint": row[15] if len(row) > 15 else None,
         }
 
     def register_index_sub(
@@ -3928,6 +4308,9 @@ class WatchStore:
         funding_id: str,
         now_epoch: float | None = None,
         catalogue: str | None = None,
+        delivery_mode: str = "instant",
+        digest_interval: str | None = None,
+        payer_hint: str | None = None,
     ) -> dict:
         now = time.time() if now_epoch is None else now_epoch
         reg_id = "isub_" + secrets.token_hex(8)
@@ -3936,8 +4319,9 @@ class WatchStore:
                 "INSERT INTO index_subs "
                 "(reg_id, resource_contains, pay_to, service_name, "
                 "network, webhook_url, email, funding_id, "
-                "created_epoch, active, catalogue) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
+                "created_epoch, active, catalogue, delivery_mode, "
+                "digest_interval, payer_hint) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)",
                 (
                     reg_id,
                     resource_contains,
@@ -3949,6 +4333,9 @@ class WatchStore:
                     funding_id,
                     now,
                     catalogue,
+                    delivery_mode,
+                    digest_interval,
+                    payer_hint,
                 ),
             )
             self._conn.commit()
@@ -3985,6 +4372,9 @@ class WatchStore:
         "catalogue",
         "webhook_url",
         "email",
+        "delivery_mode",
+        "digest_interval",
+        "payer_hint",
     )
 
     def update_index_sub_filters(
@@ -4047,6 +4437,439 @@ class WatchStore:
                     "last_status = ? WHERE reg_id = ?",
                     (snapshot_id, status, reg_id),
                 )
+            self._conn.commit()
+
+    # --- Watch cluster (Next-20 #9/#10/#11/#12) + digest queue (#20) -----
+    # One section for the four new registration families and the
+    # digest queue they (and the older watch families) share. Every
+    # view carries delivery_mode/digest_interval/payer_hint so the
+    # delivery layer and the Item 5 rider read one shape everywhere.
+    # Pause/cancel are generic over these tables plus the older
+    # families: pause flips active off (ticker skips, state kept),
+    # cancel is terminal (last_status='cancelled').
+
+    _CLUSTER_TABLES = {
+        "heartbeat_regs": "reg_id",
+        "defect_subs": "reg_id",
+        "portfolio_regs": "reg_id",
+        "stall_watch_regs": "reg_id",
+        "watch_regs": "watch_reg_id",
+        "rotation_regs": "reg_id",
+        "watchlist_regs": "reg_id",
+        "index_subs": "reg_id",
+    }
+
+    def set_reg_active(self, table: str, reg_id: str, active: bool, status: str) -> bool:
+        key_col = self._CLUSTER_TABLES[table]
+        with self._lock:
+            cur = self._conn.execute(
+                f"UPDATE {table} SET active = ?, last_status = ? "
+                f"WHERE {key_col} = ?",
+                (1 if active else 0, status, reg_id),
+            )
+            self._conn.commit()
+            return cur.rowcount == 1
+
+    # Heartbeat (#9)
+
+    def register_heartbeat(self, resources, webhook_url, email, interval_s,
+                           funding_kind, funding_id, delivery_mode="instant",
+                           digest_interval=None, payer_hint=None,
+                           now_epoch=None) -> dict:
+        now = time.time() if now_epoch is None else now_epoch
+        reg_id = "hb_" + secrets.token_hex(8)
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO heartbeat_regs (reg_id, resources_json, "
+                "webhook_url, email, interval_s, funding_id, created_epoch, "
+                "active, delivery_mode, digest_interval, payer_hint) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)",
+                (reg_id, json.dumps(list(resources)), webhook_url, email,
+                 interval_s, funding_id, now, delivery_mode, digest_interval,
+                 payer_hint),
+            )
+            self._conn.commit()
+        # funding_kind is not a column: it is derived from the
+        # credential id in the view (pack ids start "pack_", Fleet
+        # Pass ids "fpass_") — the parameter is accepted so callers
+        # state their validated kind explicitly.
+        _ = funding_kind
+        return self.get_heartbeat_reg(reg_id)  # type: ignore[return-value]
+
+    def get_heartbeat_reg(self, reg_id: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT reg_id, resources_json, webhook_url, email, "
+                "interval_s, funding_id, created_epoch, last_run_epoch, "
+                "last_status, active, delivery_mode, digest_interval, "
+                "payer_hint FROM heartbeat_regs WHERE reg_id = ?",
+                (reg_id,),
+            ).fetchone()
+            states = {}
+            if row is not None:
+                for r, st, det, upd in self._conn.execute(
+                    "SELECT resource, state, detail_json, updated_epoch "
+                    "FROM heartbeat_states WHERE reg_id = ?",
+                    (reg_id,),
+                ).fetchall():
+                    states[r] = {
+                        "state": st,
+                        "detail": json.loads(det) if det else None,
+                        "updated_at": _iso_of(upd) if upd else None,
+                    }
+        if row is None:
+            return None
+        funding_id = row[5]
+        return {
+            "reg_id": row[0],
+            "kind": "heartbeat",
+            "resources": json.loads(row[1]),
+            "webhook_url": row[2],
+            "email": row[3],
+            "interval_s": row[4],
+            "funding_kind": "pack" if str(funding_id).startswith("pack_") else "fleet_pass",
+            "funding_id": funding_id,
+            "created_at": _iso_of(row[6]),
+            "last_run_at": _iso_of(row[7]) if row[7] else None,
+            "last_status": row[8],
+            "active": bool(row[9]),
+            "delivery_mode": row[10] or "instant",
+            "digest_interval": row[11],
+            "payer_hint": row[12],
+            "states": states,
+        }
+
+    def due_heartbeat_regs(self, now_epoch: float | None = None) -> list[dict]:
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT reg_id FROM heartbeat_regs WHERE active = 1 AND "
+                "(last_run_epoch IS NULL OR last_run_epoch + interval_s <= ?)",
+                (now,),
+            ).fetchall()
+        return [r for x in rows if (r := self.get_heartbeat_reg(x[0])) is not None]
+
+    def update_heartbeat_run(self, reg_id: str, status: str, now_epoch=None) -> None:
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            self._conn.execute(
+                "UPDATE heartbeat_regs SET last_run_epoch = ?, last_status = ? "
+                "WHERE reg_id = ?",
+                (now, status, reg_id),
+            )
+            self._conn.commit()
+
+    def get_heartbeat_state(self, reg_id: str, resource: str) -> str | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT state FROM heartbeat_states WHERE reg_id = ? AND resource = ?",
+                (reg_id, resource),
+            ).fetchone()
+        return row[0] if row else None
+
+    def set_heartbeat_state(self, reg_id: str, resource: str, state: str,
+                            detail: dict | None, now_epoch=None) -> None:
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO heartbeat_states (reg_id, resource, "
+                "state, detail_json, updated_epoch) VALUES (?, ?, ?, ?, ?)",
+                (reg_id, resource, state,
+                 json.dumps(detail, sort_keys=True) if detail else None, now),
+            )
+            self._conn.commit()
+
+    # Defect-class subscriptions (#10)
+
+    def register_defect_sub(self, defect_class, origin, resource_contains,
+                            service_name, webhook_url, email, funding_kind,
+                            funding_id, delivery_mode="instant",
+                            digest_interval=None, payer_hint=None,
+                            now_epoch=None) -> dict:
+        now = time.time() if now_epoch is None else now_epoch
+        reg_id = "def_" + secrets.token_hex(8)
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO defect_subs (reg_id, defect_class, origin, "
+                "resource_contains, service_name, webhook_url, email, "
+                "funding_id, created_epoch, active, delivery_mode, "
+                "digest_interval, payer_hint) VALUES "
+                "(?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)",
+                (reg_id, defect_class, origin, resource_contains, service_name,
+                 webhook_url, email, funding_id, now, delivery_mode,
+                 digest_interval, payer_hint),
+            )
+            self._conn.commit()
+        _ = funding_kind  # derived from the credential id in the view
+        return self.get_defect_sub(reg_id)  # type: ignore[return-value]
+
+    def get_defect_sub(self, reg_id: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT reg_id, defect_class, origin, resource_contains, "
+                "service_name, webhook_url, email, funding_id, created_epoch, "
+                "last_status, active, seen_keys_json, delivery_mode, "
+                "digest_interval, payer_hint FROM defect_subs WHERE reg_id = ?",
+                (reg_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        funding_id = row[7]
+        return {
+            "reg_id": row[0],
+            "kind": "defect_class",
+            "defect_class": row[1],
+            "origin": row[2],
+            "resource_contains": row[3],
+            "service_name": row[4],
+            "webhook_url": row[5],
+            "email": row[6],
+            "funding_kind": "pack" if str(funding_id).startswith("pack_") else "fleet_pass",
+            "funding_id": funding_id,
+            "created_at": _iso_of(row[8]),
+            "last_status": row[9],
+            "active": bool(row[10]),
+            "seen_keys": json.loads(row[11] or "[]"),
+            "delivery_mode": row[12] or "instant",
+            "digest_interval": row[13],
+            "payer_hint": row[14],
+        }
+
+    def active_defect_subs(self) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT reg_id FROM defect_subs WHERE active = 1"
+            ).fetchall()
+        return [r for x in rows if (r := self.get_defect_sub(x[0])) is not None]
+
+    def update_defect_sub(self, reg_id: str, status: str, seen_keys=None) -> None:
+        with self._lock:
+            if seen_keys is None:
+                self._conn.execute(
+                    "UPDATE defect_subs SET last_status = ? WHERE reg_id = ?",
+                    (status, reg_id),
+                )
+            else:
+                self._conn.execute(
+                    "UPDATE defect_subs SET last_status = ?, seen_keys_json = ? "
+                    "WHERE reg_id = ?",
+                    (status, json.dumps(list(seen_keys)), reg_id),
+                )
+            self._conn.commit()
+
+    # Portfolio Watch (#11)
+
+    def register_portfolio(self, operator, match_kind, tier, webhook_url, email,
+                           interval_s, funding_id, routes, delivery_mode="instant",
+                           digest_interval=None, payer_hint=None, now_epoch=None) -> dict:
+        now = time.time() if now_epoch is None else now_epoch
+        reg_id = "pf_" + secrets.token_hex(8)
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO portfolio_regs (reg_id, operator, match_kind, tier, "
+                "webhook_url, email, interval_s, funding_id, created_epoch, "
+                "active, delivery_mode, digest_interval, payer_hint, routes_json) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)",
+                (reg_id, operator, match_kind, tier, webhook_url, email, interval_s,
+                 funding_id, now, delivery_mode, digest_interval, payer_hint,
+                 json.dumps(list(routes))),
+            )
+            self._conn.commit()
+        return self.get_portfolio_reg(reg_id)  # type: ignore[return-value]
+
+    def get_portfolio_reg(self, reg_id: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT reg_id, operator, match_kind, tier, webhook_url, email, "
+                "interval_s, funding_id, created_epoch, last_run_epoch, "
+                "last_status, active, delivery_mode, digest_interval, payer_hint, "
+                "routes_json FROM portfolio_regs WHERE reg_id = ?",
+                (reg_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "reg_id": row[0],
+            "kind": "portfolio",
+            "operator": row[1],
+            "match_kind": row[2],
+            "tier": row[3],
+            "webhook_url": row[4],
+            "email": row[5],
+            "interval_s": row[6],
+            "funding_kind": "fleet_pass",
+            "funding_id": row[7],
+            "created_at": _iso_of(row[8]),
+            "last_run_at": _iso_of(row[9]) if row[9] else None,
+            "last_status": row[10],
+            "active": bool(row[11]),
+            "delivery_mode": row[12] or "instant",
+            "digest_interval": row[13],
+            "payer_hint": row[14],
+            "routes": json.loads(row[15] or "[]"),
+        }
+
+    def due_portfolio_regs(self, now_epoch: float | None = None) -> list[dict]:
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT reg_id FROM portfolio_regs WHERE active = 1 AND "
+                "(last_run_epoch IS NULL OR last_run_epoch + interval_s <= ?)",
+                (now,),
+            ).fetchall()
+        return [r for x in rows if (r := self.get_portfolio_reg(x[0])) is not None]
+
+    def update_portfolio_run(self, reg_id: str, status: str, routes=None, now_epoch=None) -> None:
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            if routes is None:
+                self._conn.execute(
+                    "UPDATE portfolio_regs SET last_run_epoch = ?, last_status = ? "
+                    "WHERE reg_id = ?",
+                    (now, status, reg_id),
+                )
+            else:
+                self._conn.execute(
+                    "UPDATE portfolio_regs SET last_run_epoch = ?, last_status = ?, "
+                    "routes_json = ? WHERE reg_id = ?",
+                    (now, status, json.dumps(list(routes)), reg_id),
+                )
+            self._conn.commit()
+
+    # Stall Watch (#12)
+
+    def register_stall_watch(self, origin, pack_id, watch_reg_id, webhook_url,
+                             email, delivery_mode="instant", digest_interval=None,
+                             payer_hint=None, now_epoch=None) -> dict:
+        now = time.time() if now_epoch is None else now_epoch
+        reg_id = "sw_" + secrets.token_hex(8)
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO stall_watch_regs (reg_id, origin, pack_id, "
+                "watch_reg_id, webhook_url, email, created_epoch, active, "
+                "delivery_mode, digest_interval, payer_hint) VALUES "
+                "(?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)",
+                (reg_id, origin, pack_id, watch_reg_id, webhook_url, email, now,
+                 delivery_mode, digest_interval, payer_hint),
+            )
+            self._conn.commit()
+        return self.get_stall_watch(reg_id)  # type: ignore[return-value]
+
+    def get_stall_watch(self, reg_id: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT reg_id, origin, pack_id, watch_reg_id, webhook_url, "
+                "email, created_epoch, last_status, active, "
+                "seen_recoveries_json, delivery_mode, digest_interval, payer_hint "
+                "FROM stall_watch_regs WHERE reg_id = ?",
+                (reg_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "reg_id": row[0],
+            "kind": "stall_watch",
+            "origin": row[1],
+            "pack_id": row[2],
+            "watch_reg_id": row[3],
+            "webhook_url": row[4],
+            "email": row[5],
+            "created_at": _iso_of(row[6]),
+            "last_status": row[7],
+            "active": bool(row[8]),
+            "seen_recoveries": json.loads(row[9] or "[]"),
+            "delivery_mode": row[10] or "instant",
+            "digest_interval": row[11],
+            "payer_hint": row[12],
+        }
+
+    def stall_watch_for_origin(self, origin: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT reg_id FROM stall_watch_regs WHERE origin = ? "
+                "ORDER BY created_epoch DESC LIMIT 1",
+                (origin,),
+            ).fetchone()
+        return self.get_stall_watch(row[0]) if row else None
+
+    def active_stall_watches(self) -> list[dict]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT reg_id FROM stall_watch_regs WHERE active = 1"
+            ).fetchall()
+        return [r for x in rows if (r := self.get_stall_watch(x[0])) is not None]
+
+    def update_stall_watch(self, reg_id: str, status: str, seen_recoveries=None) -> None:
+        with self._lock:
+            if seen_recoveries is None:
+                self._conn.execute(
+                    "UPDATE stall_watch_regs SET last_status = ? WHERE reg_id = ?",
+                    (status, reg_id),
+                )
+            else:
+                self._conn.execute(
+                    "UPDATE stall_watch_regs SET last_status = ?, "
+                    "seen_recoveries_json = ? WHERE reg_id = ?",
+                    (status, json.dumps(list(seen_recoveries)), reg_id),
+                )
+            self._conn.commit()
+
+    # Digest queue (#20)
+
+    def queue_digest(self, queue_key: str, kind: str, reg_id: str,
+                     webhook_url, email, payload: dict, now_epoch=None) -> int:
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO digest_queue (queue_key, kind, reg_id, webhook_url, "
+                "email, payload_json, queued_epoch) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (queue_key, kind, reg_id, webhook_url, email,
+                 json.dumps(payload, sort_keys=True), now),
+            )
+            self._conn.commit()
+            return int(cur.lastrowid)
+
+    def pending_digests(self, queue_key: str | None = None) -> list[dict]:
+        with self._lock:
+            if queue_key is None:
+                rows = self._conn.execute(
+                    "SELECT id, queue_key, kind, reg_id, webhook_url, email, "
+                    "payload_json, queued_epoch FROM digest_queue "
+                    "WHERE delivered_epoch IS NULL ORDER BY id ASC"
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    "SELECT id, queue_key, kind, reg_id, webhook_url, email, "
+                    "payload_json, queued_epoch FROM digest_queue "
+                    "WHERE delivered_epoch IS NULL AND queue_key = ? "
+                    "ORDER BY id ASC",
+                    (queue_key,),
+                ).fetchall()
+        return [
+            {
+                "id": r[0], "queue_key": r[1], "kind": r[2], "reg_id": r[3],
+                "webhook_url": r[4], "email": r[5],
+                "payload": json.loads(r[6]), "queued_epoch": r[7],
+                "queued_at": _iso_of(r[7]),
+            }
+            for r in rows
+        ]
+
+    def digest_queue_keys(self) -> list[str]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT DISTINCT queue_key FROM digest_queue "
+                "WHERE delivered_epoch IS NULL"
+            ).fetchall()
+        return [r[0] for r in rows]
+
+    def mark_digests_delivered(self, ids: list[int], now_epoch=None) -> None:
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            self._conn.executemany(
+                "UPDATE digest_queue SET delivered_epoch = ? WHERE id = ?",
+                [(now, i) for i in ids],
+            )
             self._conn.commit()
 
 

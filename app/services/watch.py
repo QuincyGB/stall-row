@@ -58,9 +58,11 @@ import os
 import httpx
 
 from ..rpc import UpstreamError
+from . import digest as digest_svc
 from . import fetch as fetch_svc
 from . import fleetpass as fleetpass_svc
 from . import recheck as recheck_svc
+from . import watchfund
 
 log = logging.getLogger("stall-row.watch")
 
@@ -122,6 +124,9 @@ async def register(
     fleet_pass_id: str | None,
     check_kind: str = "recheck",
     watch_focus: str = "all",
+    delivery_mode: str | None = None,
+    digest_interval: str | None = None,
+    payer: str | None = None,
 ) -> dict:
     """Validate everything BEFORE storing: both URLs SSRF-checked,
     the funding credential must exist and actually cover this watch.
@@ -149,6 +154,12 @@ async def register(
             "the RouteVerdict leg carries no output-schema fingerprint "
             "to key on — register with check_kind=recheck"
         )
+    try:
+        delivery_mode_v, digest_interval_v = watchfund.normalize_delivery(
+            delivery_mode, digest_interval
+        )
+    except watchfund.ClusterError as e:
+        raise WatchError(e.message, e.http_status) from e
     if check_kind == "route_verdict" and pack_id:
         raise WatchError(
             "check_kind=route_verdict cannot be funded by a recheck "
@@ -190,6 +201,8 @@ async def register(
     reg = store.register_watch(
         url, webhook_url, email, interval, kind, funding_id,
         check_kind=check_kind, watch_focus=watch_focus,
+        delivery_mode=delivery_mode_v, digest_interval=digest_interval_v,
+        payer_hint=watchfund.normalize_payer_hint(payer),
     )
     reg["email_delivery"] = (
         "stored only — StallRow has no mail transport; the webhook is "
@@ -233,10 +246,12 @@ async def _deliver(
     store: recheck_svc.WatchStore,
     reg: dict,
     result: dict,
-) -> None:
+) -> bool:
+    """Push one watch event per the registration's delivery shape
+    (Item 20): digest registrations queue the event for the batched
+    delivery and push nothing now. Returns True when a push was
+    attempted or the event was queued."""
     webhook = reg.get("webhook_url")
-    if not webhook:
-        return
     payload = {
         "event": result["status"],
         "watch_reg_id": reg["watch_reg_id"],
@@ -254,17 +269,25 @@ async def _deliver(
         payload["watch_focus"] = result.get("watch_focus", "schema")
         payload["schema_fingerprint"] = result["schema_fingerprint"]
         payload["field_changes"] = result.get("field_changes", [])
+    if digest_svc.maybe_queue(
+        store, reg, kind="watch", reg_id=reg["watch_reg_id"], payload=payload
+    ):
+        return True
+    if not webhook:
+        return False
     try:
         await asyncio.to_thread(fetch_svc.ssrf_check, webhook)
         resp = await client.post(webhook, json=payload, follow_redirects=False)
         store.record_delivery(
             reg["watch_reg_id"], result["status"], resp.status_code, None
         )
+        return True
     except Exception as e:  # noqa: BLE001 — a dead receiver is recorded, not fatal
         store.record_delivery(
             reg["watch_reg_id"], result["status"], None, type(e).__name__
         )
         log.warning("watch delivery failed for %s: %s", reg["watch_reg_id"], e)
+        return True
 
 
 def _rv_summary(body: dict) -> dict:
@@ -403,9 +426,8 @@ async def _run_route_verdict_watch(
         "summary": summary_text,
     }
     delivered = False
-    if status in PUSH_STATUSES and reg.get("webhook_url"):
-        await _deliver(client, store, reg, result)
-        delivered = True
+    if status in PUSH_STATUSES:
+        delivered = await _deliver(client, store, reg, result)
     return {
         "watch_reg_id": reg["watch_reg_id"],
         "check_kind": "route_verdict",
@@ -491,8 +513,8 @@ async def _run_schema_focus(
         last_summary={"schema_fingerprint": current_fp},
     )
     delivered = False
-    if status in ("BASELINE", SCHEMA_CHANGED) and reg.get("webhook_url"):
-        await _deliver(
+    if status in ("BASELINE", SCHEMA_CHANGED):
+        delivered = await _deliver(
             client,
             store,
             reg,
@@ -513,7 +535,6 @@ async def _run_schema_focus(
                 },
             },
         )
-        delivered = True
     return {
         "watch_reg_id": reg["watch_reg_id"],
         "watch_focus": "schema",
@@ -581,9 +602,8 @@ async def run_watch(
         return await _run_schema_focus(client, store, reg, result)
     store.update_watch_run(reg["watch_reg_id"], result["status"])
     delivered = False
-    if result["status"] in PUSH_STATUSES and reg.get("webhook_url"):
-        await _deliver(client, store, reg, result)
-        delivered = True
+    if result["status"] in PUSH_STATUSES:
+        delivered = await _deliver(client, store, reg, result)
     return {
         "watch_reg_id": reg["watch_reg_id"],
         "status": result["status"],

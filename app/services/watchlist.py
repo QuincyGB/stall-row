@@ -36,9 +36,11 @@ import time
 
 import httpx
 
+from . import digest as digest_svc
 from . import fetch as fetch_svc
 from . import indexfeed as indexfeed_svc
 from . import recheck as recheck_svc
+from . import watchfund
 from .indexfeed import IndexStore
 
 log = logging.getLogger("stall-row.watchlist")
@@ -70,6 +72,9 @@ async def register(
     webhook_url: str | None,
     email: str | None,
     fleet_pass_id: str | None,
+    delivery_mode: str | None = None,
+    digest_interval: str | None = None,
+    payer: str | None = None,
 ) -> dict:
     """Validate everything BEFORE storing: top_n in range, the
     webhook a public URL, and the Fleet Pass able to fund one run.
@@ -91,8 +96,14 @@ async def register(
         raise WatchlistError("this fleet pass has expired", 410)
     if fleet_pass["balance_units"] < RUN_PRICE_UNITS:
         raise WatchlistError("fleet pass balance cannot fund one run", 402)
+    try:
+        mode_v, interval_v = watchfund.normalize_delivery(delivery_mode, digest_interval)
+    except watchfund.ClusterError as e:
+        raise WatchlistError(e.message, e.http_status) from e
     reg = store.register_watchlist(
-        top_n, webhook_url, email, fleet_pass_id.strip()
+        top_n, webhook_url, email, fleet_pass_id.strip(),
+        delivery_mode=mode_v, digest_interval=interval_v,
+        payer_hint=watchfund.normalize_payer_hint(payer),
     )
     reg["email_delivery"] = (
         "stored only — StallRow has no mail transport; the webhook is "
@@ -197,10 +208,8 @@ async def _deliver(
     events: list[dict],
     before: dict,
     after: dict,
-) -> None:
+) -> bool:
     webhook = reg.get("webhook_url")
-    if not webhook:
-        return
     payload = {
         "event": EVENT_NAME,
         "reg_id": reg["reg_id"],
@@ -212,13 +221,21 @@ async def _deliver(
             "%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time())
         ),
     }
+    if digest_svc.maybe_queue(
+        store, reg, kind="watchlist", reg_id=reg["reg_id"], payload=payload
+    ):
+        return True
+    if not webhook:
+        return False
     try:
         await asyncio.to_thread(fetch_svc.ssrf_check, webhook)
         resp = await client.post(webhook, json=payload, follow_redirects=False)
         store.record_delivery(reg["reg_id"], EVENT_NAME, resp.status_code, None)
+        return True
     except Exception as e:  # noqa: BLE001 — a dead receiver is recorded, not fatal
         store.record_delivery(reg["reg_id"], EVENT_NAME, None, type(e).__name__)
         log.warning("watchlist delivery failed for %s: %s", reg["reg_id"], e)
+        return True
 
 
 async def evaluate(
@@ -302,9 +319,8 @@ async def evaluate(
     status = "events" if events else "no_change"
     store.update_watchlist_eval(reg["reg_id"], after["id"], status)
     pushed = False
-    if events and reg.get("webhook_url"):
-        await _deliver(client, store, reg, events, before, after)
-        pushed = True
+    if events:
+        pushed = await _deliver(client, store, reg, events, before, after)
     return {
         "reg_id": reg["reg_id"],
         "status": status,

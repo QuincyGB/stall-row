@@ -72,6 +72,7 @@ def _public_view(sub: dict) -> dict:
     return {
         "sub_id": sub["sub_id"],
         "callback_url": sub["callback_url"],
+        "payer_hint": sub.get("payer_hint"),
         "filter": {
             "url": sub.get("filter_url"),
             "origin": sub.get("filter_origin"),
@@ -117,6 +118,7 @@ async def register(
     origin: str | None = None,
     pack_id: str | None = None,
     fleet_pass_id: str | None = None,
+    payer: str | None = None,
 ) -> dict:
     """Validate everything BEFORE storing (SSRF on the callback,
     shape on the filter, funding credential live, caps on the
@@ -200,6 +202,8 @@ async def register(
         raise SubsError(
             f"at most {MAX_PER_HOST} subscriptions per callback host"
         )
+    from . import watchfund
+
     sub = store.add_webhook_sub(
         f"sub_{uuid.uuid4().hex}",
         callback_url,
@@ -208,6 +212,7 @@ async def register(
         filter_origin,
         funding_kind,
         funding_id,
+        payer_hint=watchfund.normalize_payer_hint(payer),
     )
     return _public_view(sub)
 

@@ -50,9 +50,11 @@ import time
 import httpx
 
 from ..rpc import is_address
+from . import digest as digest_svc
 from . import fetch as fetch_svc
 from . import indexfeed as indexfeed_svc
 from . import recheck as recheck_svc
+from . import watchfund
 from .indexfeed import IndexStore
 
 log = logging.getLogger("stall-row.indexsub")
@@ -124,6 +126,9 @@ async def register(
     email: str | None,
     fleet_pass_id: str | None,
     catalogue: str | None = None,
+    delivery_mode: str | None = None,
+    digest_interval: str | None = None,
+    payer: str | None = None,
 ) -> dict:
     """Validate everything BEFORE storing: the webhook must be a
     public URL, a named pay_to must be an address, and the Fleet
@@ -151,6 +156,10 @@ async def register(
         raise IndexSubError("this fleet pass has expired", 410)
     if fleet_pass["balance_units"] < RUN_PRICE_UNITS:
         raise IndexSubError("fleet pass balance cannot fund one run", 402)
+    try:
+        mode_v, interval_v = watchfund.normalize_delivery(delivery_mode, digest_interval)
+    except watchfund.ClusterError as e:
+        raise IndexSubError(e.message, e.http_status) from e
     reg = store.register_index_sub(
         resource_contains,
         pay_to,
@@ -160,6 +169,9 @@ async def register(
         email,
         fleet_pass_id.strip(),
         catalogue=catalogue,
+        delivery_mode=mode_v,
+        digest_interval=interval_v,
+        payer_hint=watchfund.normalize_payer_hint(payer),
     )
     reg["email_delivery"] = (
         "stored only — StallRow has no mail transport; the webhook is "
@@ -243,9 +255,13 @@ async def _deliver(
     diff: dict,
 ) -> bool:
     webhook = reg.get("webhook_url")
+    payload = {"event": "index_diff", "reg_id": reg["reg_id"], **diff}
+    if digest_svc.maybe_queue(
+        store, reg, kind="index_sub", reg_id=reg["reg_id"], payload=payload
+    ):
+        return True
     if not webhook:
         return False
-    payload = {"event": "index_diff", "reg_id": reg["reg_id"], **diff}
     try:
         await asyncio.to_thread(fetch_svc.ssrf_check, webhook)
         resp = await client.post(webhook, json=payload, follow_redirects=False)
@@ -423,7 +439,21 @@ async def update_filters(
     _must_get(store, reg_id)
     cleaned: dict = {}
     for name, value in fields.items():
-        if name == "catalogue":
+        if name == "delivery_mode":
+            mode = (value or "instant").strip().lower() if isinstance(value, str) else value
+            if mode not in watchfund.DELIVERY_MODES:
+                raise IndexSubError(
+                    f"delivery_mode must be one of {', '.join(watchfund.DELIVERY_MODES)}"
+                )
+            cleaned[name] = mode
+        elif name == "digest_interval":
+            interval = (value or "").strip().lower() or None if isinstance(value, str) or value is None else value
+            if interval is not None and interval not in watchfund.DIGEST_INTERVALS:
+                raise IndexSubError(
+                    f"digest_interval must be one of {', '.join(watchfund.DIGEST_INTERVALS)}"
+                )
+            cleaned[name] = interval
+        elif name == "catalogue":
             cleaned[name] = normalize_catalogue(value)
         elif name == "pay_to":
             value = (value or "").strip() or None
