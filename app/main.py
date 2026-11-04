@@ -2982,6 +2982,15 @@ async def fleet_check_status(req: FleetCheckPackIdRequest):
     pack["latest_run"] = _recheck_store.latest_fleet_check_run(
         req.pack_id.strip()
     )
+    # Framework Pack packaging (Item 13): the pack view already
+    # carries its `renewal` terms (derived in the store from the
+    # FLEET_CHECK_PACK_* constants); the latest sweep's verdicts are
+    # also served as framework run-log entries. A pack that has
+    # never run has an empty log — never a fabricated one.
+    latest = pack["latest_run"] or {}
+    pack["framework_log"] = fleetcheck_svc.framework_log_for_rows(
+        latest.get("resources"), latest.get("checked_at")
+    )
     pack["deliveries"] = _recheck_store.deliveries_for(req.pack_id.strip())
     return pack
 

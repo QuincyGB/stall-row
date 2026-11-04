@@ -2458,6 +2458,25 @@ class WatchStore:
             "last_run_at": (
                 _iso_of(row["last_run_epoch"]) if row["last_run_epoch"] else None
             ),
+            # Renewal terms (Next-20 Item 13, Fleet Check Framework
+            # Packs): every field DERIVED from the FLEET_CHECK_PACK_*
+            # constants above — never hand-restated — so the pack's
+            # renewal cycle, price and credit count cannot drift
+            # from the terms the store enforces.
+            "renewal": {
+                "renewal_cycle_days": FLEET_CHECK_PACK_TTL_DAYS,
+                "renewal_price_units": FLEET_CHECK_PACK_PRICE_UNITS,
+                "renewal_price_usd": (
+                    f"${FLEET_CHECK_PACK_PRICE_UNITS / 1_000_000:.2f}"
+                ),
+                "credits_per_pack": FLEET_CHECK_PACK_CREDITS,
+                "expires_at": _iso_of(row["expires_epoch"]),
+                "days_remaining": max(
+                    0,
+                    int(-(-(row["expires_epoch"] - now) // 86_400)),
+                ),
+                "renewal_endpoint": "POST /v1/fleet-check/pack",
+            },
         }
 
     def mint_fleet_check_pack(

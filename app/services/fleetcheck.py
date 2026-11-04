@@ -413,6 +413,68 @@ def _grade(rows: list[dict]) -> dict:
     return {**counts, "resources": total, "score": score, "verdict": verdict}
 
 
+# --- framework run-log format (Next-20 Item 13) --------------------------------
+#
+# Fleet Check Framework Packs: every sweep delivery also carries its
+# verdicts as framework-style run-log entries — one structured entry
+# per probed resource, shaped so an AgentKit / LangChain-style runner
+# can drop the list into its own run log verbatim. The entries are a
+# pure re-expression of the sweep's rows: no new probing, no new
+# facts, and the original `resources` table is untouched.
+
+FRAMEWORK_LOG_TOOL = "fleet_check_route_probe"
+
+
+def framework_log_entry(row: dict, checked_at: str | None = None) -> dict:
+    """One route verdict row as one framework run-log entry."""
+    defects = [
+        d for d in (row.get("defects") or []) if isinstance(d, dict)
+    ]
+    defect_codes = [d.get("code") for d in defects]
+    first = defects[0] if defects else {}
+    verdict = row.get("verdict")
+    url = row.get("url")
+    if first.get("detail"):
+        message = (
+            f"{FRAMEWORK_LOG_TOOL} {url}: {verdict} "
+            f"({first.get('code')}: {first.get('detail')})"
+        )
+    else:
+        message = (
+            f"{FRAMEWORK_LOG_TOOL} {url}: {verdict} — "
+            "answers 402 with a parseable challenge, no defect found"
+        )
+    entry = {
+        "tool": FRAMEWORK_LOG_TOOL,
+        "action": FRAMEWORK_LOG_TOOL,
+        "resource": url,
+        "verdict": verdict,
+        "defect": first.get("code"),
+        "defects": defect_codes,
+        "http_status": row.get("http_status"),
+        "message": message,
+    }
+    if checked_at:
+        entry["checked_at"] = checked_at
+    return entry
+
+
+def framework_log_for_rows(
+    rows: list[dict] | None, checked_at: str | None = None
+) -> list[dict]:
+    """A whole sweep's rows as a framework run-log entry list."""
+    return [
+        framework_log_entry(row, checked_at) for row in rows or []
+    ]
+
+
+def framework_log_for_result(result: dict) -> list[dict]:
+    """Framework run-log entries for one sweep result dict."""
+    return framework_log_for_rows(
+        result.get("resources"), result.get("checked_at")
+    )
+
+
 async def sweep(client: httpx.AsyncClient, definition: dict) -> dict:
     """One full sweep of a fleet definition: expand origins from
     their own discovery docs, probe every resource unpaid, classify,
@@ -460,12 +522,14 @@ async def sweep(client: httpx.AsyncClient, definition: dict) -> dict:
         "origins": len(origin_rows),
         "truncated": truncated,
     }
+    checked_at = _now_iso()
     return {
-        "checked_at": _now_iso(),
+        "checked_at": checked_at,
         "resources": rows,
         "origins": origin_rows,
         "summary": summary,
         "limits": LIMITS,
+        "framework_log": framework_log_for_rows(rows, checked_at),
     }
 
 
@@ -592,6 +656,9 @@ async def run_pack_sweep(
         "credits_remaining": reserved["credits_remaining"],
         "webhook_push_attempted": push_attempted,
         "webhook_delivered": pushed,
+        "framework_log": result.get("framework_log")
+        or framework_log_for_result(result),
+        "renewal": reserved.get("renewal"),
     }
 
 
