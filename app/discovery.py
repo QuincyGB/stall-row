@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 
 from .config import PRICE_UNITS, SOLANA_ACCEPT_PATHS, Settings, units_to_price
+from .services.hosted_mcp import hosted_extension as hosted_mcp_extension
 from .services.nudge import nudge_extension
 
 USDC_ASSET = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
@@ -2186,7 +2187,7 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
         # nudges (app/services/nudge.py; spec in x402-loop-kits).
         # A top-level extension, NOT a resource — inbound mail is
         # free and the priced route count does not move.
-        "extensions": {"nudge": nudge_extension(base_url), "mcp": dict(MCP_SERVER), "quickstart": dict(QUICKSTART), "gradeability": gradeability_extension(base_url), "verdict_row": verdict_row_extension(base_url)},
+        "extensions": {"nudge": nudge_extension(base_url), "mcp": {**MCP_SERVER, "hosted": hosted_mcp_extension(base_url)}, "quickstart": dict(QUICKSTART), "gradeability": gradeability_extension(base_url), "verdict_row": verdict_row_extension(base_url)},
         "resources": resources,
     }
 
@@ -2211,7 +2212,11 @@ CARD_PROVIDER = {"organization": "Verdict Row", "url": "https://github.com/Quinc
 # manifest, the agent card, skill.md and llms.txt so MCP hosts and
 # registries can find it. Tools wrap the priced routes (the inspector
 # toolkit — sign-read / score-book / guard — included) plus the free
-# Recheck feed v2 read.
+# Recheck feed v2 read. The HOSTED streamable-HTTP endpoint (POST /mcp,
+# app/services/hosted_mcp.py — the fleet's 24 cheap tools for runtimes
+# that cannot spawn stdio) rides additively as this block's "hosted"
+# entry in the manifest extensions only, so the name / manifest the
+# registry compiler checks stay exactly here.
 MCP_SERVER = {
     "name": "io.github.QuincyGB/stall-row-mcp",
     "title": "StallRow MCP server",
@@ -2484,6 +2489,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `GET {base_url}/.well-known/a2a-agent-card.json` — A2A agent card (registry-generated dialect twin of /.well-known/agent-card.json: skills mirror the priced routes at their registry prices, free)",
         f"- `GET {base_url}/llms-full.txt` — llms-full.txt, the long-form companion to llms.txt (full route docs with worked request/response examples, pack mechanics, Recheck feed + hash-chain spec, watch/corrections policy; generated from the fleet route registry, free)",
         f"- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp — manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json — tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
+        f"- Hosted MCP (streamable HTTP, no local install): `POST {base_url}/mcp` — the fleet's 24 cheap tools over HTTP MCP for runtimes that cannot spawn the stdio server; bring your own x402 payment (payment-signature / x-payment header on the /mcp request) or fleet credential (X-Recheck-Pack / X-Toolkit-Pack / X-Fleet-Pass header, or params._meta) — an unpaid tools/call returns the target route's 402 challenge as a structured tool error, and the server holds no keys and never pays",
         "- Inspector Quickstart Pack (curl / Python / TypeScript): https://stall-row-production.up.railway.app/quickstart/curl · https://stall-row-production.up.railway.app/quickstart/python · https://stall-row-production.up.railway.app/quickstart/typescript — one-page integration path: pin Recheck + RouteVerdict, read the feed, register a watch, fund a pack",
         "- Verdict Row Public Changelog: https://stall-row-production.up.railway.app/changelog.atom — subscribable Atom feed of fleet route / price / stability-manifest changes (JSON twin: https://stall-row-production.up.railway.app/changelog.json)",
         "- Verdict Row Tools Index: https://stall-row-production.up.railway.app/tools — every stall, every priced route + price, key surfaces (agent card, stability manifest, gradeability report, MCP, SDK status); machine-readable: https://stall-row-production.up.railway.app/tools.json",
@@ -2558,6 +2564,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/.well-known/a2a-agent-card.json — A2A agent card (registry-generated dialect twin of /.well-known/agent-card.json: skills mirror the priced routes at their registry prices, free)",
         f"- GET {base_url}/llms-full.txt — llms-full.txt, the long-form companion to llms.txt (full route docs with worked request/response examples, pack mechanics, Recheck feed + hash-chain spec, watch/corrections policy; generated from the fleet route registry, free)",
         f"- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp — manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json — tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
+        f"- Hosted MCP (streamable HTTP, no local install): POST {base_url}/mcp — the fleet's 24 cheap tools over HTTP MCP for runtimes that cannot spawn the stdio server; bring your own x402 payment (payment-signature / x-payment header on the /mcp request) or fleet credential (X-Recheck-Pack / X-Toolkit-Pack / X-Fleet-Pass header, or params._meta) — an unpaid tools/call returns the target route's 402 challenge as a structured tool error, and the server holds no keys and never pays",
         "- Inspector Quickstart Pack (curl / Python / TypeScript): https://stall-row-production.up.railway.app/quickstart/curl · https://stall-row-production.up.railway.app/quickstart/python · https://stall-row-production.up.railway.app/quickstart/typescript — one-page integration path: pin Recheck + RouteVerdict, read the feed, register a watch, fund a pack",
         "- Verdict Row Public Changelog: https://stall-row-production.up.railway.app/changelog.atom — subscribable Atom feed of fleet route / price / stability-manifest changes (JSON twin: https://stall-row-production.up.railway.app/changelog.json)",
         "- Verdict Row Tools Index: https://stall-row-production.up.railway.app/tools — every stall, every priced route + price, key surfaces (agent card, stability manifest, gradeability report, MCP, SDK status); machine-readable: https://stall-row-production.up.railway.app/tools.json",

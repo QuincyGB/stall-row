@@ -63,6 +63,13 @@ Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt,
              route, never listed; mutate it via the gated
              POST /v1/internal/sandbox/mutate — see
              services/sandbox.py)
+        POST /mcp (Hosted MCP, streamable HTTP — the fleet's 24
+             cheap tools for runtimes that cannot spawn the stdio
+             MCP packages; free transport, never a priced resource:
+             tools/call proxies to the target stall forwarding the
+             caller's own payment/pack/pass credentials, and an
+             unpaid call returns the route's 402 challenge as a
+             structured tool error — see services/hosted_mcp.py)
 
 Recheck packs: POST /v1/recheck presenting a pack id (body field
 `pack_id` or X-Recheck-Pack header) spends a prepaid credit instead
@@ -137,6 +144,7 @@ from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import agentcard as agentcard_svc
 from .services import claims as claims_svc
 from .services import hosted_inbox as hosted_svc
+from .services import hosted_mcp as hosted_mcp_svc
 from .services import counterparty as counterparty_svc
 from .services import fetch as fetch_svc
 from .services import fleetcheck as fleetcheck_svc
@@ -3971,6 +3979,52 @@ async def well_known(request: Request):
 @app.get("/.well-known/agent-card.json")
 async def agent_card_document(request: Request):
     return JSONResponse(agent_card(settings, _public_base(request)))
+
+
+@app.post("/mcp")
+async def hosted_mcp_endpoint(request: Request):
+    """Hosted MCP (Next-20 Item 2): streamable-HTTP MCP over the
+    fleet's 24 cheap tools — see app/services/hosted_mcp.py. Free
+    transport (NOT a priced x402 resource, never in the manifest's
+    resources): the JSON-RPC layer is stateless, and tools/call
+    proxies to the target stall forwarding the caller's own
+    payment/pack/pass headers, so the paywall it meets is the target
+    route's own."""
+    try:
+        payload = await request.json()
+    except Exception:  # noqa: BLE001 — a non-JSON body is a parse error
+        return JSONResponse(
+            {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32700, "message": "parse error: body is not valid JSON"},
+            },
+            status_code=400,
+        )
+    status, body = await hosted_mcp_svc.handle_request(
+        payload,
+        hosted_mcp_svc.extract_forward_headers(request.headers),
+        http_client=_fetch_client(),
+    )
+    if body is None:  # notification: accepted, no body
+        return Response(status_code=status)
+    return JSONResponse(body, status_code=status)
+
+
+@app.get("/mcp")
+@app.delete("/mcp")
+async def hosted_mcp_no_stream():
+    """Stateless mode offers no server-initiated stream: GET/DELETE
+    on the MCP endpoint are 405 per the streamable-HTTP spec."""
+    return JSONResponse(
+        {
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {"code": -32000, "message": "method not allowed: this MCP endpoint is stateless; POST JSON-RPC messages"},
+        },
+        status_code=405,
+        headers={"Allow": "POST"},
+    )
 
 
 @app.get("/.well-known/stability-manifest.json")
