@@ -15,11 +15,25 @@ actually get.
 Additive only: the HTTP layer adds one top-level
 ``verdict_row_loop`` field to a successful delivery dict. Error
 responses and the unpaid 402 challenge never carry it.
+
+Next-20 #1 + #5 (2026-11-03): the block now rides EVERY successful
+paid delivery on every priced StallRow route (attached once, at the
+delivery layer in app/main.py's x402 middleware — per-call,
+Recheck-pack, toolkit-pack and Fleet-Pass funding alike), and a
+RETURNING payer's block is personalised: a ``returning_payer``
+section carries their own recorded history with this stall (calls,
+distinct days, total spent — see WatchStore.record_payer_delivery)
+and an adaptive offer line priced off that proven spend, with deep
+links that pre-bind the pack / webhook offers to their identity.
+First-time payers (and payers whose identity the delivery does not
+expose, e.g. Solana-payload settlements) get the static block.
 """
 
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
+from urllib.parse import quote
 
 from ..config import PRICE_UNITS
 from . import fleetpass as fleetpass_svc
@@ -43,16 +57,78 @@ def _usd(units: int) -> float:
     return units / 1_000_000
 
 
-def loop_offer() -> dict:
+def _iso(epoch: float) -> str:
+    return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat(
+        timespec="seconds"
+    )
+
+
+def _returning_payer_block(payer: dict, route: str | None) -> dict:
+    """The personalised section for a returning payer. `payer` is a
+    WatchStore payer-history snapshot (totals AFTER the current
+    delivery was recorded); every figure in the adaptive offer line
+    is derived from that snapshot or the enforcing constants."""
+    base = CANONICAL_BASE
+    identity = payer["payer_key"]
+    pack_usd = _usd(recheck_svc.PACK_PRICE_UNITS)
+    per_check_usd = pack_usd / recheck_svc.PACK_CREDITS
+    single_usd = _usd(PRICE_UNITS["/v1/recheck"])
+    route_calls = (
+        payer.get("routes", {}).get(route, {}).get("calls", 0) if route else 0
+    )
+    total_spent_usd = _usd(payer["total_units"])
+    line = (
+        f"Returning payer: this identity has paid for "
+        f"{payer['calls']} deliveries at this stall "
+        f"({route_calls} on this route, "
+        f"{payer['distinct_days']} distinct day(s), "
+        f"${total_spent_usd:.3f} total) — the Recheck pack does "
+        f"{recheck_svc.PACK_CREDITS} checks for ${pack_usd:.2f} "
+        f"(${per_check_usd:.3f} a check instead of ${single_usd:.3f} "
+        f"per call)."
+    )
+    return {
+        "identity": identity,
+        "identity_kind": (
+            "evm_wallet" if identity.startswith("0x") else "funding_credential"
+        ),
+        "calls": payer["calls"],
+        "calls_this_route": route_calls,
+        "distinct_days": payer["distinct_days"],
+        "total_spent_usd": total_spent_usd,
+        "first_seen": _iso(payer["first_seen_epoch"]),
+        "last_seen": _iso(payer["last_seen_epoch"]),
+        "adaptive_offer": {
+            "line": line,
+            "offer_id": "recheck_pack",
+            "route": "/v1/recheck/pack",
+            "price_usd": pack_usd,
+            "credits": recheck_svc.PACK_CREDITS,
+            "per_check_usd": per_check_usd,
+            "per_call_price_usd": single_usd,
+            "deep_link": (
+                f"{base}/v1/recheck/pack?payer={quote(identity, safe='')}"
+            ),
+            "webhook_deep_link": (
+                f"{base}/v1/recheck/webhooks?payer={quote(identity, safe='')}"
+            ),
+        },
+    }
+
+
+def loop_offer(payer: dict | None = None, route: str | None = None) -> dict:
     """The loop block for a StallRow delivery. All repeat products
-    named here live on StallRow itself."""
+    named here live on StallRow itself. With a `payer` history
+    snapshot (a returning payer), the block gains a personalised
+    ``returning_payer`` section; without one it is the static
+    Play 1 block, byte-for-byte the original shape."""
     base = CANONICAL_BASE
     single_units = PRICE_UNITS["/v1/recheck"]
     single_usd = _usd(single_units)
     pack_units = recheck_svc.PACK_PRICE_UNITS
     pack_usd = _usd(pack_units)
     per_check_usd = pack_usd / recheck_svc.PACK_CREDITS
-    return {
+    block = {
         "about": (
             "Paying per call for the same check on a loop? The Recheck "
             "pack does 250 checks of one endpoint for $1.00, and the "
@@ -152,12 +228,15 @@ def loop_offer() -> dict:
             },
         ],
     }
+    if payer is not None:
+        block["returning_payer"] = _returning_payer_block(payer, route)
+    return block
 
 
-def attach_loop_offer(result):
+def attach_loop_offer(result, payer: dict | None = None, route: str | None = None):
     """Add the loop block to a successful delivery dict. Anything
     that is not a dict (error JSONResponses) passes through
     untouched, so failures never carry the offer."""
     if isinstance(result, dict):
-        result[LOOP_KEY] = loop_offer()
+        result[LOOP_KEY] = loop_offer(payer=payer, route=route)
     return result

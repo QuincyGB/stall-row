@@ -119,7 +119,7 @@ import json
 from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 from x402.http import FacilitatorConfig, HTTPFacilitatorClient, PaymentOption, RouteConfig
 from x402.http.middleware import fastapi_payment_middleware
@@ -394,6 +394,160 @@ _PASS_EXEMPT = {
 }
 
 
+# --- loop block delivery layer (Next-20 #1 + #5) ---------------------------
+# Play 1's verdict_row_loop block used to be attached by hand in the
+# Recheck handler only. It now attaches HERE — once, at the delivery
+# layer every funding path passes through (this middleware owns the
+# per-call payment dispatch, both pack bypasses and the Fleet Pass
+# debit) — so EVERY successful paid delivery on every priced route
+# carries it: per-call x402-paid, Recheck-pack-funded,
+# toolkit-pack-funded and Fleet-Pass-funded alike. A returning payer
+# (recorded by the store's payer memory, services/recheck.py) gets
+# the personalised block; a first-time payer gets the static block.
+#
+# Guardrails: only POSTs to PRICE_UNITS routes with a 2xx JSON
+# response are eligible; error responses (>= 400, plus 2xx bodies
+# carrying a top-level "error" — the bundle routes report leg
+# failures that way) and unpaid 402 challenges NEVER carry the
+# block and are NEVER recorded. Bodies are never rewritten when
+# they are large or streaming: anything over the cap below (the
+# ~50 MB ledger-dataset/full delivery is the standing example)
+# streams through byte-identical, though the settled delivery is
+# still recorded for payer memory when priced*identity are known.
+_LOOP_MAX_JSON_BYTES = 1_000_000
+
+
+def _payer_wallet(request: Request) -> str | None:
+    """The EVM payer wallet behind this request's verified payment
+    (payload.authorization.from — the same dig _payment_key uses),
+    lowercased, or None. Solana (SVM) payloads carry a partially
+    signed transaction instead of an authorization, so no payer
+    wallet is cleanly extractable from them: those deliveries fall
+    back to the static block and are not recorded (Next-20 #5)."""
+
+    def dig(obj, *names):
+        for name in names:
+            if obj is None:
+                return None
+            obj = obj.get(name) if isinstance(obj, dict) else getattr(obj, name, None)
+        return obj
+
+    payload = getattr(request.state, "payment_payload", None)
+    payer = dig(payload, "payload", "authorization", "from")
+    if isinstance(payer, str) and payer.startswith("0x"):
+        return payer.lower()
+    return None
+
+
+def _record_loop_delivery(request: Request, credential: tuple[str, str] | None):
+    """Record one settled/funded delivery in the payer memory and
+    return the personalised-history snapshot for a RETURNING payer
+    (None for a first-timer, an anonymous delivery, or any store
+    failure — the loop block must never break a paid delivery)."""
+    if credential is not None:
+        identity = f"{credential[0]}:{credential[1]}"
+    else:
+        identity = _payer_wallet(request)
+    if identity is None:
+        return None
+    try:
+        snapshot = _recheck_store.record_payer_delivery(
+            identity, request.url.path, PRICE_UNITS[request.url.path]
+        )
+    except Exception:  # noqa: BLE001 — memory is additive, never fatal
+        log.exception("payer history record failed")
+        return None
+    return snapshot if snapshot["prior_calls"] >= 1 else None
+
+
+def _rebuild_response(body: bytes, response, media_type: str | None):
+    """A response carrying `body` with the original status and
+    headers (minus the framing headers the new body recomputes)."""
+    rebuilt = Response(
+        content=body,
+        status_code=response.status_code,
+        media_type=media_type,
+        background=response.background,
+    )
+    for key, value in response.headers.items():
+        if key.lower() not in ("content-type", "content-length"):
+            rebuilt.headers[key] = value
+    return rebuilt
+
+
+async def _attach_loop_offer(
+    request: Request, response, credential: tuple[str, str] | None = None
+):
+    """Attach the verdict_row_loop block to a successful paid
+    delivery response and record the delivery for payer memory.
+    `credential` names the funding credential when the delivery was
+    pack/pass-funded (its id is the payer identity available for
+    those paths); None means per-call, where the verified payment
+    payload names the payer wallet."""
+    if (
+        request.method != "POST"
+        or request.url.path not in PRICE_UNITS
+        or not (200 <= response.status_code < 300)
+    ):
+        return response
+    content_type = response.headers.get("content-type") or ""
+    if "application/json" not in content_type:
+        return response
+    content_length = response.headers.get("content-length")
+    if (
+        content_length is not None
+        and content_length.isdigit()
+        and int(content_length) > _LOOP_MAX_JSON_BYTES
+    ):
+        # Large/streaming delivery: never buffered, never rewritten
+        # — but the settled delivery still counts for payer memory.
+        _record_loop_delivery(request, credential)
+        return response
+    chunks: list[bytes] = []
+    total = 0
+    iterator = response.body_iterator.__aiter__()
+    async for chunk in iterator:
+        if isinstance(chunk, str):
+            chunk = chunk.encode()
+        chunks.append(chunk)
+        total += len(chunk)
+        if total > _LOOP_MAX_JSON_BYTES:
+            # Overflow mid-stream: replay what was read and keep
+            # streaming the rest, byte-identical and unrecorded
+            # (the body was never seen whole, so its success shape
+            # is unverified).
+            async def _replay():
+                for part in chunks:
+                    yield part
+                async for part in iterator:
+                    yield part
+
+            replayed = StreamingResponse(
+                _replay(),
+                status_code=response.status_code,
+                media_type=content_type,
+                background=response.background,
+            )
+            for key, value in response.headers.items():
+                if key.lower() != "content-type":
+                    replayed.headers[key] = value
+            return replayed
+    body = b"".join(chunks)
+    try:
+        data = json.loads(body)
+    except Exception:  # noqa: BLE001 — not JSON after all: pass through
+        return _rebuild_response(body, response, content_type)
+    if not isinstance(data, dict) or "error" in data:
+        # Not a delivery dict, or a 2xx error report: no block, no
+        # payer-memory record.
+        return _rebuild_response(body, response, content_type)
+    payer = _record_loop_delivery(request, credential)
+    loop_offer_svc.attach_loop_offer(data, payer=payer, route=request.url.path)
+    return _rebuild_response(
+        json.dumps(data).encode(), response, "application/json"
+    )
+
+
 @app.middleware("http")
 async def x402_middleware(request: Request, call_next):
     # A recheck call presenting a pack id is paid from the pack, not
@@ -401,15 +555,23 @@ async def x402_middleware(request: Request, call_next):
     # pack against the store (unknown/wrong/expired/exhausted packs
     # are refused there and deliver nothing).
     if request.method == "POST" and request.url.path == "/v1/recheck":
-        if await _request_pack_id(request):
-            return await call_next(request)
+        pack_id = await _request_pack_id(request)
+        if pack_id:
+            response = await call_next(request)
+            return await _attach_loop_offer(
+                request, response, credential=("recheck-pack", pack_id)
+            )
     # Same bypass for the toolkit routes presenting a toolkit pack
     # id: paid from the pack, validated by the handler against the
     # store before any work runs — an invalid pack delivers nothing
     # and never falls back to a per-call (or Fleet Pass) charge.
     if request.method == "POST" and request.url.path in TOOLKIT_PATHS:
-        if await _request_toolkit_pack_id(request):
-            return await call_next(request)
+        toolkit_pack_id = await _request_toolkit_pack_id(request)
+        if toolkit_pack_id:
+            response = await call_next(request)
+            return await _attach_loop_offer(
+                request, response, credential=("toolkit-pack", toolkit_pack_id)
+            )
     # The Inspector Physical is a separate bundle, NOT one of the
     # toolkit three: pack credits never fund it. A call presenting a
     # pack id skips the paywall only so the handler can refuse it
@@ -450,8 +612,12 @@ async def x402_middleware(request: Request, call_next):
                 raise
             if response.status_code >= 400:
                 _recheck_store.refund_debit(debit["debit_id"])
-            return response
-    return await _payment_middleware(request, call_next)
+                return response
+            return await _attach_loop_offer(
+                request, response, credential=("fleet-pass", pass_id)
+            )
+    response = await _payment_middleware(request, call_next)
+    return await _attach_loop_offer(request, response)
 
 
 # Request-body cap (security audit 2026-10-25): every legitimate body in

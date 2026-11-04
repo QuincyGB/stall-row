@@ -334,6 +334,30 @@ class WatchStore:
             )
             self._conn.execute(
                 """
+                CREATE TABLE IF NOT EXISTS payer_history (
+                    payer_key TEXT NOT NULL,
+                    route TEXT NOT NULL,
+                    calls INTEGER NOT NULL,
+                    distinct_days INTEGER NOT NULL,
+                    total_units INTEGER NOT NULL,
+                    first_seen_epoch REAL NOT NULL,
+                    last_seen_epoch REAL NOT NULL,
+                    last_day TEXT NOT NULL,
+                    PRIMARY KEY (payer_key, route)
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS payer_history_days (
+                    payer_key TEXT NOT NULL,
+                    day TEXT NOT NULL,
+                    PRIMARY KEY (payer_key, day)
+                )
+                """
+            )
+            self._conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS fleet_pass_debits (
                     debit_id TEXT PRIMARY KEY,
                     pass_id TEXT NOT NULL,
@@ -2068,6 +2092,114 @@ class WatchStore:
                 "SELECT COUNT(*) FROM recheck_packs"
             ).fetchone()
         return int(row[0]) if row else 0
+
+    # --- payer loop memory (Next-20 #5) --------------------------------
+    # Per-wallet delivery history for the loop block: deliveries
+    # recognise a returning payer and personalise the offer off their
+    # own proven spend. One payer_history row per (payer, route) —
+    # calls, distinct days, total units, first/last seen — plus a
+    # (payer, day) set so the STALL-WIDE distinct-day count stays
+    # exact even when one payer spreads calls across routes on the
+    # same day. The HTTP layer records exactly one row-update per
+    # settled/funded delivery, after the delivery succeeded; errors
+    # and unpaid 402 challenges never reach the recorder.
+    #
+    # payer_key is the strongest identity the delivery carried: the
+    # EVM payer wallet (payload.authorization.from, lowercased) for
+    # per-call payments, or a funding-credential key
+    # ("recheck-pack:<id>" / "toolkit-pack:<id>" / "fleet-pass:<id>")
+    # for pack/pass-funded deliveries — the pack/pass stores record
+    # only their minting payment_key (an EIP-3009 nonce / signature
+    # hash), never a buyer wallet, so the credential id itself is
+    # the payer identity available there.
+
+    def payer_history(self, payer_key: str) -> dict | None:
+        """Stall-wide history for one payer identity (aggregated
+        over its per-route rows), or None when this payer has never
+        had a settled/funded delivery recorded."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT route, calls, total_units, first_seen_epoch, "
+                "last_seen_epoch FROM payer_history WHERE payer_key = ?",
+                (payer_key,),
+            ).fetchall()
+            days = self._conn.execute(
+                "SELECT COUNT(*) FROM payer_history_days "
+                "WHERE payer_key = ?",
+                (payer_key,),
+            ).fetchone()
+        if not rows:
+            return None
+        return {
+            "payer_key": payer_key,
+            "calls": sum(r[1] for r in rows),
+            "total_units": sum(r[2] for r in rows),
+            "distinct_days": int(days[0]) if days else 0,
+            "first_seen_epoch": min(r[3] for r in rows),
+            "last_seen_epoch": max(r[4] for r in rows),
+            "routes": {
+                r[0]: {"calls": r[1], "total_units": r[2]} for r in rows
+            },
+        }
+
+    def record_payer_delivery(
+        self,
+        payer_key: str,
+        route: str,
+        units: int,
+        now_epoch: float | None = None,
+    ) -> dict:
+        """Record ONE settled/funded delivery and return the
+        payer's history snapshot AFTER the update, plus
+        ``prior_calls`` — the stall-wide call count BEFORE this
+        delivery, so the caller can tell a first-time payer
+        (prior_calls == 0, static block) from a returning one
+        (personalised block)."""
+        now = time.time() if now_epoch is None else now_epoch
+        day = datetime.fromtimestamp(now, tz=timezone.utc).strftime("%Y-%m-%d")
+        with self._lock:
+            prior = self._conn.execute(
+                "SELECT COALESCE(SUM(calls), 0) FROM payer_history "
+                "WHERE payer_key = ?",
+                (payer_key,),
+            ).fetchone()
+            prior_calls = int(prior[0]) if prior else 0
+            existing = self._conn.execute(
+                "SELECT last_day, distinct_days FROM payer_history "
+                "WHERE payer_key = ? AND route = ?",
+                (payer_key, route),
+            ).fetchone()
+            if existing is None:
+                self._conn.execute(
+                    "INSERT INTO payer_history (payer_key, route, "
+                    "calls, distinct_days, total_units, "
+                    "first_seen_epoch, last_seen_epoch, last_day) "
+                    "VALUES (?, ?, 1, 1, ?, ?, ?, ?)",
+                    (payer_key, route, units, now, now, day),
+                )
+            else:
+                # Days only move forward: a day string later than
+                # the stored last_day is a day this (payer, route)
+                # has never been seen on.
+                new_day = 1 if day > existing[0] else 0
+                self._conn.execute(
+                    "UPDATE payer_history SET calls = calls + 1, "
+                    "distinct_days = distinct_days + ?, "
+                    "total_units = total_units + ?, "
+                    "last_seen_epoch = ?, last_day = MAX(last_day, ?) "
+                    "WHERE payer_key = ? AND route = ?",
+                    (new_day, units, now, day, payer_key, route),
+                )
+            self._conn.execute(
+                "INSERT OR IGNORE INTO payer_history_days "
+                "(payer_key, day) VALUES (?, ?)",
+                (payer_key, day),
+            )
+            self._conn.commit()
+        snapshot = self.payer_history(payer_key)
+        assert snapshot is not None  # we just wrote a row for this payer
+        snapshot["prior_calls"] = prior_calls
+        return snapshot
 
     def reserve_credit(
         self, pack_id: str, url: str, now_epoch: float | None = None
