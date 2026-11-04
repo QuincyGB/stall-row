@@ -5017,6 +5017,20 @@ async def sample_route(slug: str):
     return JSONResponse(body)
 
 
+# --- sandbox twins (Next-20 #19) -------------------------------------------
+# Free rehearsal twins of every priced route, registered after all
+# priced routes exist (twins bind to their request models). Twin
+# paths are absent from PRICE_UNITS: no paywall, no pack/pass
+# debit, no loop block, no payer-memory record.
+from .services import sandbox_twins as sandbox_twins_svc
+sandbox_twins_svc.register_sandbox_twins(
+    app,
+    service="stall-row",
+    priced_paths=PRICE_UNITS,
+    manifest_samples=samples_svc._manifest()["samples"],
+    sample_get=samples_svc.get,
+)
+
 def main() -> None:
     import uvicorn
 
