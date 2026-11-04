@@ -514,6 +514,39 @@ def _rebuild_response(body: bytes, response, media_type: str | None):
     return rebuilt
 
 
+def _mirror_challenge_body(response):
+    """Market402 compatibility (2026-11-04): mirror the x402 v2
+    challenge into the 402 response BODY.
+
+    The SDK answers unpaid calls with the challenge only in the
+    PAYMENT-REQUIRED header and an empty ({}) body. Some machine
+    buyers (Market402's self-test — fleet probe harness, Next-20
+    #17, found 0/5 stalls passing 2026-11-04) parse the challenge
+    from the body in the v1 style and report x402Version / accepts
+    / payTo / amount / network all missing. The body set here is
+    the header's own decoded challenge object, mirrored at response
+    time so body and header can never drift; _rebuild_response
+    copies the header itself through untouched. Purely additive:
+    non-402 responses, 402s without the header, 402s carrying a
+    real body, and any decode failure all pass through unchanged."""
+    if response.status_code != 402:
+        return response
+    header = response.headers.get("payment-required")
+    if not header:
+        return response
+    if getattr(response, "body", None) not in (b"", b"{}"):
+        return response
+    try:
+        challenge = json.loads(base64.b64decode(header))
+    except Exception:  # noqa: BLE001 — never break a challenge on decode
+        return response
+    if not isinstance(challenge, dict) or "accepts" not in challenge:
+        return response
+    return _rebuild_response(
+        json.dumps(challenge).encode(), response, "application/json"
+    )
+
+
 async def _attach_loop_offer(
     request: Request, response, credential: tuple[str, str] | None = None
 ):
@@ -656,6 +689,7 @@ async def x402_middleware(request: Request, call_next):
                 request, response, credential=("fleet-pass", pass_id)
             )
     response = await _payment_middleware(request, call_next)
+    response = _mirror_challenge_body(response)
     return await _attach_loop_offer(request, response)
 
 
