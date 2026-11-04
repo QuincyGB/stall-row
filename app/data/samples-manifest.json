@@ -111,6 +111,14 @@
       "pulled_from": "app/discovery.py output example for this route (schema-validated)"
     },
     {
+      "route": "/v1/index/history",
+      "slug": "index-history",
+      "source": "schema-example",
+      "target": "POST /v1/index/history on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
       "route": "/v1/job-scout",
       "slug": "job-scout",
       "source": "schema-example",

@@ -68,6 +68,7 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/job-scout": 50_000,           # $0.05
     "/v1/recheck": 5_000,              # $0.005
     "/v1/index/changes": 100_000,      # $0.10 — Verdict Index catalog changelog diff
+    "/v1/index/history": 10_000,       # $0.01 — Verdict Index History API: time series across all retained snapshots (Next-20 #6)
     "/v1/orchestrate": 750_000,        # $0.75 — one combined fleet report (4 legs)
     "/v1/counterparty-report": 1_000_000,  # $1.00 — one bundled report on one seller
     "/v1/grade-my-stall": 5_000,       # $0.005 — one seller report card (probe tier)

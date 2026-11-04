@@ -9,7 +9,7 @@ Payment terms (fleet-wide): x402, exact scheme, USDC. Fleet payTo: 0x097f9685D1e
 
 Worked examples in this file are FIXTURE values (the same worked examples this stall's OpenAPI document and free /sample payloads publish): real shapes, not live data. Buy the route for live results.
 
-## Priced routes on this stall (33)
+## Priced routes on this stall (34)
 
 ### POST https://stall-row-production.up.railway.app/v1/wallet-snapshot — $0.005
 
@@ -874,6 +874,54 @@ Worked response example (fixture):
 ```
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/index-changes (source: schema-example; labelled in-band sample=true, live=false).
+
+### POST https://stall-row-production.up.railway.app/v1/index/history — $0.01
+
+Verdict Index History — the CDP Bazaar catalog as a time series across ALL retained snapshots, not just the newest two: first-seen, delisted, relisted, and price/payTo/contract changes per route, filterable by resource, origin, payTo, service name, network, or catalogue. The payload states the earliest snapshot actually held — depth is never invented. Standing queries fund from a Fleet Pass at this same $0.01. Use this when an inspector needs a route's history, not just its latest diff.
+
+Price: $0.01 (10000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Tags: index, x402, history, catalog, monitoring, agents, drift, time-series, catalogue
+Input shape: type object; fields: catalogue (string), limit (integer), network (string), origin (string), pay_to (string), resource (string), resource_contains (string), service_name (string)
+Output shape: type object; fields: catalogue (string, required), earliest_snapshot_at (string, required), events (array, required), events_returned (integer), events_total (integer), generated_at (string), latest_snapshot_at (string, required), snapshots_held (integer, required), worked_example_note (string)
+
+Worked request example (fixture):
+```json
+{
+  "limit": 50,
+  "resource_contains": "tuski.ai"
+}
+```
+
+Worked response example (fixture):
+```json
+{
+  "catalogue": "cdp_bazaar",
+  "earliest_snapshot_at": "2026-10-31T12:00:00Z",
+  "events": [
+    {
+      "after": "0x2222222222222222222222222222222222222222",
+      "at": "2026-11-01T12:00:00Z",
+      "before": "0x1111111111111111111111111111111111111111",
+      "catalogue": "cdp_bazaar",
+      "field": "payTo",
+      "kind": "field_changed",
+      "origin": "https://agents.tuski.ai",
+      "resource": "https://agents.tuski.ai/api/v1/email-validation/jobs",
+      "serviceName": "Tuski Email Validation",
+      "snapshot_id": 3
+    }
+  ],
+  "events_returned": 1,
+  "events_total": 1,
+  "generated_at": "2026-11-01T12:05:00Z",
+  "latest_snapshot_at": "2026-11-01T12:00:00Z",
+  "snapshots_held": 3,
+  "worked_example_note": "Fixture values \u2014 not live data. The payTo-drift shape mirrors the two Nov 1 agents.tuski.ai payTo-drift records in Dima's patrol snapshot (defect_class payto_mismatch, first seen 2026-10-29 and 2026-11-01)."
+}
+```
+
+Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/index-history (source: schema-example; labelled in-band sample=true, live=false).
 
 ### POST https://stall-row-production.up.railway.app/v1/orchestrate — $0.75
 

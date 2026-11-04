@@ -1067,6 +1067,85 @@ ROUTES: dict[str, dict] = {
             ],
         },
     },
+    "/v1/index/history": {
+        "description": (
+            "Verdict Index History — the CDP Bazaar catalog as a time "
+            "series across ALL retained snapshots, not just the newest "
+            "two: first-seen, delisted, relisted, and price/payTo/contract "
+            "changes per route, filterable by resource, origin, payTo, "
+            "service name, network, or catalogue. The payload states the "
+            "earliest snapshot actually held — depth is never invented. "
+            "Standing queries fund from a Fleet Pass at this same $0.01. "
+            "Use this when an inspector needs a route's history, not just "
+            "its latest diff."
+        ),
+        "tags": ["index", "x402", "history", "catalog", "monitoring", "agents", "drift", "time-series", "catalogue"],
+        "input_schema": _obj(
+            {"resource": _S, "resource_contains": _S, "origin": _S, "pay_to": _S, "service_name": _S, "network": _S, "catalogue": _S, "limit": _I},
+            [],
+        ),
+        "input_example": {"resource_contains": "tuski.ai", "limit": 50},
+        "output_schema": _obj(
+            {
+                "catalogue": _S,
+                "snapshots_held": _I,
+                "earliest_snapshot_at": _S,
+                "latest_snapshot_at": _S,
+                "generated_at": _S,
+                "events_total": _I,
+                "events_returned": _I,
+                "events": {
+                    "type": "array",
+                    "items": _obj(
+                        {
+                            "resource": _S,
+                            "kind": {"type": "string", "enum": ["first_seen", "delisted", "relisted", "field_changed"]},
+                            "field": _N,
+                            "before": {"type": ["string", "null"]},
+                            "after": {"type": ["string", "null"]},
+                            "at": _S,
+                            "snapshot_id": _I,
+                            "serviceName": _N,
+                            "origin": _N,
+                            "catalogue": _S,
+                        },
+                        ["resource", "kind", "at"],
+                    ),
+                },
+                "worked_example_note": _S,
+            },
+            ["catalogue", "snapshots_held", "earliest_snapshot_at", "latest_snapshot_at", "events"],
+        ),
+        "output_example": {
+            "catalogue": "cdp_bazaar",
+            "snapshots_held": 3,
+            "earliest_snapshot_at": "2026-10-31T12:00:00Z",
+            "latest_snapshot_at": "2026-11-01T12:00:00Z",
+            "generated_at": "2026-11-01T12:05:00Z",
+            "events_total": 1,
+            "events_returned": 1,
+            "events": [
+                {
+                    "resource": "https://agents.tuski.ai/api/v1/email-validation/jobs",
+                    "kind": "field_changed",
+                    "field": "payTo",
+                    "before": "0x1111111111111111111111111111111111111111",
+                    "after": "0x2222222222222222222222222222222222222222",
+                    "at": "2026-11-01T12:00:00Z",
+                    "snapshot_id": 3,
+                    "serviceName": "Tuski Email Validation",
+                    "origin": "https://agents.tuski.ai",
+                    "catalogue": "cdp_bazaar",
+                }
+            ],
+            "worked_example_note": (
+                "Fixture values — not live data. The payTo-drift shape "
+                "mirrors the two Nov 1 agents.tuski.ai payTo-drift "
+                "records in Dima's patrol snapshot (defect_class "
+                "payto_mismatch, first seen 2026-10-29 and 2026-11-01)."
+            ),
+        },
+    },
     "/v1/orchestrate": {
         "description": (
             "One combined fleet report for $0.75: Token Verdict's "
@@ -2453,6 +2532,55 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "/v1/fleet-pass-20, same ledger and 90-day expiry, debits at "
         "listed prices) funds longer subscriptions.",
         "",
+        "Index Subscription v2: subscriptions can slice per "
+        "catalogue — pass catalogue=\"cdp_bazaar\" (the catalogue "
+        "the Index holds today; omit for all) at registration or via "
+        "the management API. Console-free management, authenticated "
+        "by the registration id alone (the credential registration "
+        "issued): POST /v1/index/subscription/pause, "
+        "/v1/index/subscription/resume, "
+        "/v1/index/subscription/cancel (terminal), and "
+        "/v1/index/subscription/update (partial filter update: "
+        "resource_contains, pay_to, service_name, network, "
+        "catalogue, webhook_url, email — a named field set to null "
+        "clears it). v1 registrations keep working unchanged.",
+        "",
+        "Index History: POST /v1/index/history ($0.01, or funded "
+        "from a Fleet Pass at the same price) reads the Index as a "
+        "time series across ALL retained snapshots — first-seen, "
+        "delisted, relisted, and price/payTo/contract changes, "
+        "filterable by resource, origin, payTo, service name, "
+        "network, or catalogue; the payload states the earliest "
+        "snapshot actually held.",
+        "",
+        "Drift Event Feed: GET /v1/drift/feed — market drift events "
+        "(payTo rotations, amount/terms changes, schema/description "
+        "drift) from the Index snapshot diffs, Rotation Alerts' "
+        "sources, and Dima's patrol snapshot records, as hash-chained "
+        "feed-v1 envelopes ({seq, event_id, prev_hash, record_hash, "
+        "event}) paged by ?since_seq= (default 0) and ?limit= "
+        "(default 100, max 500). The first 100 events are free; "
+        "standing readers paging past the free page present a Fleet "
+        "Pass (X-Fleet-Pass header) and are debited per event at "
+        "Recheck arithmetic ($0.005 per event — the POST /v1/recheck "
+        "price); events past the free page requested without a pass "
+        "are held back with funding_required stated, never silently "
+        "truncated. Worked example (fixture): the two Nov 1 "
+        "agents.tuski.ai payTo-drift patrol records — "
+        "https://agents.tuski.ai/api/v1/email-validation/jobs "
+        "(payto_mismatch, first seen 2026-10-29T07:05:43Z) and "
+        "https://agents.tuski.ai/zcj/y01zd9v65ez7/api/v1/email-validation/jobs "
+        "(payto_mismatch, first seen 2026-11-01T06:50:19Z) — ride "
+        "the live feed as patrol drift events.",
+        "",
+        "New-Stall Firehose: GET /v1/firehose/feed — newly "
+        "discovered stalls/routes as the Index and patrol find them: "
+        "first-seen events from Index snapshot diffs (resources that "
+        "appeared between snapshots) plus new origins from the "
+        "patrol snapshot, in the same feed-v1 envelope, cursor and "
+        "funding split as the Drift Event Feed (first 100 free, then "
+        "$0.005 per event from a Fleet Pass).",
+        "",
         "Fleet Check: POST /v1/fleet-check ($0.10) sweeps YOUR whole "
         "fleet in one call — name resource URLs and/or origins "
         "(expanded from their /.well-known/x402) and get a per-route "
@@ -2512,6 +2640,9 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `POST {base_url}/v1/recheck/webhooks` — SELF-SERVE change webhook: register your own signed callback for Recheck CHANGED events (feed-wide, one URL, or one origin), managed + signed with your own secret — no operator gate; `/list`, `/delete`, `/deliveries` beside it take the same secret in the body",
         f"- `POST {base_url}/v1/recheck/batch` — Survey Batch Recheck (Fleet-Pass-funded ONLY, not a priced route): up to 100 unique URLs checked in one batch at the $0.005 single-Recheck price per unique URL (20% off a full 100: $0.40 total), debited once from the pass (`fleet_pass_id` body field or X-Fleet-Pass header); Recheck packs cannot fund a survey",
         f"- `GET {base_url}/v1/verdict-read?url=` — free PUBLIC VERDICT READ: the recorded state this service already holds for one resource URL (latest recorded check + recorded terms + Score Book aggregates + last recorded CHANGED event as last_change_at). A verdict is included ONLY where honestly available: a standing-watch RouteVerdict verdict recorded for the URL (verdict_source 'recorded route-verdict check', served verbatim) or a PROCEED / CAUTION / ABORT band derived from recorded checks (verdict_source 'derived from recorded checks', reasons listed); otherwise verdict is null. Guard verdicts are NOT persisted, so none is served or invented. The read NEVER probes, fetches, or pays the target and triggers no paid call; an unrecorded URL answers found=false ('not yet checked')",
+        f"- `GET {base_url}/v1/drift/feed?since_seq=N&limit=M` — Drift Event Feed (feed-v1 envelopes: seq, event_id, prev_hash, record_hash, event): payTo rotations, amount/terms changes, schema/description drift from Index snapshot diffs + Dima's patrol records (the two Nov 1 agents.tuski.ai payto_mismatch records included, fixture-marked in the worked example). First 100 events free; past the free page, $0.005 per event debited from a Fleet Pass presented as X-Fleet-Pass (Recheck arithmetic); without a pass the held-back count is stated as funding_required",
+        f"- `GET {base_url}/v1/firehose/feed?since_seq=N&limit=M` — New-Stall Firehose (same feed-v1 envelope/cursor/funding split as the drift feed): first-seen resources from Index snapshot diffs + new origins from the patrol snapshot",
+        f"- `POST {base_url}/v1/index/subscription/pause` / `resume` / `cancel` / `update` — Index Subscription v2 management (free; the registration id is the credential): pause/resume/cancel a subscription and update its filters incl. the per-catalogue slice (catalogue cdp_bazaar)",
         "",
         "## Embeddable Verdict Widget (free)",
         "",
@@ -2584,6 +2715,9 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- POST {base_url}/v1/watch/register — free watch registration; watch_focus=\"schema\" is Contract Watch: SCHEMA_CHANGED pushes on output-schema fingerprint change only, runs funded at the listed $0.005 Recheck price from a pack or Fleet Pass (no separate price, no new priced route)",
         f"- POST {base_url}/v1/recheck/batch — Survey Batch Recheck (Fleet-Pass-funded ONLY, not a priced route): up to 100 unique URLs at $0.005/check from a Fleet Pass, 20% off a full 100 ($0.40 total); Recheck packs cannot fund a survey",
         f"- GET {base_url}/v1/verdict-read?url= — free public verdict read over RECORDED state only (latest recorded check, recorded terms, Score Book aggregates, last_change_at; verdict only when recorded by a standing RouteVerdict watch or honestly derived from recorded checks — verdict_source says which; Guard verdicts are not persisted and none is invented). Never probes/fetches/pays the target, never triggers a paid call; unrecorded URL answers found=false",
+        f"- GET {base_url}/v1/drift/feed?since_seq=N&limit=M — Drift Event Feed (feed-v1 hash-chained envelopes): payTo rotations, amount/terms changes, schema/description drift from Index diffs + patrol records (incl. the Nov 1 agents.tuski.ai payto_mismatch records). First 100 events free; past that $0.005/event from a Fleet Pass (X-Fleet-Pass header), Recheck arithmetic",
+        f"- GET {base_url}/v1/firehose/feed?since_seq=N&limit=M — New-Stall Firehose (same envelope/cursor/funding split): first-seen resources from Index diffs + new origins from the patrol snapshot",
+        f"- POST {base_url}/v1/index/subscription/pause — Index Subscription v2 management beside /resume, /cancel, /update (free; registration id is the credential; update includes the per-catalogue slice)",
         f"- GET {base_url}/widget/verdict.js — free embeddable verdict widget: <script src=\"{base_url}/widget/verdict.js\" data-target=\"https://example.com/v1/your-route\" async></script> renders the recorded verdict + last-change (shadow DOM, no global CSS); iframe form: GET {base_url}/widget/verdict.html?url= (self-contained, server-rendered). Branding: Verdict Row Patrol, patrol@verdictrow.com",
         f"- GET {base_url}/v1/sandbox/x402 — TEST FIXTURE (not a service, never listed for sale): a mutable x402 challenge for Recheck ingestion rehearsal",
     ]

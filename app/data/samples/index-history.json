@@ -1,0 +1,31 @@
+{
+  "catalogue": "cdp_bazaar",
+  "earliest_snapshot_at": "2026-10-31T12:00:00Z",
+  "events": [
+    {
+      "after": "0x2222222222222222222222222222222222222222",
+      "at": "2026-11-01T12:00:00Z",
+      "before": "0x1111111111111111111111111111111111111111",
+      "catalogue": "cdp_bazaar",
+      "field": "payTo",
+      "kind": "field_changed",
+      "origin": "https://agents.tuski.ai",
+      "resource": "https://agents.tuski.ai/api/v1/email-validation/jobs",
+      "serviceName": "Tuski Email Validation",
+      "snapshot_id": 3
+    }
+  ],
+  "events_returned": 1,
+  "events_total": 1,
+  "generated_at": "2026-11-01T12:05:00Z",
+  "latest_snapshot_at": "2026-11-01T12:00:00Z",
+  "live": false,
+  "recorded_at": null,
+  "route": "/v1/index/history",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "snapshots_held": 3,
+  "source": "schema-example",
+  "target": "POST /v1/index/history on this stall (fleet's own service as subject)",
+  "worked_example_note": "Fixture values \u2014 not live data. The payTo-drift shape mirrors the two Nov 1 agents.tuski.ai payTo-drift records in Dima's patrol snapshot (defect_class payto_mismatch, first seen 2026-10-29 and 2026-11-01)."
+}

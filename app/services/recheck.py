@@ -443,7 +443,8 @@ class WatchStore:
                     created_epoch REAL NOT NULL,
                     last_eval_snapshot_id INTEGER,
                     last_status TEXT,
-                    active INTEGER NOT NULL DEFAULT 1
+                    active INTEGER NOT NULL DEFAULT 1,
+                    catalogue TEXT
                 )
                 """
             )
@@ -812,6 +813,20 @@ class WatchStore:
             # Self-serve webhook subscriptions: funding gate
             # columns. Rows created before the gate carry
             # funding_kind NULL and are grandfathered as legacy.
+            # Index Subscription v2 (Next-20 #7): the per-catalogue
+            # slice column. Rows created by v1 carry NULL, which the
+            # view renders as "all catalogues" — v1 registrations
+            # keep working unchanged.
+            isub_cols = {
+                row[1]
+                for row in self._conn.execute(
+                    "PRAGMA table_info(index_subs)"
+                )
+            }
+            if "catalogue" not in isub_cols:
+                self._conn.execute(
+                    "ALTER TABLE index_subs ADD COLUMN catalogue TEXT"
+                )
             sub_cols = {
                 row[1]
                 for row in self._conn.execute(
@@ -3880,7 +3895,7 @@ class WatchStore:
     _INDEX_SUB_COLS = (
         "reg_id, resource_contains, pay_to, service_name, network, "
         "webhook_url, email, funding_id, created_epoch, "
-        "last_eval_snapshot_id, last_status, active"
+        "last_eval_snapshot_id, last_status, active, catalogue"
     )
 
     def _index_sub_view(self, row) -> dict:
@@ -3898,6 +3913,8 @@ class WatchStore:
             "last_eval_snapshot_id": row[9],
             "last_status": row[10],
             "active": bool(row[11]),
+            # v2 per-catalogue slice; NULL (every v1 row) = all.
+            "catalogue": row[12] if len(row) > 12 else None,
         }
 
     def register_index_sub(
@@ -3910,6 +3927,7 @@ class WatchStore:
         email: str | None,
         funding_id: str,
         now_epoch: float | None = None,
+        catalogue: str | None = None,
     ) -> dict:
         now = time.time() if now_epoch is None else now_epoch
         reg_id = "isub_" + secrets.token_hex(8)
@@ -3918,8 +3936,8 @@ class WatchStore:
                 "INSERT INTO index_subs "
                 "(reg_id, resource_contains, pay_to, service_name, "
                 "network, webhook_url, email, funding_id, "
-                "created_epoch, active) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+                "created_epoch, active, catalogue) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
                 (
                     reg_id,
                     resource_contains,
@@ -3930,10 +3948,65 @@ class WatchStore:
                     email,
                     funding_id,
                     now,
+                    catalogue,
                 ),
             )
             self._conn.commit()
         return self.get_index_sub(reg_id)  # type: ignore[return-value]
+
+    # --- Index Subscription v2 management (Next-20 #7) ----------------
+    # Console-free management, authenticated by the registration id
+    # itself (the only credential v1 ever issued — an unguessable
+    # CSPRNG id, exactly like a pack id). Pause/cancel flip `active`
+    # (the ticker's to-eval query already honours it) and record the
+    # state in last_status so a later read can tell a paused
+    # registration from a cancelled one; resume refuses a cancelled
+    # registration (cancel is terminal).
+
+    def set_index_sub_active(
+        self, reg_id: str, active: bool, status: str
+    ) -> dict | None:
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE index_subs SET active = ?, last_status = ? "
+                "WHERE reg_id = ?",
+                (1 if active else 0, status, reg_id),
+            )
+            self._conn.commit()
+            if cur.rowcount == 0:
+                return None
+        return self.get_index_sub(reg_id)
+
+    _INDEX_SUB_FILTER_COLS = (
+        "resource_contains",
+        "pay_to",
+        "service_name",
+        "network",
+        "catalogue",
+        "webhook_url",
+        "email",
+    )
+
+    def update_index_sub_filters(
+        self, reg_id: str, fields: dict
+    ) -> dict | None:
+        """Apply exactly the named filter fields (a value of None
+        CLEARS that filter). Unknown field names are refused."""
+        unknown = set(fields) - set(self._INDEX_SUB_FILTER_COLS)
+        if unknown:
+            raise ValueError(f"unknown subscription fields: {sorted(unknown)}")
+        if not fields:
+            return self.get_index_sub(reg_id)
+        assignments = ", ".join(f"{name} = ?" for name in fields)
+        with self._lock:
+            cur = self._conn.execute(
+                f"UPDATE index_subs SET {assignments} WHERE reg_id = ?",
+                (*fields.values(), reg_id),
+            )
+            self._conn.commit()
+            if cur.rowcount == 0:
+                return None
+        return self.get_index_sub(reg_id)
 
     def get_index_sub(self, reg_id: str) -> dict | None:
         with self._lock:

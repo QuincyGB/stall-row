@@ -64,6 +64,41 @@ RUN_PRICE_UNITS = 100_000
 RUN_ROUTE_LABEL = "/v1/index/changes"
 EVENT_LIMIT = indexfeed_svc.DEFAULT_EVENT_LIMIT
 
+# Index Subscription v2 (Next-20 #7): per-catalogue slicing. The
+# Index's sources today are exactly the catalogues indexfeed holds
+# (CDP Bazaar); a subscription's `catalogue` filter names the
+# catalogue(s) it cares about — a comma-separated subset of
+# CATALOGUES, or None for all (the v1 default, unchanged).
+CATALOGUES = indexfeed_svc.CATALOGUES
+
+
+def normalize_catalogue(raw: str | None) -> str | None:
+    """Canonical catalogue slice: None (= all) or a comma-joined
+    subset of CATALOGUES. Unknown names refuse the registration —
+    a slice naming a catalogue the Index does not hold would
+    silently deliver nothing forever."""
+    if raw is None:
+        return None
+    parts = [p.strip() for p in str(raw).split(",") if p.strip()]
+    if not parts:
+        return None
+    unknown = [p for p in parts if p not in CATALOGUES]
+    if unknown:
+        raise IndexSubError(
+            f"unknown catalogue(s) {unknown}: the Index holds {list(CATALOGUES)}"
+        )
+    return ",".join(dict.fromkeys(parts))
+
+
+def catalogue_includes(reg: dict) -> bool:
+    """Whether this registration's slice includes the Index's own
+    catalogue (the only one held today). A v1 row (catalogue None)
+    includes everything."""
+    raw = reg.get("catalogue")
+    if not raw:
+        return True
+    return indexfeed_svc.DEFAULT_CATALOGUE in [p.strip() for p in str(raw).split(",")]
+
 
 class IndexSubError(Exception):
     def __init__(self, message: str, http_status: int = 422):
@@ -88,6 +123,7 @@ async def register(
     webhook_url: str | None,
     email: str | None,
     fleet_pass_id: str | None,
+    catalogue: str | None = None,
 ) -> dict:
     """Validate everything BEFORE storing: the webhook must be a
     public URL, a named pay_to must be an address, and the Fleet
@@ -98,6 +134,7 @@ async def register(
     pay_to = (pay_to or "").strip() or None
     service_name = (service_name or "").strip() or None
     network = (network or "").strip() or None
+    catalogue = normalize_catalogue(catalogue)
     if pay_to is not None and not is_address(pay_to):
         raise IndexSubError("pay_to must be a 0x EVM address")
     if webhook_url:
@@ -122,6 +159,7 @@ async def register(
         webhook_url,
         email,
         fleet_pass_id.strip(),
+        catalogue=catalogue,
     )
     reg["email_delivery"] = (
         "stored only — StallRow has no mail transport; the webhook is "
@@ -153,6 +191,32 @@ def filtered_diff(
     """The subscriber's diff for one snapshot pair: indexfeed's pure
     diff under the registration's own filters. No filter is widened
     or narrowed here — what was registered is what is delivered."""
+    if not catalogue_includes(reg):
+        # The slice names catalogues other than the one the Index
+        # holds: the honest diff for this subscriber is empty (the
+        # heartbeat still delivers — their slice simply has no
+        # source feeding it yet).
+        result = {
+            "summary": {
+                "resources_before": 0,
+                "resources_after": 0,
+                "field_changes": 0,
+                "added": 0,
+                "removed": 0,
+                "by_network": {},
+                "catalogue_filter": reg.get("catalogue"),
+            },
+            "events_returned": 0,
+            "events": [],
+        }
+        return {
+            "baseline_at": before["captured_at"],
+            "current_at": after["captured_at"],
+            "generated_at": time.strftime(
+                "%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time())
+            ),
+            **result,
+        }
     result = indexfeed_svc.diff_entries(
         index_store.entries(before["id"]),
         index_store.entries(after["id"]),
@@ -207,6 +271,21 @@ async def evaluate(
     against a STALE newest snapshot returns skipped instead: no
     debit, no watermark advance, no diff — a feed built on an old
     pair would describe a catalog that no longer exists."""
+    if not reg.get("active", True):
+        # v2 management state: a paused (or cancelled) registration
+        # is never evaluated — no debit, no watermark advance, no
+        # push. The ticker already skips inactive rows; this covers
+        # the manual /run path.
+        return {
+            "reg_id": reg["reg_id"],
+            "status": reg.get("last_status") or "paused",
+            "detail": (
+                "This subscription is not active (paused or cancelled); "
+                "nothing was charged. Resume it to continue the feed."
+            ),
+            "debited_units": 0,
+            "webhook_push_attempted": False,
+        }
     pair = index_store.latest_two()
     if pair is None:
         return {
@@ -281,3 +360,84 @@ async def evaluate(
         "webhook_push_attempted": bool(reg.get("webhook_url")),
         "webhook_delivered": pushed,
     }
+
+
+# --- v2 management (Next-20 #7) ----------------------------------------------
+# Console-free management API backing: pause / resume / cancel and
+# filter updates, authenticated by the registration id alone (the
+# credential v1 issued — see recheck.py's store notes). All state
+# transitions go through the store so the ticker, /status and /run
+# can never disagree about a registration's state.
+
+
+def _must_get(store: recheck_svc.WatchStore, reg_id: str) -> dict:
+    reg = store.get_index_sub((reg_id or "").strip())
+    if reg is None:
+        raise IndexSubError("unknown reg_id", 404)
+    return reg
+
+
+def pause(store: recheck_svc.WatchStore, reg_id: str) -> dict:
+    reg = _must_get(store, reg_id)
+    if reg.get("last_status") == "cancelled":
+        raise IndexSubError("a cancelled subscription cannot be paused", 409)
+    out = store.set_index_sub_active(reg["reg_id"], False, "paused")
+    assert out is not None
+    out["run_price_units"] = RUN_PRICE_UNITS
+    return out
+
+
+def resume(store: recheck_svc.WatchStore, reg_id: str) -> dict:
+    reg = _must_get(store, reg_id)
+    if reg.get("last_status") == "cancelled":
+        raise IndexSubError(
+            "a cancelled subscription cannot be resumed; register a new one", 409
+        )
+    out = store.set_index_sub_active(reg["reg_id"], True, "resumed")
+    assert out is not None
+    out["run_price_units"] = RUN_PRICE_UNITS
+    return out
+
+
+def cancel(store: recheck_svc.WatchStore, reg_id: str) -> dict:
+    reg = _must_get(store, reg_id)
+    out = store.set_index_sub_active(reg["reg_id"], False, "cancelled")
+    assert out is not None
+    out["run_price_units"] = RUN_PRICE_UNITS
+    out["note"] = (
+        "Cancelled: no further evaluations will run or debit the "
+        "Fleet Pass. Cancellation is terminal — register a new "
+        "subscription to restart the feed."
+    )
+    return out
+
+
+async def update_filters(
+    store: recheck_svc.WatchStore, reg_id: str, fields: dict
+) -> dict:
+    """Apply a partial filter update: exactly the fields the caller
+    named change (a named field set to None clears that filter).
+    Validation mirrors registration: a named pay_to must be an
+    address, a named catalogue must be one the Index holds, and a
+    named webhook must pass the SSRF check."""
+    _must_get(store, reg_id)
+    cleaned: dict = {}
+    for name, value in fields.items():
+        if name == "catalogue":
+            cleaned[name] = normalize_catalogue(value)
+        elif name == "pay_to":
+            value = (value or "").strip() or None
+            if value is not None and not is_address(value):
+                raise IndexSubError("pay_to must be a 0x EVM address")
+            cleaned[name] = value
+        elif name == "webhook_url":
+            value = (value or "").strip() or None
+            if value:
+                await _ssrf(value)
+            cleaned[name] = value
+        else:
+            cleaned[name] = (value or "").strip() or None if isinstance(value, str) else value
+    out = store.update_index_sub_filters((reg_id or "").strip(), cleaned)
+    assert out is not None
+    out["run_price_units"] = RUN_PRICE_UNITS
+    return out

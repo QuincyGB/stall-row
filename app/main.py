@@ -153,6 +153,7 @@ from .services import receipts as receipts_svc
 from .services import registry as registry_svc
 from .services import watchlist as watchlist_svc
 from .services import fleetpass as fleetpass_svc
+from .services import eventfeed as eventfeed_svc
 from .services import indexfeed as indexfeed_svc
 from .services import indexsub as indexsub_svc
 from .services import nudge as nudge_svc
@@ -1148,6 +1149,43 @@ async def index_changes(req: IndexChangesRequest):
     return await _run(go)
 
 
+class IndexHistoryRequest(BaseModel):
+    resource: str | None = Field(default=None, description="Only this exact resource URL")
+    resource_contains: str | None = Field(default=None, description="Only resources whose URL contains this string")
+    origin: str | None = Field(default=None, description="Only resources on this origin (scheme://host[:port])")
+    pay_to: str | None = Field(default=None, description="Only events for resources paid to this address")
+    service_name: str | None = Field(default=None, description="Only resources whose service name contains this string")
+    network: str | None = Field(default=None, description="Restrict to one network (e.g. eip155:8453)")
+    catalogue: str | None = Field(default=None, description="Catalogue slice (default cdp_bazaar — the catalogue the Index holds)")
+    limit: int | None = Field(default=None, description="Max events to return (default 100, cap 500)")
+
+
+@app.post("/v1/index/history")
+async def index_history(req: IndexHistoryRequest):
+    """Verdict Index History (Next-20 #6): the Index as a time
+    series across ALL retained snapshots — first-seen, delisted,
+    relisted, and field changes per route. One-off queries cost
+    $0.01; standing queries present a Fleet Pass (X-Fleet-Pass) and
+    are debited the same $0.01 by the middleware. Until at least
+    one snapshot exists there is no honest history, so the service
+    raises UpstreamError and the call 502s unsettled."""
+
+    async def go():
+        return indexfeed_svc.history(
+            _index_store,
+            catalogue=req.catalogue,
+            resource=(req.resource or "").strip() or None,
+            resource_contains=(req.resource_contains or "").strip() or None,
+            origin=(req.origin or "").strip() or None,
+            pay_to=(req.pay_to or "").strip() or None,
+            service_name=(req.service_name or "").strip() or None,
+            network=(req.network or "").strip() or None,
+            limit=req.limit or indexfeed_svc.DEFAULT_EVENT_LIMIT,
+        )
+
+    return await _run(go)
+
+
 @app.post("/v1/pre-trade-guard")
 async def pre_trade_guard(req: PreTradeGuardRequest):
     """Pre-Trade Guard: screen a payTo BEFORE paying it — Verdict
@@ -2111,6 +2149,95 @@ async def recheck_feed(request: Request):
     )
 
 
+def _serve_event_feed(topic: str, request: Request):
+    """One page of a market event feed (services/eventfeed.py):
+    hash-chained feed-v1 envelopes paged by ?since_seq= (the
+    cursor; default 0) and ?limit= (default 100, max 500).
+
+    Funding split, mirroring the Recheck feed's pattern and stated
+    in skill.md/llms.txt: the first FREE_EVENTS events of the feed
+    are free to anyone. A page containing events past the free page
+    needs a Fleet Pass (X-Fleet-Pass header): those events are
+    debited per event at Recheck arithmetic ($0.005 — the POST
+    /v1/recheck price, eventfeed.PER_EVENT_UNITS). Without a pass
+    the free events are served and the held-back count is stated
+    (funding_required) — never a silent truncation."""
+    params = request.query_params
+    try:
+        since_seq = int(params.get("since_seq", 0))
+        limit = int(params.get("limit", eventfeed_svc.DEFAULT_LIMIT))
+    except ValueError:
+        return JSONResponse(
+            {"error": "since_seq and limit must be integers"}, status_code=422
+        )
+    if since_seq < 0:
+        return JSONResponse({"error": "since_seq must be >= 0"}, status_code=422)
+    page = eventfeed_svc.feed_page(
+        topic,
+        index_store=_index_store,
+        patrol_snapshot=eventfeed_svc.load_patrol(),
+        since_seq=since_seq,
+        limit=limit,
+    )
+    envelopes = page["events"]
+    nonfree = [e for e in envelopes if e["seq"] > eventfeed_svc.FREE_EVENTS]
+    if nonfree:
+        pass_id = (request.headers.get(PASS_HEADER) or "").strip()
+        if pass_id:
+            cost = len(nonfree) * eventfeed_svc.PER_EVENT_UNITS
+            try:
+                _recheck_store.debit_pass(
+                    pass_id, "stall-row", f"/v1/{topic}/feed", cost
+                )
+            except recheck_svc.PackError as e:
+                return JSONResponse(
+                    {"error": e.message, "code": e.code},
+                    status_code=e.http_status,
+                )
+            page["funding_applied"] = {
+                "funded_by": "fleet_pass",
+                "events_charged": len(nonfree),
+                "debited_units": cost,
+                "per_event_units": eventfeed_svc.PER_EVENT_UNITS,
+            }
+        else:
+            page["events"] = [
+                e for e in envelopes if e["seq"] <= eventfeed_svc.FREE_EVENTS
+            ]
+            page["events_returned"] = len(page["events"])
+            page["funding_required"] = True
+            page["events_held_back"] = len(nonfree)
+            page["funding_note"] = (
+                "Events past the free first page "
+                f"({eventfeed_svc.FREE_EVENTS}) are debited per event "
+                "from a Fleet Pass (X-Fleet-Pass header) at $0.005 per "
+                "event — the POST /v1/recheck price. Present a pass "
+                "and re-request this page to receive them."
+            )
+    return page
+
+
+@app.get("/v1/drift/feed")
+async def drift_feed(request: Request):
+    """Drift Event Feed (Next-20 #8): payTo rotations, amount/terms
+    changes, and schema/description drift across the patrolled
+    market — from the Verdict Index's snapshot diffs and Dima's
+    patrol snapshot records (the two Nov 1 agents.tuski.ai
+    payto_mismatch records ride it as patrol events). Feed-v1
+    hash-chained envelopes; funding split in _serve_event_feed."""
+    return _serve_event_feed("drift", request)
+
+
+@app.get("/v1/firehose/feed")
+async def firehose_feed(request: Request):
+    """New-Stall Firehose (Next-20 #14): newly discovered
+    stalls/routes as the Index and patrol find them — first-seen
+    events from Index snapshot diffs plus new origins from the
+    patrol snapshot. Same feed-v1 envelope, cursor discipline, and
+    funding split as the Drift Event Feed."""
+    return _serve_event_feed("firehose", request)
+
+
 @app.get("/v1/recheck/history")
 async def recheck_history(request: Request):
     """Free read of the recorded check history as feed-v2 envelopes
@@ -2703,6 +2830,7 @@ class IndexSubRegisterRequest(BaseModel):
     pay_to: str | None = Field(default=None, description="Only resources paying this 0x address")
     service_name: str | None = Field(default=None, description="Only resources whose service name contains this string")
     network: str | None = Field(default=None, description="Only this network (e.g. eip155:8453)")
+    catalogue: str | None = Field(default=None, description="v2 per-catalogue slice: catalogue(s) this subscription cares about, comma-separated (the Index holds cdp_bazaar; omit for all)")
     webhook_url: str | None = Field(default=None, description="Public http(s) URL that receives diff pushes")
     email: str | None = Field(default=None, description="Optional contact email (stored; webhook is the live channel)")
     fleet_pass_id: str = Field(description="Fleet Pass funding each evaluation ($0.10 per delivered diff)")
@@ -2727,6 +2855,7 @@ async def index_subscribe(req: IndexSubRegisterRequest):
             req.webhook_url,
             req.email,
             req.fleet_pass_id,
+            catalogue=req.catalogue,
         )
     except indexsub_svc.IndexSubError as e:
         return JSONResponse({"error": e.message}, status_code=e.http_status)
@@ -2752,6 +2881,75 @@ async def index_subscription_run(req: IndexSubIdRequest):
     return await indexsub_svc.evaluate(
         _fetch_client(), _recheck_store, _index_store, reg
     )
+
+
+# --- Index Subscription v2 management (Next-20 #7) ------------------------------
+# Console-free management, free, authenticated by the registration
+# id alone — the only credential v1 ever issued (an unguessable id,
+# like a pack id). Pause/resume/cancel flip the same `active` flag
+# the ticker honours; cancel is terminal.
+
+@app.post("/v1/index/subscription/pause")
+async def index_subscription_pause(req: IndexSubIdRequest):
+    """Pause one subscription: no evaluations, no debits, watermark
+    held. Resume picks the feed up from the held watermark."""
+    try:
+        return indexsub_svc.pause(_recheck_store, req.reg_id)
+    except indexsub_svc.IndexSubError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+@app.post("/v1/index/subscription/resume")
+async def index_subscription_resume(req: IndexSubIdRequest):
+    """Resume a paused subscription. A cancelled subscription
+    cannot be resumed (409) — register a new one."""
+    try:
+        return indexsub_svc.resume(_recheck_store, req.reg_id)
+    except indexsub_svc.IndexSubError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+@app.post("/v1/index/subscription/cancel")
+async def index_subscription_cancel(req: IndexSubIdRequest):
+    """Cancel one subscription (terminal): no further evaluations
+    or debits. The registration row is kept so /status can still
+    report the cancelled state."""
+    try:
+        return indexsub_svc.cancel(_recheck_store, req.reg_id)
+    except indexsub_svc.IndexSubError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
+
+
+class IndexSubUpdateRequest(BaseModel):
+    reg_id: str = Field(description="Registration id returned by POST /v1/index/subscribe")
+    resource_contains: str | None = Field(default=None, description="New resource_contains filter (null clears it)")
+    pay_to: str | None = Field(default=None, description="New pay_to filter (null clears it)")
+    service_name: str | None = Field(default=None, description="New service_name filter (null clears it)")
+    network: str | None = Field(default=None, description="New network filter (null clears it)")
+    catalogue: str | None = Field(default=None, description="New per-catalogue slice, comma-separated (null = all catalogues)")
+    webhook_url: str | None = Field(default=None, description="New webhook URL (null clears it)")
+    email: str | None = Field(default=None, description="New contact email (null clears it)")
+
+
+@app.post("/v1/index/subscription/update")
+async def index_subscription_update(req: IndexSubUpdateRequest):
+    """Update one subscription's filters: exactly the fields named
+    in the request change (a named field set to null clears that
+    filter); unnamed fields are untouched. Validation mirrors
+    registration (pay_to must be an address, catalogue must be one
+    the Index holds, webhook must pass the SSRF check)."""
+    fields = {
+        name: getattr(req, name)
+        for name in (
+            "resource_contains", "pay_to", "service_name", "network",
+            "catalogue", "webhook_url", "email",
+        )
+        if name in req.model_fields_set
+    }
+    try:
+        return await indexsub_svc.update_filters(_recheck_store, req.reg_id, fields)
+    except indexsub_svc.IndexSubError as e:
+        return JSONResponse({"error": e.message}, status_code=e.http_status)
 
 
 # --- Fleet Pass v2 -----------------------------------------------------------------

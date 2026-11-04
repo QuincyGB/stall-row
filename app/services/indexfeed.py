@@ -43,7 +43,14 @@ from ..rpc import UpstreamError
 
 PAGE_LIMIT = 1000
 MAX_PAGES = 200
-KEEP_SNAPSHOTS = 3
+# Retention (Next-20 #6): the History API sells the Index as a time
+# series, so snapshots are no longer pruned to the newest few — the
+# store keeps every snapshot the ticker stores (the cap below is a
+# safety bound orders of magnitude past any realistic horizon, not
+# a rotation policy). History depth is whatever is actually held:
+# the history payload states the earliest snapshot it holds and
+# never claims depth it does not have.
+KEEP_SNAPSHOTS = 10_000
 DEFAULT_EVENT_LIMIT = 100
 MAX_EVENT_LIMIT = 500
 # The catalog pull identifies itself and takes a per-request timeout
@@ -401,6 +408,164 @@ async def refresh_if_stale(
     # the loop; the fetch above stays async as before.
     await asyncio.to_thread(store.save_snapshot, rows)
     return True
+
+
+CATALOGUES = ("cdp_bazaar",)
+DEFAULT_CATALOGUE = "cdp_bazaar"
+
+
+def _origin_of(resource: str) -> str | None:
+    from urllib.parse import urlsplit
+
+    try:
+        parts = urlsplit(resource)
+    except ValueError:
+        return None
+    if not parts.scheme or not parts.netloc:
+        return None
+    return f"{parts.scheme.lower()}://{parts.netloc.lower()}"
+
+
+def history_events(
+    snapshots_with_entries: list[tuple[dict, dict[str, dict]]],
+    *,
+    resource: str | None = None,
+    resource_contains: str | None = None,
+    origin: str | None = None,
+    pay_to: str | None = None,
+    service_name: str | None = None,
+    network: str | None = None,
+) -> list[dict]:
+    """Pure time-series walk over retained snapshots (oldest first).
+
+    Emits, in chronological order: first_seen (a resource's first
+    appearance in the retained snapshots), delisted (present in the
+    previous snapshot, absent now), relisted (absent for at least
+    one snapshot, present again), and field_changed events over
+    TRACKED_FIELDS for resources present in consecutive snapshots.
+    Filters select events by the resource's own row (for a delisted
+    event, its last held row)."""
+    events: list[dict] = []
+    seen_before: set[str] = set()
+    prev: dict[str, dict] = {}
+    for snap, entries in snapshots_with_entries:
+        at = snap["captured_at"]
+        sid = snap["id"]
+        for res in sorted(entries):
+            row = entries[res]
+            if res not in prev:
+                kind = "relisted" if res in seen_before else "first_seen"
+                events.append(
+                    {
+                        "resource": res,
+                        "kind": kind,
+                        "at": at,
+                        "snapshot_id": sid,
+                        "serviceName": row.get("serviceName"),
+                        "payTo": row.get("payTo"),
+                        "amount": row.get("amount"),
+                        "network": row.get("network"),
+                        "_row": row,
+                    }
+                )
+            else:
+                orow = prev[res]
+                for field in TRACKED_FIELDS:
+                    if orow.get(field) != row.get(field):
+                        events.append(
+                            {
+                                "resource": res,
+                                "kind": "field_changed",
+                                "field": field,
+                                "before": orow.get(field),
+                                "after": row.get(field),
+                                "at": at,
+                                "snapshot_id": sid,
+                                "serviceName": row.get("serviceName"),
+                                "_row": row,
+                            }
+                        )
+        for res in sorted(prev):
+            if res not in entries:
+                orow = prev[res]
+                events.append(
+                    {
+                        "resource": res,
+                        "kind": "delisted",
+                        "at": at,
+                        "snapshot_id": sid,
+                        "serviceName": orow.get("serviceName"),
+                        "payTo": orow.get("payTo"),
+                        "amount": orow.get("amount"),
+                        "network": orow.get("network"),
+                        "_row": orow,
+                    }
+                )
+        seen_before.update(entries)
+        prev = entries
+
+    def keep(ev: dict) -> bool:
+        row = ev["_row"]
+        if resource and ev["resource"] != resource:
+            return False
+        if resource_contains and resource_contains not in ev["resource"]:
+            return False
+        if origin and _origin_of(ev["resource"]) != origin.rstrip("/").lower():
+            return False
+        if pay_to and (row.get("payTo") or "").lower() != pay_to.lower():
+            return False
+        if service_name and service_name.lower() not in (row.get("serviceName") or "").lower():
+            return False
+        if network and (row.get("network") or "") != network:
+            return False
+        return True
+
+    out = []
+    for ev in events:
+        if keep(ev):
+            clean = {k: v for k, v in ev.items() if k != "_row"}
+            clean["origin"] = _origin_of(ev["resource"])
+            clean["catalogue"] = DEFAULT_CATALOGUE
+            out.append(clean)
+    return out
+
+
+def history(
+    store: IndexStore,
+    *,
+    catalogue: str | None = None,
+    limit: int = DEFAULT_EVENT_LIMIT,
+    **filters,
+) -> dict:
+    """The History API's read (Next-20 #6): the Index as a time
+    series across ALL retained snapshots — not just the newest two.
+    Raises UpstreamError until at least one snapshot exists (no
+    snapshots, no history, no charge). Depth is stated honestly:
+    earliest_snapshot_at is the oldest snapshot actually held."""
+    catalogue = (catalogue or DEFAULT_CATALOGUE).strip() or DEFAULT_CATALOGUE
+    if catalogue not in CATALOGUES:
+        raise ValueError(
+            f"unknown catalogue {catalogue!r}: the Index holds {list(CATALOGUES)}"
+        )
+    snaps = store.snapshots()
+    if not snaps:
+        raise UpstreamError(
+            "Verdict Index history is still building: no catalog "
+            "snapshots stored yet, so there is no honest history to sell."
+        )
+    pairs = [(s, store.entries(s["id"])) for s in snaps]
+    events = history_events(pairs, **filters)
+    limit = max(1, min(int(limit or DEFAULT_EVENT_LIMIT), MAX_EVENT_LIMIT))
+    return {
+        "catalogue": catalogue,
+        "snapshots_held": len(snaps),
+        "earliest_snapshot_at": snaps[0]["captured_at"],
+        "latest_snapshot_at": snaps[-1]["captured_at"],
+        "generated_at": _now_iso(),
+        "events_total": len(events),
+        "events_returned": min(len(events), limit),
+        "events": events[:limit],
+    }
 
 
 def changes(
