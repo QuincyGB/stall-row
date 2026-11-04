@@ -118,6 +118,11 @@
       "name": "/v1/index/changes"
     },
     {
+      "amount": "10000",
+      "endpoint": "https://stall-row-production.up.railway.app/v1/index/history",
+      "name": "/v1/index/history"
+    },
+    {
       "amount": "750000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/orchestrate",
       "name": "/v1/orchestrate"
@@ -215,7 +220,9 @@
         "wallet",
         "balances",
         "data",
-        "agents"
+        "agents",
+        "onchain-data",
+        "address-lookup"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/wallet-snapshot"
     },
@@ -245,7 +252,10 @@
         "security",
         "approvals",
         "allowance",
-        "agents"
+        "agents",
+        "erc20-approvals",
+        "spender-risk",
+        "preflight"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/allowance-audit"
     },
@@ -275,7 +285,10 @@
         "transactions",
         "decode",
         "data",
-        "agents"
+        "agents",
+        "tx-decode",
+        "transaction-lookup",
+        "onchain-data"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/tx-decoder"
     },
@@ -305,7 +318,10 @@
         "gas",
         "fees",
         "data",
-        "agents"
+        "agents",
+        "gas-price",
+        "base-fees",
+        "fee-estimate"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/gas-oracle"
     },
@@ -335,7 +351,9 @@
         "security",
         "sanctions",
         "verdict",
-        "agents"
+        "agents",
+        "wallet-risk",
+        "trust-verdict"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/wallet-verdict"
     },
@@ -366,7 +384,11 @@
         "sanctions",
         "verdict",
         "payments",
-        "agents"
+        "agents",
+        "pre-trade-guard",
+        "payto",
+        "preflight",
+        "counterparty"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/pre-trade-guard"
     },
@@ -396,7 +418,11 @@
         "security",
         "verdict",
         "sellers",
-        "agents"
+        "agents",
+        "counterparty",
+        "payto",
+        "due-diligence",
+        "preflight"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/counterparty-report"
     },
@@ -425,7 +451,11 @@
         "x402",
         "sellers",
         "listings",
-        "verification"
+        "verification",
+        "listing-grade",
+        "preflight",
+        "discovery",
+        "endpoint-verification"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/grade-my-stall"
     },
@@ -454,7 +484,10 @@
         "x402",
         "payments",
         "verification",
-        "receipts"
+        "receipts",
+        "settlement-proof",
+        "tx-verification",
+        "delivery-verified"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/receipt-verify"
     },
@@ -484,7 +517,10 @@
         "security",
         "sanctions",
         "registry",
-        "agents"
+        "agents",
+        "payto",
+        "blocklist",
+        "risk-feed"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/flagged-paytos"
     },
@@ -514,7 +550,10 @@
         "agents",
         "erc-8004",
         "verification",
-        "identity"
+        "identity",
+        "agent-card",
+        "manifest",
+        "preflight"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/agent-card-verify"
     },
@@ -544,7 +583,9 @@
         "youtube",
         "video",
         "data",
-        "agents"
+        "agents",
+        "youtube-search",
+        "video-search"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/tube-search"
     },
@@ -574,7 +615,9 @@
         "markdown",
         "web",
         "reading",
-        "agents"
+        "agents",
+        "web-fetch",
+        "content-extraction"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/page-to-markdown"
     },
@@ -603,7 +646,9 @@
         "github",
         "repos",
         "data",
-        "agents"
+        "agents",
+        "github-repo",
+        "repository-health"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/repo-vitals"
     },
@@ -633,7 +678,10 @@
         "bazaar",
         "pricing",
         "sellers",
-        "agents"
+        "agents",
+        "pricing-comps",
+        "catalogue",
+        "market-data"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/price-check"
     },
@@ -663,7 +711,8 @@
         "a2a",
         "agent-card",
         "identity",
-        "sellers"
+        "sellers",
+        "manifest"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/card-smith"
     },
@@ -693,7 +742,9 @@
         "bounties",
         "agents",
         "work",
-        "digest"
+        "digest",
+        "agent-jobs",
+        "bounty-board"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/job-scout"
     },
@@ -723,7 +774,11 @@
         "x402",
         "change-detection",
         "diff",
-        "agents"
+        "agents",
+        "drift",
+        "uptime",
+        "endpoint-verification",
+        "payto"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/recheck"
     },
@@ -754,9 +809,46 @@
         "changelog",
         "catalog",
         "monitoring",
-        "agents"
+        "agents",
+        "drift",
+        "catalogue-diff",
+        "catalogue"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/index/changes"
+    },
+    {
+      "description": "Verdict Index History — the CDP Bazaar catalog as a time series across ALL retained snapshots, not just the newest two: first-seen, delisted, relisted, and price/payTo/contract changes per route, filterable by resource, origin, payTo, service name, network, or catalogue. The payload states the earliest snapshot actually held — depth is never invented. Standing queries fund from a Fleet Pass at this same $0.01. Use this when an inspector needs a route's history, not just its latest diff.",
+      "id": "v1-index-history",
+      "inputModes": [
+        "application/json"
+      ],
+      "method": "POST",
+      "name": "History",
+      "outputModes": [
+        "application/json"
+      ],
+      "price": {
+        "amount_units": "10000",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "display": "$0.01",
+        "network": "eip155:8453",
+        "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+        "protocol": "x402",
+        "scheme": "exact",
+        "usd": "0.01"
+      },
+      "tags": [
+        "index",
+        "x402",
+        "history",
+        "catalog",
+        "monitoring",
+        "agents",
+        "drift",
+        "time-series",
+        "catalogue"
+      ],
+      "url": "https://stall-row-production.up.railway.app/v1/index/history"
     },
     {
       "description": "One combined fleet report for $0.75: Token Verdict's verdict on a token, RouteVerdict's delivery check and LockSmith's security audit summary on a service URL, and ListSmith's grade on a listing URL — four fleet services in one call. A failed leg is marked in the report, not hidden; only a total failure returns 502 and charges nothing. Use this when an agent is about to trust a token and a stall in the same workflow and wants one receipt instead of four payments.",
@@ -785,7 +877,10 @@
         "verdict",
         "audit",
         "agents",
-        "fleet"
+        "fleet",
+        "fleet-audit",
+        "preflight",
+        "bundle-report"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/orchestrate"
     },
@@ -815,7 +910,9 @@
         "x402",
         "change-detection",
         "prepaid",
-        "agents"
+        "agents",
+        "drift",
+        "uptime"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/recheck/pack"
     },
@@ -845,7 +942,11 @@
         "monitoring",
         "health-check",
         "sellers",
-        "agents"
+        "agents",
+        "fleet-health",
+        "uptime",
+        "endpoint-verification",
+        "drift"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/fleet-check"
     },
@@ -875,7 +976,11 @@
         "monitoring",
         "prepaid",
         "health-check",
-        "agents"
+        "agents",
+        "fleet-health",
+        "uptime",
+        "endpoint-verification",
+        "drift"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/fleet-check/pack"
     },
@@ -905,7 +1010,9 @@
         "x402",
         "budget",
         "agents",
-        "fleet"
+        "fleet",
+        "prepaid-balance",
+        "fleet-pass"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/fleet-pass"
     },
@@ -936,7 +1043,9 @@
         "budget",
         "agents",
         "fleet",
-        "frameworks"
+        "frameworks",
+        "prepaid-balance",
+        "fleet-pass"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/fleet-pass-20"
     },
@@ -966,7 +1075,11 @@
         "inspector",
         "challenge",
         "sdk",
-        "verification"
+        "verification",
+        "discovery",
+        "manifest",
+        "preflight",
+        "challenge-parse"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/sign-read"
     },
@@ -996,7 +1109,10 @@
         "inspector",
         "history",
         "reputation",
-        "monitoring"
+        "monitoring",
+        "track-record",
+        "drift",
+        "catalogue-presence"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/score-book"
     },
@@ -1026,7 +1142,11 @@
         "inspector",
         "trust",
         "pre-pay",
-        "security"
+        "security",
+        "pre-trade-guard",
+        "payto",
+        "preflight",
+        "trust-verdict"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/guard"
     },
@@ -1056,7 +1176,11 @@
         "inspector",
         "bundle",
         "pre-pay",
-        "monitoring"
+        "monitoring",
+        "preflight",
+        "endpoint-verification",
+        "delivery-verified",
+        "payto"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/physical"
     },
@@ -1086,7 +1210,9 @@
         "inspector",
         "payto",
         "monitoring",
-        "verification"
+        "verification",
+        "drift",
+        "pin-verify"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/payto-pin/verify"
     },
@@ -1116,7 +1242,9 @@
         "inspector",
         "prepaid",
         "agents",
-        "toolkit"
+        "toolkit",
+        "inspector-toolkit",
+        "preflight"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/toolkit/pack"
     },
@@ -1146,7 +1274,8 @@
         "inspector",
         "dataset",
         "catalogue",
-        "monitoring"
+        "monitoring",
+        "observation-ledger"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/ledger-dataset"
     },
@@ -1176,7 +1305,8 @@
         "inspector",
         "dataset",
         "catalogue",
-        "monitoring"
+        "monitoring",
+        "observation-ledger"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/ledger-dataset/full"
     }

@@ -4191,7 +4191,7 @@ async def agent_card_document(request: Request):
 @app.post("/mcp")
 async def hosted_mcp_endpoint(request: Request):
     """Hosted MCP (Next-20 Item 2): streamable-HTTP MCP over the
-    fleet's 24 cheap tools — see app/services/hosted_mcp.py. Free
+    fleet's 25 cheap tools — see app/services/hosted_mcp.py. Free
     transport (NOT a priced x402 resource, never in the manifest's
     resources): the JSON-RPC layer is stateless, and tools/call
     proxies to the target stall forwarding the caller's own

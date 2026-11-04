@@ -3,7 +3,7 @@
   "version": 1,
   "generated_by": "Ren, Verdict Row Patrol \u2014 patrol@verdictrow.com",
   "generator": "function_tools.py (fleet-checker), from route_registry.json",
-  "registry_generated_at": "2026-11-04T05:17:22Z",
+  "registry_generated_at": "2026-11-04T08:20:11Z",
   "price_cap": {
     "usd": "0.05",
     "amount_units_base": "50000",
@@ -17,7 +17,7 @@
     "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
     "note": "Each tool is a paid POST endpoint: an unpaid call returns HTTP 402 with the payment challenge; pay the stated price in USDC on Base (x402 exact scheme) to receive the result. No API key, no signup."
   },
-  "tool_count": 24,
+  "tool_count": 25,
   "routes": [
     {
       "name": "stall_row_wallet_snapshot",
@@ -178,6 +178,16 @@
       "price_display": "$0.005",
       "price_usd": "0.005",
       "amount_units_base": "5000"
+    },
+    {
+      "name": "stall_row_index_history",
+      "stall": "stall-row",
+      "path": "/v1/index/history",
+      "method": "POST",
+      "resource": "https://stall-row-production.up.railway.app/v1/index/history",
+      "price_display": "$0.01",
+      "price_usd": "0.01",
+      "amount_units_base": "10000"
     },
     {
       "name": "stall_row_sign_read",
@@ -583,6 +593,43 @@
           "required": [
             "url"
           ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "stall_row_index_history",
+        "description": "$0.01 USDC per call via x402 on Base (10000 atomic units). Verdict Index History \u2014 the CDP Bazaar catalog as a time series across ALL retained snapshots, not just the newest two: first-seen, delisted, relisted, and price/payTo/contract changes per route, filterable by resource, origin, payTo, service name, network, or catalogue. The payload states the earliest snapshot actually held \u2014 depth is never invented. Standing queries fund from a Fleet Pass at this same $0.01. Use this when an inspector needs a route's history, not just its latest diff. Returns: a JSON object with fields: catalogue, earliest_snapshot_at, events, events_returned, events_total, generated_at, latest_snapshot_at, snapshots_held, worked_example_note.",
+        "parameters": {
+          "properties": {
+            "catalogue": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "integer"
+            },
+            "network": {
+              "type": "string"
+            },
+            "origin": {
+              "type": "string"
+            },
+            "pay_to": {
+              "type": "string"
+            },
+            "resource": {
+              "type": "string"
+            },
+            "resource_contains": {
+              "type": "string"
+            },
+            "service_name": {
+              "type": "string"
+            }
+          },
+          "required": [],
           "type": "object"
         }
       }
@@ -1115,6 +1162,40 @@
         "required": [
           "url"
         ],
+        "type": "object"
+      }
+    },
+    {
+      "name": "stall_row_index_history",
+      "description": "$0.01 USDC per call via x402 on Base (10000 atomic units). Verdict Index History \u2014 the CDP Bazaar catalog as a time series across ALL retained snapshots, not just the newest two: first-seen, delisted, relisted, and price/payTo/contract changes per route, filterable by resource, origin, payTo, service name, network, or catalogue. The payload states the earliest snapshot actually held \u2014 depth is never invented. Standing queries fund from a Fleet Pass at this same $0.01. Use this when an inspector needs a route's history, not just its latest diff. Returns: a JSON object with fields: catalogue, earliest_snapshot_at, events, events_returned, events_total, generated_at, latest_snapshot_at, snapshots_held, worked_example_note.",
+      "input_schema": {
+        "properties": {
+          "catalogue": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "network": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "pay_to": {
+            "type": "string"
+          },
+          "resource": {
+            "type": "string"
+          },
+          "resource_contains": {
+            "type": "string"
+          },
+          "service_name": {
+            "type": "string"
+          }
+        },
+        "required": [],
         "type": "object"
       }
     },

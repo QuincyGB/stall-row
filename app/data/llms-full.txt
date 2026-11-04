@@ -1,6 +1,6 @@
 # stall-row — llms-full.txt (Verdict Row x402 fleet)
 
-Generated: 2026-11-01T00:22:51Z by Ren, Verdict Row Patrol — patrol@verdictrow.com from the fleet's canonical route registry and this stall's served discovery + OpenAPI documents (llms_full.py, fleet-checker).
+Generated: 2026-11-04T08:23:12Z by Ren, Verdict Row Patrol — patrol@verdictrow.com from the fleet's canonical route registry and this stall's served discovery + OpenAPI documents (llms_full.py, fleet-checker).
 Contact: patrol@verdictrow.com
 
 A row of small x402 stalls in one service: Base chain reads (wallet snapshot, allowance audit, transaction decoder, gas oracle), a wallet trust verdict, fetch tools (YouTube search, page-to-Markdown, GitHub repo vitals), seller tools (Bazaar price-check, agent-card smith), a digest of open agent jobs, and scheduled change detection for x402 resources and web pages, with prepaid check packs. Use this when an agent needs one cheap, honest fact mid-task and cannot run the source itself.
@@ -17,7 +17,7 @@ Snapshot one Base wallet in a single call: ETH balance, top token holdings, firs
 
 Price: $0.005 (5000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 5000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: base, wallet, balances, data, agents
+Tags: base, wallet, balances, data, agents, onchain-data, address-lookup
 Input shape: type object; fields: address (string, required)
 Output shape: type object; fields: address (string, required), eth_balance (string, required), eth_balance_source (string), eth_balance_wei (string|null), first_activity (string), is_contract (boolean|string|null), last_activity (string), note (string), outgoing_tx_count_nonce (integer|null), sources (object, required), token_balances (array|string)
 
@@ -66,7 +66,7 @@ Audit one Base wallet's ERC-20 approvals against a curated list of major spender
 
 Price: $0.005 (5000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 5000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: base, security, approvals, allowance, agents
+Tags: base, security, approvals, allowance, agents, erc20-approvals, spender-risk, preflight
 Input shape: type object; fields: address (string, required)
 Output shape: type object; fields: active_approvals (array|string, required), address (string, required), allowance_checks_performed (integer), coverage_note (string), note (string), spender_coverage (array), spenders_checked (integer, required), summary (string, required), tokens_held_checked (integer|string, required), unlimited_approvals (integer|string, required)
 
@@ -103,7 +103,7 @@ Decode one Base transaction into plain English: sender, receiver, ETH value, sta
 
 Price: $0.002 (2000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 2000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: base, transactions, decode, data, agents
+Tags: base, transactions, decode, data, agents, tx-decode, transaction-lookup, onchain-data
 Input shape: type object; fields: tx_hash (string, required)
 Output shape: type object; fields: block_number (integer|null), erc20_transfers (array, required), from (string|null), gas_used (integer|null), method (string|null), method_description (string|null), method_id (string|null), status (string, required), summary (string, required), to (string|null), tx_hash (string, required), value_eth (string, required)
 
@@ -147,7 +147,7 @@ Current Base gas in one call: the live gas price, the current base fee, the base
 
 Price: $0.001 (1000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 1000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: base, gas, fees, data, agents
+Tags: base, gas, fees, data, agents, gas-price, base-fees, fee-estimate
 Input shape: type object
 Output shape: type object; fields: as_of_epoch (integer), base_fee_gwei (string, required), base_fee_max_gwei_20_blocks (string), base_fee_min_gwei_20_blocks (string), blocks_sampled (integer), chain (string, required), cheapest_window_hint (string, required), gas_price_gwei (string, required), latest_block (integer, required), note (string), trend (string, required)
 
@@ -181,7 +181,7 @@ A trust verdict for one Base wallet: OFAC SDN exact-match against a dated snapsh
 
 Price: $0.02 (20000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 20000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: base, security, sanctions, verdict, agents
+Tags: base, security, sanctions, verdict, agents, wallet-risk, trust-verdict
 Input shape: type object; fields: address (string, required)
 Output shape: type object; fields: address (string, required), first_activity (string), limits (string), outgoing_tx_count_nonce (integer|null), poisoning (object, required), reasons (array, required), sanctions (object, required), score (integer, required), verdict (string, required), wallet_age_days (integer|null)
 
@@ -223,7 +223,7 @@ Pre-Trade Guard — before you pay an x402 listing, screen the payTo you are abo
 
 Price: $0.005 (5000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 5000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, security, sanctions, verdict, payments, agents
+Tags: x402, security, sanctions, verdict, payments, agents, pre-trade-guard, payto, preflight, counterparty
 Input shape: type object; fields: amount (integer|string|null), network (string|null), pay_to (string, required), resource (string|null)
 Output shape: type object; fields: amount (integer|string|null), index (object, required), limits (string), network (string), not_checked (string), pay_to (string, required), reasons (array, required), resource (string|null), risk_score (integer, required), sanctions (object, required), unknown_legs (array), verdict (string, required), wallet (object, required)
 
@@ -284,7 +284,7 @@ Counterparty Report — one bundled report on one seller: the payTo's wallet sna
 
 Price: $1 (1000000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 1000000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, security, verdict, sellers, agents
+Tags: x402, security, verdict, sellers, agents, counterparty, payto, due-diligence, preflight
 Input shape: type object; fields: chain (string), listing_url (string|null), pay_to (string, required), resource (string|null), service_url (string|null), token_address (string|null)
 Output shape: type object; fields: generated_at (string, required), legs (object, required), legs_failed (array), legs_not_requested (array), legs_ok (array, required), legs_unavailable (array), limits (string), listing_url (string|null), pay_to (string, required), service_url (string|null), token_address (string|null)
 
@@ -337,7 +337,7 @@ Grade My Stall — a seller-side report card for one x402 resource: a live unpai
 
 Price: $0.005 (5000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 5000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, sellers, listings, verification
+Tags: x402, sellers, listings, verification, listing-grade, preflight, discovery, endpoint-verification
 Input shape: type object; fields: pay_to (string|null), resource_url (string, required)
 Output shape: type object; fields: checks (object, required), limits (string), overall (string, required), pay_to_supplied (string|null), resource (string, required), summary (object, required)
 
@@ -383,7 +383,7 @@ Receipt Verifier — a Base transaction hash in, a normalized verified receipt o
 
 Price: $0.002 (2000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 2000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, payments, verification, receipts
+Tags: x402, payments, verification, receipts, settlement-proof, tx-verification, delivery-verified
 Input shape: type object; fields: tx_hash (string, required)
 Output shape: type object; fields: amount_units (integer, required), amount_usd (string), asset (string|null), asset_symbol (string), block_number (integer|null), chain (string), confirmations (integer|null), fleet_route_candidates (array), limits (string), network (string, required), pay_to (string|null, required), payer (string|null, required), receipt_status (string|null), settled (boolean, required), tx_hash (string, required), tx_sender (string|null), usdc_transfers (array)
 
@@ -436,7 +436,7 @@ Bad-payTo Registry Feed — the currently flagged payTos, each with its evidence
 
 Price: $0.005 (5000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 5000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, security, sanctions, registry, agents
+Tags: x402, security, sanctions, registry, agents, payto, blocklist, risk-feed
 Input shape: type object
 Output shape: type object; fields: baseline_at (string|null), counts (object, required), current_at (string|null), entries (array, required), generated_at (string, required), index_note (string|null), limits (string), truncation (object)
 
@@ -491,7 +491,7 @@ Agent-Card Verifier — an ERC-8004 agent id (resolved on Base via the registry)
 
 Price: $0.005 (5000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 5000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, agents, erc-8004, verification, identity
+Tags: x402, agents, erc-8004, verification, identity, agent-card, manifest, preflight
 Input shape: type object; fields: agent_id (integer|null), agent_url (string|null)
 Output shape: type object; fields: agent_id (integer|null), card_name (string|null), card_url (string, required), checks (object, required), limits (string), overall (string, required), source (string), summary (object, required)
 
@@ -537,7 +537,7 @@ YouTube search results as clean JSON: title, video id, URL, channel, duration, a
 
 Price: $0.01 (10000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: search, youtube, video, data, agents
+Tags: search, youtube, video, data, agents, youtube-search, video-search
 Input shape: type object; fields: max_results (integer), query (string, required)
 Output shape: type object; fields: count (integer, required), query (string, required), results (array, required)
 
@@ -575,7 +575,7 @@ Fetch one web page and return its main content as clean Markdown with title and 
 
 Price: $0.01 (10000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: fetch, markdown, web, reading, agents
+Tags: fetch, markdown, web, reading, agents, web-fetch, content-extraction
 Input shape: type object; fields: url (string, required)
 Output shape: type object; fields: final_url (string, required), markdown (string, required), title (string|null), url (string, required), word_count (integer, required)
 
@@ -605,7 +605,7 @@ Vital signs for one GitHub repository in a single call: stars, forks, open issue
 
 Price: $0.005 (5000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 5000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: github, repos, data, agents
+Tags: github, repos, data, agents, github-repo, repository-health
 Input shape: type object; fields: repo (string, required)
 Output shape: type object; fields: archived (boolean, required), created_at (string|null), description (string|null), forks (integer, required), health_notes (array), health_score (integer, required), license (string|null), open_issues (integer, required), pushed_at (string|null), repo (string, required), stars (integer, required), url (string|null), verdict (string, required)
 
@@ -645,7 +645,7 @@ Pricing comps for an x402 listing, read live from the CDP Bazaar public catalog:
 
 Price: $0.05 (50000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 50000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, bazaar, pricing, sellers, agents
+Tags: x402, bazaar, pricing, sellers, agents, pricing-comps, catalogue, market-data
 Input shape: type object; fields: description (string), keywords (string, required)
 Output shape: type object; fields: catalog_status (string, required), comparables (array, required), keywords (string, required), matches_found (integer, required), price_distribution (object|null), rationale (string, required), recommended_price_usd (number|null)
 
@@ -689,7 +689,7 @@ Generate or grade an agent card (the /.well-known/agent-card.json an agent publi
 
 Price: $0.1 (100000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 100000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: agents, a2a, agent-card, identity, sellers
+Tags: agents, a2a, agent-card, identity, sellers, manifest
 Input shape: type object; fields: card (object), description (string), mode (string, required), name (string), skills (array)
 Output shape: type object; fields: card (object|null), mode (string, required), validation (object, required)
 
@@ -738,7 +738,7 @@ A digest of currently open agent jobs from the marketplaces we sweep daily, filt
 
 Price: $0.05 (50000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 50000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: jobs, bounties, agents, work, digest
+Tags: jobs, bounties, agents, work, digest, agent-jobs, bounty-board
 Input shape: type object; fields: capabilities (array), limit (integer)
 Output shape: type object; fields: count (integer, required), data_stale (boolean, required), jobs (array, required), note (string, required), snapshot_age_hours (number|null), snapshot_fetched_at (string|null), snapshot_source (string|null)
 
@@ -787,7 +787,7 @@ Probe one x402 resource or page WITHOUT paying it: BASELINE / UNCHANGED / CHANGE
 
 Price: $0.005 (5000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 5000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: monitoring, x402, change-detection, diff, agents
+Tags: monitoring, x402, change-detection, diff, agents, drift, uptime, endpoint-verification, payto
 Input shape: type object; fields: pack_id (string), url (string, required), watch_id (string)
 Output shape: type object; fields: changes (array, required), checked_at (string, required), current (object, required), kind (string, required), status (string, required), summary (string, required), url (string, required), watch_id (string, required)
 
@@ -835,7 +835,7 @@ Verdict Index — the CDP Bazaar catalog changelog: the diff between our two new
 
 Price: $0.1 (100000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 100000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: index, x402, changelog, catalog, monitoring, agents
+Tags: index, x402, changelog, catalog, monitoring, agents, drift, catalogue-diff, catalogue
 Input shape: type object; fields: limit (integer), network (string), pay_to (string), resource_contains (string), service_name (string)
 Output shape: type object; fields: baseline_at (string, required), current_at (string, required), events (array, required), events_returned (integer), generated_at (string), summary (object, required)
 
@@ -929,7 +929,7 @@ One combined fleet report for $0.75: Token Verdict's verdict on a token, RouteVe
 
 Price: $0.75 (750000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 750000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: bundle, x402, verdict, audit, agents, fleet
+Tags: bundle, x402, verdict, audit, agents, fleet, fleet-audit, preflight, bundle-report
 Input shape: type object; fields: address (string, required), chain (string), listing_url (string, required), service_url (string, required)
 Output shape: type object; fields: legs (object, required), legs_failed (array, required), legs_ok (array, required), listing_url (string, required), service_url (string, required), token (object, required)
 
@@ -980,7 +980,7 @@ Recheck watch pack — the default for monitoring loops: one $1.00 payment buys 
 
 Price: $1 (1000000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 1000000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: monitoring, x402, change-detection, prepaid, agents
+Tags: monitoring, x402, change-detection, prepaid, agents, drift, uptime
 Input shape: type object; fields: url (string, required)
 Output shape: type object; fields: created_at (string), credits_remaining (integer, required), credits_total (integer, required), expired (boolean), expires_at (string, required), expiry_days (integer), note (string), pack_id (string, required), price_units (integer), url (string, required)
 
@@ -1015,7 +1015,7 @@ Fleet Check — one health sweep of your whole x402 fleet: name resource URLs an
 
 Price: $0.1 (100000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 100000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300 | scheme exact, network solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp, amount 100000 units, asset EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v, payTo FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ, maxTimeoutSeconds 300
-Tags: x402, monitoring, health-check, sellers, agents
+Tags: x402, monitoring, health-check, sellers, agents, fleet-health, uptime, endpoint-verification, drift
 Input shape: type object; fields: origins (array), resources (array)
 Output shape: type object; fields: checked_at (string, required), limits (string), origins (array, required), resources (array, required), summary (object, required)
 
@@ -1083,7 +1083,7 @@ Fleet Check pack — the standing form of Fleet Check: one $5.00 payment buys 10
 
 Price: $5 (5000000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 5000000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300 | scheme exact, network solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp, amount 5000000 units, asset EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v, payTo FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ, maxTimeoutSeconds 300
-Tags: x402, monitoring, prepaid, health-check, agents
+Tags: x402, monitoring, prepaid, health-check, agents, fleet-health, uptime, endpoint-verification, drift
 Input shape: type object; fields: email (string|null), heartbeat (boolean), interval_s (integer), origins (array), resources (array), webhook_url (string|null)
 Output shape: type object; fields: created_at (string), credits_remaining (integer, required), credits_total (integer, required), definition (object, required), email (string|null), expired (boolean), expires_at (string, required), expiry_days (integer), heartbeat (boolean), interval_s (integer), last_run_at (string|null), note (string), pack_id (string, required), price_units (integer), webhook_url (string|null)
 
@@ -1131,7 +1131,7 @@ Fleet Pass — one prepaid balance for the whole fleet: one $5.00 payment buys a
 
 Price: $5 (5000000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 5000000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: prepaid, x402, budget, agents, fleet
+Tags: prepaid, x402, budget, agents, fleet, prepaid-balance, fleet-pass
 Input shape: type object
 Output shape: type object; fields: balance_units (integer, required), balance_usd (number), created_at (string), expired (boolean), expires_at (string, required), expiry_days (integer), note (string), pass_id (string, required), price_units (integer), total_units (integer), total_usd (number)
 
@@ -1165,7 +1165,7 @@ Fleet Pass v2 — the $20 working pass for agent frameworks: one $20.00 payment 
 
 Price: $20 (20000000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 20000000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: prepaid, x402, budget, agents, fleet, frameworks
+Tags: prepaid, x402, budget, agents, fleet, frameworks, prepaid-balance, fleet-pass
 Input shape: type object
 Output shape: type object; fields: balance_units (integer, required), balance_usd (number), created_at (string), expired (boolean), expires_at (string, required), expiry_days (integer), note (string), pass_id (string, required), price_units (integer), total_units (integer), total_usd (number)
 
@@ -1199,7 +1199,7 @@ Sign Reader — read one x402 endpoint's 402 challenge: both wire formats (v2 PA
 
 Price: $0.01 (10000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, inspector, challenge, sdk, verification
+Tags: x402, inspector, challenge, sdk, verification, discovery, manifest, preflight, challenge-parse
 Input shape: type object; fields: declared_amount (string|null), declared_method (string|null), declared_network (string|null), declared_pay_to (string|null), url (string, required)
 Output shape: type object; fields: accepts (array, required), challenge_found (boolean, required), defects (array), http_status (integer|null), limits (string), mismatches (array), origin (string), read_at (string), sdk_compat (object|null), url (string, required), x402_version (integer|null)
 
@@ -1256,7 +1256,7 @@ Score Book — an x402 target's track record from our records: check history, pr
 
 Price: $0.01 (10000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, inspector, history, reputation, monitoring
+Tags: x402, inspector, history, reputation, monitoring, track-record, drift, catalogue-presence
 Input shape: type object; fields: origin (string|null), pay_to (string|null), url (string|null)
 Output shape: type object; fields: computed_at (string), found (boolean, required), limits (string), target (object, required)
 
@@ -1288,7 +1288,7 @@ Guard — one pay / caution / avoid verdict for one x402 endpoint, composed from
 
 Price: $0.01 (10000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, inspector, trust, pre-pay, security
+Tags: x402, inspector, trust, pre-pay, security, pre-trade-guard, payto, preflight, trust-verdict
 Input shape: type object; fields: url (string, required)
 Output shape: type object; fields: limits (string), payto_flag (object|null), reasons (array, required), terms (object|null), url (string, required), verdict (string, required)
 
@@ -1334,7 +1334,7 @@ Inspector Physical — the full pre-pay workup for one x402 resource in ONE $0.0
 
 Price: $0.05 (50000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 50000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, inspector, bundle, pre-pay, monitoring
+Tags: x402, inspector, bundle, pre-pay, monitoring, preflight, endpoint-verification, delivery-verified, payto
 Input shape: type object; fields: url (string, required), watch_id (string|null)
 Output shape: type object; fields: book (object, required), guard (object, required), limits (string), recheck (object, required), sign (object, required), summary (object), url (string, required), verdict (string, required)
 
@@ -1382,7 +1382,7 @@ PayTo Pin Verify — check one pinned x402 route against its first-seen payTo se
 
 Price: $0.01 (10000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, inspector, payto, monitoring, verification
+Tags: x402, inspector, payto, monitoring, verification, drift, pin-verify
 Input shape: type object; fields: pin_id (string|null), secret (string|null), url (string|null), webhook_url (string|null)
 Output shape: type object; fields: alert_queued (boolean, required), commitment (string|null), commitment_verified (boolean|null), current_payto_set (array|null), evidence (object), limits (string), observed_at (string, required), pin_created (boolean, required), pin_id (string|null), pinned_payto_set (array|null), status (string, required), url (string, required)
 
@@ -1426,7 +1426,7 @@ Toolkit Pack — the prepaid form of the inspector toolkit: one $1.00 payment bu
 
 Price: $1 (1000000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 1000000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, inspector, prepaid, agents, toolkit
+Tags: x402, inspector, prepaid, agents, toolkit, inspector-toolkit, preflight
 Input shape: type object
 Output shape: type object; fields: created_at (string), credits_remaining (integer, required), credits_total (integer, required), expired (boolean), expires_at (string, required), expiry_days (integer), family (string, required), note (string), pack_id (string, required), price_units (integer), routes (array)
 
@@ -1464,7 +1464,7 @@ Ledger Dataset (summary) — per-origin rollup of the fleet's x402 observation l
 
 Price: $0.1 (100000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 100000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, inspector, dataset, catalogue, monitoring
+Tags: x402, inspector, dataset, catalogue, monitoring, observation-ledger
 Input shape: type object
 Output shape: type object; fields: origins (array, required), provenance (object, required), tier (string, required), totals (object, required)
 
@@ -1543,7 +1543,7 @@ Ledger Dataset (full) — every route in the fleet's x402 observation ledger: ob
 
 Price: $1 (1000000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 1000000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
-Tags: x402, inspector, dataset, catalogue, monitoring
+Tags: x402, inspector, dataset, catalogue, monitoring, observation-ledger
 Input shape: type object
 Output shape: type object; fields: origins (array, required), provenance (object, required), records (array, required), tier (string, required), totals (object, required)
 

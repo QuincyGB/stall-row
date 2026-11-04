@@ -26,6 +26,9 @@ authentication** (x402 v2, exact scheme, USDC on Base).
 | `POST /v1/card-smith` | $0.10 | Generate/grade `agent-card.json` for A2A/AgentWorld registries |
 | `POST /v1/job-scout` | $0.05 | Digest of open agent jobs from our own marketplace sweeps |
 | `POST /v1/recheck` | $0.005 | Scheduled change detection: BASELINE / UNCHANGED / CHANGED diff for one x402 resource or web page, probed unpaid |
+| `POST /v1/index/history` | $0.01 | Verdict Index History: first-seen / delisted / relisted / price-payTo changes across ALL retained catalog snapshots (Next-20 #6) |
+| `GET /v1/drift/feed` | free first 100 events, then $0.005/event from a Fleet Pass | Drift Event Feed: payTo rotations, amount/terms + schema/description drift from Index diffs + patrol records, hash-chained cursor feed (Next-20 #8) |
+| `GET /v1/firehose/feed` | free first 100 events, then $0.005/event from a Fleet Pass | New-Stall Firehose: first-seen routes from Index diffs + new origins from the patrol snapshot (Next-20 #14) |
 | `POST /v1/recheck/pack` | $1.00 | Prepaid recheck pack: 250 change-checks on ONE endpoint URL, 90-day expiry — spend via `pack_id` on `/v1/recheck` ($0.004/check) |
 | `POST /v1/fleet-check` | $0.10 | One health sweep of YOUR whole fleet: per-route OK / DEGRADED / DOWN verdicts with the defect named, plus a grade per origin — unpaid probes only, never pays a route it checks |
 | `POST /v1/fleet-check/pack` | $5.00 | Prepaid Fleet Check pack: 100 sweeps of ONE fixed fleet definition, 90-day expiry — run via `POST /v1/fleet-check/run`, read via `POST /v1/fleet-check/status` ($0.05/sweep) |
@@ -210,7 +213,7 @@ no catalog — it is reachable only by direct URL.
 
 ## Fleet & discovery links
 
-One of five Verdict Row stalls — 40 priced routes fleet-wide, one
+One of five Verdict Row stalls — 41 priced routes fleet-wide, one
 payTo (`0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F`), contact
 patrol@verdictrow.com (Ren, Verdict Row Patrol).
 

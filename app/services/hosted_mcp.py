@@ -9,7 +9,7 @@ URL instead of a local install. It lives as its own module on purpose
 surgery; app/main.py only mounts the transport endpoint.
 
 Tool catalogue: DERIVED, never hand-maintained. The definitions are
-Item 4's function-calling pack (24 tools — every fleet route priced
+Item 4's function-calling pack (25 tools — every fleet route priced
 <= $0.05), generated from the canonical route registry and embedded
 here verbatim at app/data/function-tools.json (the stall's existing
 committed-data pattern). tools/list serves the pack's Anthropic

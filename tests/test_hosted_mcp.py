@@ -102,7 +102,7 @@ def test_get_and_delete_are_405(client):
 def test_tools_list_shape(client):
     r = _post(client, _rpc("tools/list"))
     tools = r.json()["result"]["tools"]
-    assert len(tools) == 24
+    assert len(tools) == 25
     for t in tools:
         assert set(t) >= {"name", "description", "inputSchema"}
         assert t["inputSchema"]["type"] == "object"
@@ -113,7 +113,7 @@ def test_tools_list_shape(client):
 
 def test_served_tools_equal_embedded_pack():
     pack = hosted_mcp.PACK
-    assert pack["tool_count"] == 24
+    assert pack["tool_count"] == 25
     assert hosted_mcp.tools_list() == [
         {
             "name": e["name"],
@@ -352,7 +352,7 @@ def test_mcp_is_not_a_priced_resource_and_manifest_gains_hosted_entry():
     hosted = mcp["hosted"]
     assert hosted["transport"] == "streamable-http"
     assert hosted["url"] == f"{BASE}/mcp"
-    assert hosted["tools"] == 24
+    assert hosted["tools"] == 25
     assert hosted == hosted_mcp.hosted_extension(BASE)
 
 

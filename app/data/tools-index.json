@@ -1,6 +1,6 @@
 {
   "contact": "patrol@verdictrow.com",
-  "generated_at": "2026-11-02T14:27:05Z",
+  "generated_at": "2026-11-04T08:23:08Z",
   "generated_by": "Ren, Verdict Row Patrol \u2014 patrol@verdictrow.com",
   "host": {
     "html": "https://stall-row-production.up.railway.app/tools",
@@ -107,11 +107,33 @@
           "url": "https://stall-row-production.up.railway.app/v1/verdict-read?url="
         },
         {
+          "label": "GET https://stall-row-production.up.railway.app/v1/drift/feed?since_seq=N&limit=M \u2014 Drift Event Feed (feed-v1 hash-chained envelopes): payTo rotations, amount/terms changes, schema/description drift from Index diffs + patrol records (incl. the Nov 1 agents.tuski.ai payto_mismatch records). First 100 events free; past that $0.005/event from a Fleet Pass (X-Fleet-Pass header), Recheck arithmetic",
+          "url": "https://stall-row-production.up.railway.app/v1/drift/feed?since_seq=N&limit=M"
+        },
+        {
+          "label": "POST https://stall-row-production.up.railway.app/v1/index/subscription/pause \u2014 Index Subscription v2 management beside /resume, /cancel, /update (free; registration id is the credential; update includes the per-catalogue slice)",
+          "url": "https://stall-row-production.up.railway.app/v1/index/subscription/pause"
+        },
+        {
           "label": "GET https://stall-row-production.up.railway.app/widget/verdict.js \u2014 free embeddable verdict widget: <script src=\"https://stall-row-production.up.railway.app/widget/verdict.js\" data-target=\"https://example.com/v1/your-route\" async></script> renders the recorded verdict + last-change (shadow DOM, no global CSS); iframe form: GET https://stall-row-production.up.railway.app/widget/verdict.html?url= (self-contained, server-rendered). Branding: Verdict Row Patrol, patrol@verdictrow.com",
           "url": "https://stall-row-production.up.railway.app/widget/verdict.js"
         }
       ],
       "mcp": {
+        "hosted": {
+          "auth": "Bring your own x402 payment (payment-signature / x-payment header on the /mcp request) or fleet credential (x-recheck-pack / x-toolkit-pack / x-fleet-pass header, or params._meta); an unpaid tools/call returns the target route's 402 challenge as a structured tool error. The server holds no keys and never pays.",
+          "endpoint": "https://stall-row-production.up.railway.app/mcp",
+          "protocol_versions": [
+            "2025-06-18",
+            "2025-03-26",
+            "2024-11-05"
+          ],
+          "title": "Verdict Row Fleet \u2014 Hosted MCP (streamable HTTP)",
+          "tool_source": "Item 4 function-calling pack (function-tools.json): every fleet route priced <= $0.05, generated from the canonical route registry",
+          "tools": 24,
+          "transport": "streamable-http",
+          "url": "https://stall-row-production.up.railway.app/mcp"
+        },
         "manifest": "https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json",
         "name": "io.github.QuincyGB/stall-row-mcp",
         "repository": "https://github.com/QuincyGB/stall-row-mcp",
@@ -121,7 +143,7 @@
       "name": "stall-row",
       "network": "eip155:8453",
       "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
-      "priced_route_count": 33,
+      "priced_route_count": 34,
       "priced_routes": [
         {
           "accepts": [
@@ -407,6 +429,21 @@
           "method": "POST",
           "price_display": "$0.1",
           "resource": "https://stall-row-production.up.railway.app/v1/index/changes"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.01",
+              "amount_units": "10000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Verdict Index History \u2014 the CDP Bazaar catalog as a time series across ALL retained snapshots, not just the newest two: first-seen, delisted, relisted, and price/payTo/contract changes per route, filterable by resource, origin, payTo, service name, network, or catalogue. The payload states the earliest snapshot actually held \u2014 depth is never invented. Standing queries fund from a Fleet Pass at this same $0.01. Use this when an inspector needs a route's history, not just its latest diff.",
+          "method": "POST",
+          "price_display": "$0.01",
+          "resource": "https://stall-row-production.up.railway.app/v1/index/history"
         },
         {
           "accepts": [
@@ -1057,7 +1094,7 @@
   ],
   "title": "Verdict Row \u2014 Tools Index",
   "totals": {
-    "priced_routes": 40,
+    "priced_routes": 41,
     "stalls": 5
   }
 }

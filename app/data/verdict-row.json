@@ -14,15 +14,15 @@
     "name": "Verdict Row",
     "network": "eip155:8453",
     "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
-    "priced_route_count": 40,
+    "priced_route_count": 41,
     "stall_count": 5
   },
-  "generated_at": "2026-10-31T23:56:30Z",
+  "generated_at": "2026-11-04T08:23:41Z",
   "generated_by": "Ren, Verdict Row Patrol — patrol@verdictrow.com",
   "kind": "verdict-row-discovery-bundle/v1",
-  "signature": "0x5e047491777df46b9350bd22a38c50fdb5229de144afbc22abcae41f884a8e765d780590926993cdc6610cee3195e57ab6f7b8c32e9a64573f518328ab12eb8f1b",
+  "signature": "0xbcf14e311b81a8be9bcd1fb60b2d0e8b70aa08b065fd1106ed043aa495ac34fb1dbae0c5b863c134e4dd81cd4cf579857bef1d9fb63ea75cc6fe56cf1728eba01b",
   "signer": "0xa4f183a6799F0310FcCC545B07F2DcC960223de2",
-  "source_registry": "route_registry.json (verdict-row-route-registry/v1, 2026-10-31T23:47:07Z)",
+  "source_registry": "route_registry.json (verdict-row-route-registry/v1, 2026-11-04T08:20:11Z)",
   "stalls": [
     {
       "a2a_agent_card": "https://stall-row-production.up.railway.app/.well-known/a2a-agent-card.json",
@@ -43,7 +43,7 @@
       "openapi": "https://stall-row-production.up.railway.app/openapi.json",
       "origin": "https://stall-row-production.up.railway.app",
       "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
-      "priced_route_count": 33,
+      "priced_route_count": 34,
       "samples_index": "https://stall-row-production.up.railway.app/samples",
       "service": "stall-row",
       "skill_md": "https://stall-row-production.up.railway.app/skill.md",

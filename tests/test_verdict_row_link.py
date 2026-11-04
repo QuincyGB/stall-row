@@ -53,7 +53,7 @@ def test_committed_bundle_lists_the_whole_fleet():
     bundle = json.loads((DATA / "verdict-row.json").read_text())
     assert bundle["kind"] == "verdict-row-discovery-bundle/v1"
     assert bundle["fleet"]["stall_count"] == 5
-    assert bundle["fleet"]["priced_route_count"] == 40
+    assert bundle["fleet"]["priced_route_count"] == 41
     assert len(bundle["stalls"]) == 5
     assert bundle["signature"].startswith("0x")
     assert bundle["signer"].startswith("0x")
