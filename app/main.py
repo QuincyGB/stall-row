@@ -584,7 +584,25 @@ async def _attach_loop_offer(
         return response
     chunks: list[bytes] = []
     total = 0
-    iterator = response.body_iterator.__aiter__()
+    body_iterator = getattr(response, "body_iterator", None)
+    if body_iterator is None:
+        # A plain starlette Response carries no body_iterator —
+        # only StreamingResponse does. The x402 SDK returns exactly
+        # a plain Response after a successful settle (it buffered
+        # the handler's body itself to settle, then rebuilt the
+        # response from those bytes), so a per-call delivery reaches
+        # here in that shape, while pack/pass-funded deliveries
+        # arrive as BaseHTTPMiddleware streaming responses. Present
+        # the already-buffered body as a one-chunk iterator so the
+        # size accounting below runs unchanged for both shapes.
+        buffered = response.body or b""
+
+        async def _one_chunk():
+            if buffered:
+                yield buffered
+
+        body_iterator = _one_chunk()
+    iterator = body_iterator.__aiter__()
     async for chunk in iterator:
         if isinstance(chunk, str):
             chunk = chunk.encode()
