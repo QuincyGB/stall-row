@@ -7,6 +7,9 @@
     {
       "channel": "Example Channel",
       "duration": "10:24",
+      "duration_seconds": 624,
+      "published": "3 days ago",
+      "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
       "title": "x402 explained in 10 minutes",
       "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       "video_id": "dQw4w9WgXcQ",

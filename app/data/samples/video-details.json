@@ -1,0 +1,34 @@
+{
+  "captions": [
+    {
+      "kind": null,
+      "language": "English",
+      "language_code": "en"
+    }
+  ],
+  "captions_available": true,
+  "channel": "Example Channel",
+  "channel_id": "UCexamplechannel",
+  "description": "A walkthrough of the x402 payment standard.",
+  "duration": "10:24",
+  "duration_seconds": 624,
+  "is_live": false,
+  "keywords": [
+    "x402",
+    "payments",
+    "tutorial"
+  ],
+  "live": false,
+  "published": "2026-10-30T14:00:00Z",
+  "recorded_at": null,
+  "route": "/v1/video-details",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+  "title": "x402 explained in 10 minutes",
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "video_id": "dQw4w9WgXcQ",
+  "views": 12000
+}

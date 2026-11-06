@@ -28,16 +28,47 @@ _UA = {
 
 
 # --- YouTube search -------------------------------------------------------------
+#
+# Upgrade (buyer analysis 2026-11-05): the $0.01 utility point is the
+# fleet's volume leader, and the route serving it was the shallowest on
+# the shelf — page one only, five results by default, no way to narrow.
+# Search now returns the publish age + a derived thumbnail for every
+# result (both already on the page, previously dropped), accepts
+# duration / upload-recency / channel filters applied BEFORE truncation
+# (so a filter never eats the result budget), digs one continuation
+# page deeper when max_results outruns page one, and retries the fetch
+# once on transient failure — the discipline page_to_markdown got on
+# 2026-10-24, which this route never received.
 
-def parse_youtube_results(html: str, max_results: int) -> list[dict]:
-    """Extract video results from a YouTube search page's ytInitialData."""
-    marker = "ytInitialData"
+_TUBE_CANDIDATE_CAP = 60  # parsed per page before filters truncate
+_DURATION_BUCKETS = ("short", "medium", "long")
+_UPLOADED_WITHIN_S = {
+    "day": 86_400,
+    "week": 604_800,
+    "month": 2_592_000,
+    "year": 31_536_000,
+}
+_AGE_UNIT_S = {
+    "second": 1,
+    "minute": 60,
+    "hour": 3_600,
+    "day": 86_400,
+    "week": 604_800,
+    "month": 2_592_000,
+    "year": 31_536_000,
+}
+
+
+def _extract_js_object(html: str, marker: str, label: str) -> dict:
+    """Brace-scan the JSON object assigned after `marker` in a YouTube
+    page (ytInitialData on results pages, ytInitialPlayerResponse on
+    watch pages)."""
     idx = html.find(marker)
     if idx < 0:
-        raise UpstreamError("YouTube search page did not contain ytInitialData")
+        raise UpstreamError(f"{label} did not contain {marker}")
     start = html.find("{", idx)
     if start < 0:
-        raise UpstreamError("YouTube search page: malformed ytInitialData")
+        raise UpstreamError(f"{label}: malformed {marker}")
     depth = 0
     end = None
     in_str = False
@@ -62,67 +93,428 @@ def parse_youtube_results(html: str, max_results: int) -> list[dict]:
                 end = i + 1
                 break
     if end is None:
-        raise UpstreamError("YouTube search page: unterminated ytInitialData")
+        raise UpstreamError(f"{label}: unterminated {marker}")
     try:
-        data = json.loads(html[start:end])
+        return json.loads(html[start:end])
     except ValueError as e:
-        raise UpstreamError(f"YouTube search page: ytInitialData not JSON: {e}") from e
+        raise UpstreamError(f"{label}: {marker} not JSON: {e}") from e
 
-    results: list[dict] = []
 
-    def walk(node):
-        if len(results) >= max_results:
+def _renderer_text(node) -> str:
+    """simpleText, or the first run's text, of a YouTube text node."""
+    if not isinstance(node, dict):
+        return ""
+    simple = node.get("simpleText")
+    if isinstance(simple, str):
+        return simple
+    runs = node.get("runs")
+    if isinstance(runs, list) and runs and isinstance(runs[0], dict):
+        return runs[0].get("text") or ""
+    return ""
+
+
+def _duration_seconds(text: str | None) -> int | None:
+    """'10:24' / '1:02:03' -> seconds. Live streams carry no length
+    text — None, which any duration filter excludes (documented)."""
+    if not text:
+        return None
+    parts = text.strip().split(":")
+    try:
+        nums = [int(p) for p in parts]
+    except ValueError:
+        return None
+    if len(nums) not in (2, 3):
+        return None
+    total = 0
+    for n in nums:
+        total = total * 60 + n
+    return total
+
+
+def _format_duration(seconds: int) -> str:
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m}:{s:02d}"
+
+
+def _published_age_seconds(text: str | None) -> int | None:
+    """'3 days ago' / 'Streamed 2 weeks ago' -> age in seconds."""
+    if not text:
+        return None
+    m = re.search(
+        r"(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago",
+        text,
+        re.IGNORECASE,
+    )
+    if not m:
+        return None
+    return int(m.group(1)) * _AGE_UNIT_S[m.group(2).lower()]
+
+
+def _parse_video_renderer(vr: dict) -> dict:
+    video_id = vr["videoId"]
+    duration = _renderer_text(vr.get("lengthText")) or None
+    return {
+        "title": _renderer_text(vr.get("title")),
+        "video_id": video_id,
+        "url": f"https://www.youtube.com/watch?v={video_id}",
+        "channel": _renderer_text(vr.get("ownerText")) or None,
+        "duration": duration,
+        "duration_seconds": _duration_seconds(duration),
+        "views": _renderer_text(vr.get("viewCountText")) or None,
+        "published": _renderer_text(vr.get("publishedTimeText")) or None,
+        "thumbnail": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+    }
+
+
+def _collect_renderers(node, out: list[dict], cap: int) -> None:
+    if len(out) >= cap:
+        return
+    if isinstance(node, dict):
+        vr = node.get("videoRenderer")
+        if isinstance(vr, dict) and vr.get("videoId"):
+            out.append(_parse_video_renderer(vr))
             return
-        if isinstance(node, dict):
-            vr = node.get("videoRenderer")
-            if isinstance(vr, dict) and vr.get("videoId"):
-                title = ""
-                try:
-                    title = vr["title"]["runs"][0]["text"]
-                except (KeyError, IndexError, TypeError):
-                    title = (vr.get("title") or {}).get("simpleText", "")
-                channel = ""
-                try:
-                    channel = vr["ownerText"]["runs"][0]["text"]
-                except (KeyError, IndexError, TypeError):
-                    pass
-                results.append(
-                    {
-                        "title": title,
-                        "video_id": vr["videoId"],
-                        "url": f"https://www.youtube.com/watch?v={vr['videoId']}",
-                        "channel": channel or None,
-                        "duration": (vr.get("lengthText") or {}).get("simpleText"),
-                        "views": (vr.get("viewCountText") or {}).get("simpleText"),
-                    }
-                )
-                return
-            for v in node.values():
-                walk(v)
-        elif isinstance(node, list):
-            for v in node:
-                walk(v)
+        for v in node.values():
+            _collect_renderers(v, out, cap)
+    elif isinstance(node, list):
+        for v in node:
+            _collect_renderers(v, out, cap)
 
-    walk(data)
+
+def _find_continuation_token(node) -> str | None:
+    if isinstance(node, dict):
+        cir = node.get("continuationItemRenderer")
+        if isinstance(cir, dict):
+            token = (
+                ((cir.get("continuationEndpoint") or {}).get("continuationCommand") or {})
+                .get("token")
+            )
+            if isinstance(token, str) and token:
+                return token
+        for v in node.values():
+            found = _find_continuation_token(v)
+            if found:
+                return found
+    elif isinstance(node, list):
+        for v in node:
+            found = _find_continuation_token(v)
+            if found:
+                return found
+    return None
+
+
+def parse_youtube_results(html: str, max_results: int) -> list[dict]:
+    """Extract video results from a YouTube search page's ytInitialData."""
+    data = _extract_js_object(html, "ytInitialData", "YouTube search page")
+    results: list[dict] = []
+    _collect_renderers(data, results, max_results)
     return results
 
 
-async def tube_search(client: httpx.AsyncClient, query: str, max_results: int) -> dict:
+def _tube_filter(
+    results: list[dict],
+    *,
+    duration: str | None,
+    uploaded_within: str | None,
+    channel: str | None,
+) -> list[dict]:
+    out = []
+    for r in results:
+        if duration is not None:
+            secs = r.get("duration_seconds")
+            if secs is None:
+                continue
+            bucket = "short" if secs < 240 else "medium" if secs <= 1200 else "long"
+            if bucket != duration:
+                continue
+        if uploaded_within is not None:
+            age = _published_age_seconds(r.get("published"))
+            if age is None or age > _UPLOADED_WITHIN_S[uploaded_within]:
+                continue
+        if channel is not None:
+            if channel.lower() not in (r.get("channel") or "").lower():
+                continue
+        out.append(r)
+    return out
+
+
+async def _youtube_get(
+    client: httpx.AsyncClient, url: str, params: dict | None = None
+) -> httpx.Response:
+    """GET a YouTube page with one retry on transient failure (the
+    discipline page_to_markdown's fetch got in Oct 2026; this route
+    previously made a single attempt and 502'd the buyer)."""
+    last_error: UpstreamError | None = None
+    for attempt in range(2):
+        if attempt:
+            await asyncio.sleep(0.5)
+        try:
+            resp = await client.get(
+                url, params=params, headers=_UA, follow_redirects=True
+            )
+        except httpx.HTTPError as e:
+            last_error = UpstreamError(f"YouTube fetch failed: {e}")
+            continue
+        if resp.status_code == 200:
+            return resp
+        last_error = UpstreamError(f"YouTube returned HTTP {resp.status_code}")
+    assert last_error is not None
+    raise last_error
+
+
+async def _tube_continuation(
+    client: httpx.AsyncClient, first_page_html: str, token: str
+) -> list[dict]:
+    """One continuation page of search results via the page's own
+    Innertube key. Best-effort depth: any failure returns [] and the
+    caller keeps the page-one results it already has."""
+    key_m = re.search(r'"INNERTUBE_API_KEY"\s*:\s*"([^"]+)"', first_page_html)
+    if not key_m:
+        return []
+    ver_m = re.search(
+        r'"INNERTUBE_CONTEXT_CLIENT_VERSION"\s*:\s*"([^"]+)"', first_page_html
+    )
+    payload = {
+        "context": {
+            "client": {
+                "clientName": "WEB",
+                "clientVersion": ver_m.group(1) if ver_m else "2.20241113.07.00",
+                "hl": "en",
+            }
+        },
+        "continuation": token,
+    }
     try:
-        resp = await client.get(
-            "https://www.youtube.com/results",
-            params={"search_query": query},
+        resp = await client.post(
+            "https://www.youtube.com/youtubei/v1/search",
+            params={"key": key_m.group(1)},
+            json=payload,
             headers=_UA,
-            follow_redirects=True,
         )
-    except httpx.HTTPError as e:
-        raise UpstreamError(f"YouTube fetch failed: {e}") from e
+    except httpx.HTTPError:
+        return []
     if resp.status_code != 200:
-        raise UpstreamError(f"YouTube returned HTTP {resp.status_code}")
-    results = parse_youtube_results(resp.text, max_results)
+        return []
+    try:
+        data = resp.json()
+    except ValueError:
+        return []
+    out: list[dict] = []
+    _collect_renderers(data, out, _TUBE_CANDIDATE_CAP)
+    return out
+
+
+async def tube_search(
+    client: httpx.AsyncClient,
+    query: str,
+    max_results: int,
+    *,
+    duration: str | None = None,
+    uploaded_within: str | None = None,
+    channel: str | None = None,
+) -> dict:
+    if duration is not None and duration not in _DURATION_BUCKETS:
+        raise ValueError(
+            f"duration must be one of {', '.join(_DURATION_BUCKETS)}"
+        )
+    if uploaded_within is not None and uploaded_within not in _UPLOADED_WITHIN_S:
+        raise ValueError(
+            f"uploaded_within must be one of {', '.join(_UPLOADED_WITHIN_S)}"
+        )
+    resp = await _youtube_get(
+        client, "https://www.youtube.com/results", params={"search_query": query}
+    )
+    data = _extract_js_object(resp.text, "ytInitialData", "YouTube search page")
+    candidates: list[dict] = []
+    _collect_renderers(data, candidates, _TUBE_CANDIDATE_CAP)
+    results = _tube_filter(
+        candidates,
+        duration=duration,
+        uploaded_within=uploaded_within,
+        channel=channel,
+    )
+    if len(results) < max_results:
+        token = _find_continuation_token(data)
+        if token:
+            seen = {r["video_id"] for r in candidates}
+            for extra in await _tube_continuation(client, resp.text, token):
+                if extra["video_id"] not in seen:
+                    candidates.append(extra)
+                    seen.add(extra["video_id"])
+            results = _tube_filter(
+                candidates,
+                duration=duration,
+                uploaded_within=uploaded_within,
+                channel=channel,
+            )
+    results = results[:max_results]
     if not results:
-        raise UpstreamError("YouTube page parsed but contained no video results")
-    return {"query": query, "count": len(results), "results": results}
+        raise UpstreamError(
+            "YouTube search returned no video results matching the request"
+        )
+    out: dict = {"query": query, "count": len(results), "results": results}
+    applied = {
+        k: v
+        for k, v in (
+            ("duration", duration),
+            ("uploaded_within", uploaded_within),
+            ("channel", channel),
+        )
+        if v is not None
+    }
+    if applied:
+        out["filters_applied"] = applied
+    return out
+
+
+async def tube_search_batch(
+    client: httpx.AsyncClient,
+    queries: list[str],
+    max_results: int,
+    *,
+    duration: str | None = None,
+    uploaded_within: str | None = None,
+    channel: str | None = None,
+) -> dict:
+    """Batch shape (buyer analysis 2026-11-05): the largest stranger
+    event on record was 20 single searches in ~30 seconds — batch
+    behaviour in one-call clothing. Each query runs the single-search
+    path; a failed query is reported in its own entry instead of
+    failing the batch, and the batch only fails (502, no settlement)
+    when EVERY query fails."""
+    sem = asyncio.Semaphore(3)
+
+    async def one(q: str) -> dict:
+        async with sem:
+            try:
+                r = await tube_search(
+                    client,
+                    q,
+                    max_results,
+                    duration=duration,
+                    uploaded_within=uploaded_within,
+                    channel=channel,
+                )
+                return {"query": q, "count": r["count"], "results": r["results"]}
+            except (UpstreamError, ValueError) as e:
+                return {"query": q, "error": str(e)}
+
+    entries = await asyncio.gather(*(one(q) for q in queries))
+    succeeded = sum(1 for e in entries if "error" not in e)
+    if succeeded == 0:
+        raise UpstreamError("every query in the batch failed")
+    return {
+        "count": len(entries),
+        "succeeded": succeeded,
+        "results": entries,
+    }
+
+
+# --- YouTube video details --------------------------------------------------------
+#
+# The natural second call (buyer analysis 2026-11-05): search returns
+# ids; everything an agent needs to decide whether a video is worth
+# using — full description, publish date, caption availability — sits
+# behind a call the shelf didn't sell. Parsed from the watch page's
+# ytInitialPlayerResponse, no API key, same parse discipline as search.
+
+_VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
+
+
+def parse_video_input(value: str) -> str:
+    """Accept an 11-char video id or any common YouTube URL shape
+    (watch / youtu.be / shorts / live / embed) and return the id."""
+    v = (value or "").strip()
+    if _VIDEO_ID_RE.match(v):
+        return v
+    m = re.search(
+        r"(?:youtube\.com/(?:watch\?[^\"'\s]*v=|shorts/|live/|embed/|v/)|youtu\.be/)"
+        r"([A-Za-z0-9_-]{11})",
+        v,
+    )
+    if m:
+        return m.group(1)
+    raise ValueError(
+        "video must be an 11-character YouTube video id or a "
+        "youtube.com / youtu.be URL"
+    )
+
+
+async def video_details(client: httpx.AsyncClient, video: str) -> dict:
+    video_id = parse_video_input(video)
+    resp = await _youtube_get(
+        client, "https://www.youtube.com/watch", params={"v": video_id}
+    )
+    pr = _extract_js_object(
+        resp.text, "ytInitialPlayerResponse", "YouTube watch page"
+    )
+    playability = pr.get("playabilityStatus") or {}
+    if playability.get("status") != "OK":
+        reason = playability.get("reason") or playability.get("status") or "unknown"
+        raise UpstreamError(f"video unavailable: {reason}")
+    vd = pr.get("videoDetails") or {}
+    micro = (pr.get("microformat") or {}).get("playerMicroformatRenderer") or {}
+
+    duration_seconds = None
+    raw_len = vd.get("lengthSeconds")
+    if isinstance(raw_len, str) and raw_len.isdigit():
+        duration_seconds = int(raw_len)
+    elif isinstance(raw_len, int):
+        duration_seconds = raw_len
+
+    views = None
+    raw_views = vd.get("viewCount")
+    if isinstance(raw_views, str) and raw_views.isdigit():
+        views = int(raw_views)
+    elif isinstance(raw_views, int):
+        views = raw_views
+
+    thumbnails = ((vd.get("thumbnail") or {}).get("thumbnails")) or []
+    thumbnail = None
+    if thumbnails and isinstance(thumbnails[-1], dict):
+        thumbnail = thumbnails[-1].get("url")
+    if not thumbnail:
+        thumbnail = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+
+    caption_tracks = (
+        ((pr.get("captions") or {}).get("playerCaptionsTracklistRenderer") or {})
+        .get("captionTracks")
+    ) or []
+    captions = []
+    for track in caption_tracks:
+        if not isinstance(track, dict):
+            continue
+        captions.append(
+            {
+                "language_code": track.get("languageCode"),
+                "language": _renderer_text(track.get("name")) or None,
+                "kind": track.get("kind"),
+            }
+        )
+
+    description = vd.get("shortDescription") or ""
+    return {
+        "video_id": video_id,
+        "url": f"https://www.youtube.com/watch?v={video_id}",
+        "title": vd.get("title"),
+        "channel": vd.get("author"),
+        "channel_id": vd.get("channelId"),
+        "duration_seconds": duration_seconds,
+        "duration": _format_duration(duration_seconds)
+        if duration_seconds is not None
+        else None,
+        "views": views,
+        "published": micro.get("publishDate") or micro.get("uploadDate"),
+        "description": description[:4000],
+        "keywords": (vd.get("keywords") or [])[:15],
+        "thumbnail": thumbnail,
+        "is_live": bool(vd.get("isLiveContent")),
+        "captions_available": bool(captions),
+        "captions": captions,
+    }
 
 
 # --- page → markdown ---------------------------------------------------------------
@@ -405,7 +797,7 @@ def _extract_markdown(text: str) -> str | None:
     return markdown
 
 
-async def page_to_markdown(client: httpx.AsyncClient, url: str) -> dict:
+async def _page_to_markdown_direct(client: httpx.AsyncClient, url: str) -> dict:
     await asyncio.to_thread(ssrf_check, url)  # blocking DNS — off the loop
     final_url, headers, body = await _fetch_page(client, url)
     text = _decode_body(body, headers)
@@ -445,6 +837,82 @@ async def page_to_markdown(client: httpx.AsyncClient, url: str) -> dict:
         "title": title,
         "markdown": markdown,
         "word_count": len(markdown.split()),
+    }
+
+
+# Reader-proxy fallback (buyer analysis 2026-11-05): the one delivery
+# failure class the 2026-10-24 hardening could not close is the
+# JS-challenge / consent wall — both fetch identities are refused
+# before extraction is even reached, and the service runs no headless
+# browser. As a LAST resort (direct pipeline failed end-to-end), one
+# attempt through a public reader proxy; the delivery is marked
+# in-band (fallback="reader-proxy") so it is never mistaken for a
+# direct extraction. Best-effort by design: the proxy is outside our
+# control, so any failure there simply re-raises the direct error and
+# the buyer keeps the honest 502 / no-settlement outcome. The target
+# URL was SSRF-checked by the direct path before this ever runs, and a
+# ValueError (SSRF / bad URL) never reaches the fallback at all.
+_READER_PROXY_PREFIX = "https://r.jina.ai/"
+
+
+async def _reader_fallback(client: httpx.AsyncClient, url: str) -> dict | None:
+    try:
+        resp = await client.get(
+            _READER_PROXY_PREFIX + url,
+            headers={**_UA, "Accept": "text/plain"},
+            follow_redirects=True,
+        )
+    except httpx.HTTPError:
+        return None
+    if resp.status_code != 200:
+        return None
+    markdown = _normalize_text(resp.text)
+    if len(markdown.split()) < _MIN_FALLBACK_WORDS:
+        return None
+    return {
+        "url": url,
+        "final_url": url,
+        "title": _text_title(markdown),
+        "markdown": markdown,
+        "word_count": len(markdown.split()),
+        "fallback": "reader-proxy",
+    }
+
+
+async def page_to_markdown(client: httpx.AsyncClient, url: str) -> dict:
+    try:
+        return await _page_to_markdown_direct(client, url)
+    except UpstreamError:
+        fallback = await _reader_fallback(client, url)
+        if fallback is not None:
+            return fallback
+        raise
+
+
+async def page_to_markdown_batch(client: httpx.AsyncClient, urls: list[str]) -> dict:
+    """Batch shape (buyer analysis 2026-11-05) — the page-side twin of
+    tube_search_batch: up to 10 URLs converted in one call, each with
+    the full single-route pipeline (reader-proxy fallback included).
+    A failed URL is reported in its own entry instead of failing the
+    batch; the batch only fails (502, no settlement) when EVERY URL
+    fails."""
+    sem = asyncio.Semaphore(3)
+
+    async def one(u: str) -> dict:
+        async with sem:
+            try:
+                return await page_to_markdown(client, u)
+            except (UpstreamError, ValueError) as e:
+                return {"url": u, "error": str(e)}
+
+    entries = await asyncio.gather(*(one(u) for u in urls))
+    succeeded = sum(1 for e in entries if "error" not in e)
+    if succeeded == 0:
+        raise UpstreamError("every URL in the batch failed")
+    return {
+        "count": len(entries),
+        "succeeded": succeeded,
+        "results": entries,
     }
 
 

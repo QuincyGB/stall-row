@@ -146,6 +146,7 @@ YOUTUBE_HTML = (
                                         "ownerText": {"runs": [{"text": "Example Channel"}]},
                                         "lengthText": {"simpleText": "10:24"},
                                         "viewCountText": {"simpleText": "12K views"},
+                                        "publishedTimeText": {"simpleText": "3 days ago"},
                                     }
                                 }
                             ]

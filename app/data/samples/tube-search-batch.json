@@ -1,0 +1,47 @@
+{
+  "count": 2,
+  "live": false,
+  "recorded_at": null,
+  "results": [
+    {
+      "count": 1,
+      "query": "base blockchain x402 tutorial",
+      "results": [
+        {
+          "channel": "Example Channel",
+          "duration": "10:24",
+          "duration_seconds": 624,
+          "published": "3 days ago",
+          "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+          "title": "x402 explained in 10 minutes",
+          "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          "video_id": "dQw4w9WgXcQ",
+          "views": "12K views"
+        }
+      ]
+    },
+    {
+      "count": 1,
+      "query": "x402 facilitator explained",
+      "results": [
+        {
+          "channel": "Example Channel",
+          "duration": "8:02",
+          "duration_seconds": 482,
+          "published": "1 week ago",
+          "thumbnail": "https://i.ytimg.com/vi/abc123XYZ09/hqdefault.jpg",
+          "title": "How x402 facilitators settle",
+          "url": "https://www.youtube.com/watch?v=abc123XYZ09",
+          "video_id": "abc123XYZ09",
+          "views": "3K views"
+        }
+      ]
+    }
+  ],
+  "route": "/v1/tube-search/batch",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "succeeded": 2,
+  "target": "base blockchain x402 tutorial"
+}

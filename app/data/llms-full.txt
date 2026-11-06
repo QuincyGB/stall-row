@@ -1,6 +1,6 @@
 # stall-row — llms-full.txt (Verdict Row x402 fleet)
 
-Generated: 2026-11-04T08:23:12Z by Ren, Verdict Row Patrol — patrol@verdictrow.com from the fleet's canonical route registry and this stall's served discovery + OpenAPI documents (llms_full.py, fleet-checker).
+Generated: 2026-11-05T20:30:00Z by Ren, Verdict Row Patrol — patrol@verdictrow.com from the fleet's canonical route registry and this stall's served discovery + OpenAPI documents (llms_full.py, fleet-checker).
 Contact: patrol@verdictrow.com
 
 A row of small x402 stalls in one service: Base chain reads (wallet snapshot, allowance audit, transaction decoder, gas oracle), a wallet trust verdict, fetch tools (YouTube search, page-to-Markdown, GitHub repo vitals), seller tools (Bazaar price-check, agent-card smith), a digest of open agent jobs, and scheduled change detection for x402 resources and web pages, with prepaid check packs. Use this when an agent needs one cheap, honest fact mid-task and cannot run the source itself.
@@ -533,12 +533,12 @@ Free sample of this route's response shape: https://stall-row-production.up.rail
 
 ### POST https://stall-row-production.up.railway.app/v1/tube-search — $0.01
 
-YouTube search results as clean JSON: title, video id, URL, channel, duration, and views for each result, scraped from the public results page with no API key. Use this when an agent needs to find a video mid-task and cannot drive a browser or hold a Google API key.
+YouTube search results as clean JSON: title, video id, URL, channel, duration, views, publish age, and thumbnail for each result, scraped from the public results page with no API key. Optional duration, upload-recency, and channel filters; max_results up to 50 digs past page one. Pays per call or with one Toolkit Pack credit. Use this when an agent needs to find a video mid-task without a browser or a Google API key.
 
 Price: $0.01 (10000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: search, youtube, video, data, agents, youtube-search, video-search
-Input shape: type object; fields: max_results (integer), query (string, required)
+Input shape: type object; fields: channel (['string', 'null']), duration (['string', 'null']), max_results (integer), pack_id (['string', 'null']), query (string, required), uploaded_within (['string', 'null'])
 Output shape: type object; fields: count (integer, required), query (string, required), results (array, required)
 
 Worked request example (fixture):
@@ -558,6 +558,9 @@ Worked response example (fixture):
     {
       "channel": "Example Channel",
       "duration": "10:24",
+      "duration_seconds": 624,
+      "published": "3 days ago",
+      "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
       "title": "x402 explained in 10 minutes",
       "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       "video_id": "dQw4w9WgXcQ",
@@ -569,15 +572,81 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/tube-search (source: schema-example; labelled in-band sample=true, live=false).
 
+### POST https://stall-row-production.up.railway.app/v1/tube-search/batch — $0.05
+
+Up to 10 YouTube searches in one call, each with its own result list in the /v1/tube-search shape, filters included; a query that fails is reported in its own entry instead of failing the batch, and the batch only fails when every query does. Pack credits do not fund batch routes. Use this when an agent sweeps many searches at once instead of paying settlement overhead on every single search.
+
+Price: $0.05 (50000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 50000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Tags: search, youtube, video, batch, agents, youtube-search, bulk
+Input shape: type object; fields: channel (['string', 'null']), duration (['string', 'null']), max_results (integer), queries (array, required), uploaded_within (['string', 'null'])
+Output shape: type object; fields: count (integer, required), results (array, required), succeeded (integer, required)
+
+Worked request example (fixture):
+```json
+{
+  "max_results": 5,
+  "queries": [
+    "base blockchain x402 tutorial",
+    "x402 facilitator explained"
+  ]
+}
+```
+
+Worked response example (fixture):
+```json
+{
+  "count": 2,
+  "results": [
+    {
+      "count": 1,
+      "query": "base blockchain x402 tutorial",
+      "results": [
+        {
+          "channel": "Example Channel",
+          "duration": "10:24",
+          "duration_seconds": 624,
+          "published": "3 days ago",
+          "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+          "title": "x402 explained in 10 minutes",
+          "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+          "video_id": "dQw4w9WgXcQ",
+          "views": "12K views"
+        }
+      ]
+    },
+    {
+      "count": 1,
+      "query": "x402 facilitator explained",
+      "results": [
+        {
+          "channel": "Example Channel",
+          "duration": "8:02",
+          "duration_seconds": 482,
+          "published": "1 week ago",
+          "thumbnail": "https://i.ytimg.com/vi/abc123XYZ09/hqdefault.jpg",
+          "title": "How x402 facilitators settle",
+          "url": "https://www.youtube.com/watch?v=abc123XYZ09",
+          "video_id": "abc123XYZ09",
+          "views": "3K views"
+        }
+      ]
+    }
+  ],
+  "succeeded": 2
+}
+```
+
+Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/tube-search/batch (source: schema-example; labelled in-band sample=true, live=false).
 ### POST https://stall-row-production.up.railway.app/v1/page-to-markdown — $0.01
 
-Fetch one web page and return its main content as clean Markdown with title and word count, extracted server-side. Private and loopback targets are refused. Use this when an agent needs to read a page inside a workflow without a browser and without wading through navigation and boilerplate.
+Fetch one web page and return its main content as clean Markdown with title and word count, extracted server-side; a reader-proxy fallback retries pages that refuse the direct fetch (marked in-band). Private and loopback targets are refused. Pays per call or with one Toolkit Pack credit. Use this when an agent needs to read a page inside a workflow without a browser and without wading through navigation and boilerplate.
 
 Price: $0.01 (10000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: fetch, markdown, web, reading, agents, web-fetch, content-extraction
-Input shape: type object; fields: url (string, required)
-Output shape: type object; fields: final_url (string, required), markdown (string, required), title (string|null), url (string, required), word_count (integer, required)
+Input shape: type object; fields: pack_id (['string', 'null']), url (string, required)
+Output shape: type object; fields: fallback (['string', 'null']), final_url (string, required), markdown (string, required), title (['string', 'null']), url (string, required), word_count (integer, required)
 
 Worked request example (fixture):
 ```json
@@ -599,6 +668,101 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/page-to-markdown (source: schema-example; labelled in-band sample=true, live=false).
 
+### POST https://stall-row-production.up.railway.app/v1/page-to-markdown/batch — $0.05
+
+Up to 10 page conversions in one call, each fetched and converted exactly as /v1/page-to-markdown (reader-proxy fallback included); a URL that fails is reported in its own entry instead of failing the batch, and the batch only fails when every URL does. Pack credits do not fund batch routes. Use this when an agent reads pages in bulk instead of paying settlement overhead on every fetch.
+
+Price: $0.05 (50000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 50000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Tags: fetch, markdown, web, batch, agents, web-fetch, bulk
+Input shape: type object; fields: urls (array, required)
+Output shape: type object; fields: count (integer, required), results (array, required), succeeded (integer, required)
+
+Worked request example (fixture):
+```json
+{
+  "urls": [
+    "https://www.x402.org/",
+    "https://example.com/"
+  ]
+}
+```
+
+Worked response example (fixture):
+```json
+{
+  "count": 2,
+  "results": [
+    {
+      "final_url": "https://www.x402.org/",
+      "markdown": "# x402\n\nAn open standard for internet-native payments.",
+      "title": "x402 \u2014 internet-native payments",
+      "url": "https://www.x402.org/",
+      "word_count": 8
+    },
+    {
+      "final_url": "https://example.com/",
+      "markdown": "# Example Domain\n\nThis domain is for use in documentation examples.",
+      "title": "Example Domain",
+      "url": "https://example.com/",
+      "word_count": 9
+    }
+  ],
+  "succeeded": 2
+}
+```
+
+Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/page-to-markdown/batch (source: schema-example; labelled in-band sample=true, live=false).
+
+### POST https://stall-row-production.up.railway.app/v1/video-details — $0.01
+
+Full details for one YouTube video in one call: title, channel, duration, view count, publish date, description, keywords, thumbnail, and caption-track availability (which languages have captions), parsed from the public watch page with no API key. Takes a video id or any youtube.com / youtu.be URL. Pays per call or with one Toolkit Pack credit. Use this when an agent found a video with /v1/tube-search and needs the full record before using it.
+
+Price: $0.01 (10000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Tags: youtube, video, metadata, data, agents, video-details, captions
+Input shape: type object; fields: pack_id (['string', 'null']), video (string, required)
+Output shape: type object; fields: captions (array, required), captions_available (boolean, required), channel (['string', 'null']), channel_id (['string', 'null']), description (string, required), duration (['string', 'null']), duration_seconds (['integer', 'null']), is_live (boolean), keywords (array), published (['string', 'null']), thumbnail (string, required), title (['string', 'null']), url (string, required), video_id (string, required), views (['integer', 'null'])
+
+Worked request example (fixture):
+```json
+{
+  "video": "dQw4w9WgXcQ"
+}
+```
+
+Worked response example (fixture):
+```json
+{
+  "captions": [
+    {
+      "kind": null,
+      "language": "English",
+      "language_code": "en"
+    }
+  ],
+  "captions_available": true,
+  "channel": "Example Channel",
+  "channel_id": "UCexamplechannel",
+  "description": "A walkthrough of the x402 payment standard.",
+  "duration": "10:24",
+  "duration_seconds": 624,
+  "is_live": false,
+  "keywords": [
+    "x402",
+    "payments",
+    "tutorial"
+  ],
+  "published": "2026-10-30T14:00:00Z",
+  "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+  "title": "x402 explained in 10 minutes",
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "video_id": "dQw4w9WgXcQ",
+  "views": 12000
+}
+```
+
+Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/video-details (source: schema-example; labelled in-band sample=true, live=false).
 ### POST https://stall-row-production.up.railway.app/v1/repo-vitals — $0.005
 
 Vital signs for one GitHub repository in a single call: stars, forks, open issues, license, last push, archived flag, and a 0-100 health score with a verdict line. Use this when an agent is choosing a dependency, a repo to contribute to, or a project to trust, and needs the quick read before the deep one.

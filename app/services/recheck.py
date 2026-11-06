@@ -154,11 +154,28 @@ _PACK_ID_PREFIX = "pack_"
 # checks one URL per call, but the toolkit tools take a different
 # target per call, so this pack binds to the route FAMILY instead —
 # any of TOOLKIT_PACK_ROUTES, never anything else. Same 90-day TTL.
+#
+# Family extended (buyer analysis 2026-11-05): the utility shelf
+# (Tube Search, Page to Markdown, Video Details — all $0.01 singles)
+# joins the family. The ledger showed repeat strangers buying cheap
+# task utilities in bursts while the only pack we pitched them funded
+# inspector tools they weren't buying; the pack now funds the shelf
+# they actually use, at the same $0.008 credit. Repo Vitals ($0.005)
+# is deliberately NOT family: a credit would overcharge it. The batch
+# routes ($0.05) are NOT family either — one credit must never buy a
+# ten-item batch; their handlers refuse pack ids cleanly.
 
 TOOLKIT_PACK_CREDITS = 125
 TOOLKIT_PACK_PRICE_UNITS = 1_000_000  # $1.00 — mirrors config.PRICE_UNITS
 TOOLKIT_PACK_TTL_DAYS = 90
-TOOLKIT_PACK_ROUTES = ("/v1/sign-read", "/v1/score-book", "/v1/guard")
+TOOLKIT_PACK_ROUTES = (
+    "/v1/sign-read",
+    "/v1/score-book",
+    "/v1/guard",
+    "/v1/tube-search",
+    "/v1/page-to-markdown",
+    "/v1/video-details",
+)
 _TK_PACK_ID_PREFIX = "tkpack_"
 
 # The public feed's window: GET /v1/recheck/feed serves at most

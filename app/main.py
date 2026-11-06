@@ -101,12 +101,16 @@ of paying per call, so the middleware below lets such requests
 through to the handler, which validates the pack against the store
 before any check runs — an invalid pack delivers nothing.
 
-Toolkit packs: POST /v1/sign-read, /v1/score-book or /v1/guard
+Toolkit packs: POST /v1/sign-read, /v1/score-book, /v1/guard,
+/v1/tube-search, /v1/page-to-markdown or /v1/video-details
 presenting a toolkit pack id (body field `pack_id` or X-Toolkit-Pack
 header) spends one prepaid credit from a pack bought at
 POST /v1/toolkit/pack — the pack binds to the toolkit route family,
 not to one target URL, because the tools take a different target
 per call. Same middleware bypass, same handler-side validation.
+(The utility routes joined the family 2026-11-05 — see
+services/recheck.py. The $0.05 batch routes are NOT family and
+refuse pack ids cleanly, like the Inspector Physical.)
 
 Inspector Physical: POST /v1/physical ($0.05) composes Sign
 Reader + Score Book + Guard + Recheck on one target in one call
@@ -401,6 +405,9 @@ async def _request_pack_id(request: Request) -> str:
 
 TOOLKIT_PACK_HEADER = "x-toolkit-pack"
 TOOLKIT_PATHS = frozenset(recheck_svc.TOOLKIT_PACK_ROUTES)
+# Batch routes (buyer analysis 2026-11-05): priced, Fleet-Pass
+# eligible, but never pack-funded — see the middleware refusal below.
+BATCH_PATHS = frozenset({"/v1/tube-search/batch", "/v1/page-to-markdown/batch"})
 
 
 async def _request_toolkit_pack_id(request: Request) -> str:
@@ -650,6 +657,14 @@ async def x402_middleware(request: Request, call_next):
     # cleanly (422, nothing delivered, nothing charged) instead of
     # the caller paying per call AND presenting a pack.
     if request.method == "POST" and request.url.path == "/v1/physical":
+        if await _request_toolkit_pack_id(request):
+            return await call_next(request)
+    # Same clean-refusal bypass for the batch routes (buyer analysis
+    # 2026-11-05): pack credits never fund a batch — one $0.008 credit
+    # must not buy a ten-item $0.05 bundle — so a call presenting a
+    # pack id skips the paywall only so the handler can refuse it
+    # cleanly (422, nothing delivered, nothing charged).
+    if request.method == "POST" and request.url.path in BATCH_PATHS:
         if await _request_toolkit_pack_id(request):
             return await call_next(request)
     # A call presenting a Fleet Pass id is paid from the pass: debit
@@ -924,11 +939,98 @@ class EmptyRequest(BaseModel):
 
 class TubeSearchRequest(BaseModel):
     query: str = Field(description="YouTube search query")
-    max_results: int = Field(default=5, ge=1, le=20)
+    max_results: int = Field(default=5, ge=1, le=50)
+    duration: str | None = Field(
+        default=None,
+        description=(
+            "Optional duration filter: short (<4 min), medium "
+            "(4-20 min), or long (>20 min). Live streams carry no "
+            "duration and are excluded when a filter is set"
+        ),
+    )
+    uploaded_within: str | None = Field(
+        default=None,
+        description=(
+            "Optional recency filter: day, week, month, or year "
+            "(from YouTube's published-age text)"
+        ),
+    )
+    channel: str | None = Field(
+        default=None,
+        description="Optional channel-name filter (case-insensitive substring)",
+    )
+    pack_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional toolkit pack id (or send the X-Toolkit-Pack header): "
+            "spends one pack credit instead of the per-call payment"
+        ),
+    )
 
 
 class PageRequest(BaseModel):
     url: str = Field(description="Public http(s) URL to fetch and convert")
+    pack_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional toolkit pack id (or send the X-Toolkit-Pack header): "
+            "spends one pack credit instead of the per-call payment"
+        ),
+    )
+
+
+class VideoDetailsRequest(BaseModel):
+    video: str = Field(
+        description="YouTube video id (11 chars) or a youtube.com / youtu.be URL"
+    )
+    pack_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional toolkit pack id (or send the X-Toolkit-Pack header): "
+            "spends one pack credit instead of the per-call payment"
+        ),
+    )
+
+
+class TubeSearchBatchRequest(BaseModel):
+    queries: list[str] = Field(
+        description="Up to 10 YouTube search queries, run in one call"
+    )
+    max_results: int = Field(default=5, ge=1, le=20)
+    duration: str | None = Field(
+        default=None,
+        description="Optional duration filter applied to every query (short / medium / long)",
+    )
+    uploaded_within: str | None = Field(
+        default=None,
+        description="Optional recency filter applied to every query (day / week / month / year)",
+    )
+    channel: str | None = Field(
+        default=None,
+        description="Optional channel-name filter applied to every query",
+    )
+    pack_id: str | None = Field(
+        default=None,
+        description=(
+            "NOT accepted on this route: pack credits do not fund "
+            "batch routes — presenting one is refused cleanly (422) "
+            "with nothing charged. Pay per call or with a Fleet Pass."
+        ),
+    )
+
+
+class PageBatchRequest(BaseModel):
+    urls: list[str] = Field(
+        description="Up to 10 public http(s) URLs to convert in one call"
+    )
+    pack_id: str | None = Field(
+        default=None,
+        description=(
+            "NOT accepted on this route: pack credits do not fund "
+            "batch routes — presenting one is refused cleanly (422) "
+            "with nothing charged. Pay per call or with a Fleet Pass."
+        ),
+    )
 
 
 class RepoRequest(BaseModel):
@@ -1106,19 +1208,136 @@ async def wallet_verdict(req: AddressRequest):
 
 
 @app.post("/v1/tube-search")
-async def tube_search(req: TubeSearchRequest):
+async def tube_search(req: TubeSearchRequest, request: Request):
+    if not req.query.strip():
+        return JSONResponse({"error": "query must not be empty"}, status_code=422)
+
     async def go():
         client, _, _ = _clients()
         async with client:
-            return await fetch_svc.tube_search(client, req.query.strip(), req.max_results)
+            return await fetch_svc.tube_search(
+                client,
+                req.query.strip(),
+                req.max_results,
+                duration=req.duration,
+                uploaded_within=req.uploaded_within,
+                channel=(req.channel or "").strip() or None,
+            )
 
+    pack_id = _presented_toolkit_pack_id(req, request)
+    if pack_id:
+        return await _run_pack_funded(pack_id, go)
     return await _run(go)
 
 
 @app.post("/v1/page-to-markdown")
-async def page_to_markdown(req: PageRequest):
+async def page_to_markdown(req: PageRequest, request: Request):
     async def go():
         return await fetch_svc.page_to_markdown(_fetch_client(), req.url.strip())
+
+    pack_id = _presented_toolkit_pack_id(req, request)
+    if pack_id:
+        return await _run_pack_funded(pack_id, go)
+    return await _run(go)
+
+
+@app.post("/v1/video-details")
+async def video_details(req: VideoDetailsRequest, request: Request):
+    """Video Details: one video's full record from its watch page —
+    title, channel, duration, views, publish date, description,
+    keywords, thumbnail, and caption-track availability. The natural
+    second call after /v1/tube-search (buyer analysis 2026-11-05).
+    An unavailable video is an upstream failure (502, no settlement),
+    never a fabricated record."""
+
+    async def go():
+        client, _, _ = _clients()
+        async with client:
+            return await fetch_svc.video_details(client, req.video)
+
+    pack_id = _presented_toolkit_pack_id(req, request)
+    if pack_id:
+        return await _run_pack_funded(pack_id, go)
+    return await _run(go)
+
+
+def _batch_pack_refusal(pack_id: str, route: str) -> JSONResponse:
+    """Batch routes are not pack-funded (buyer analysis 2026-11-05):
+    one $0.008 credit must never buy a ten-item $0.05 batch. Refuse
+    cleanly like /v1/physical does — 422, nothing delivered, nothing
+    charged, never a silent per-call fallback charge."""
+    return JSONResponse(
+        {
+            "error": (
+                f"pack credits do not fund POST {route} — a batch is "
+                "a bundle, not one of the pack's single calls; pay "
+                "per call ($0.05) or with a Fleet Pass"
+            ),
+            "code": "pack_not_accepted",
+            "pack_id": pack_id,
+        },
+        status_code=422,
+    )
+
+
+@app.post("/v1/tube-search/batch")
+async def tube_search_batch(req: TubeSearchBatchRequest, request: Request):
+    """Tube Search Batch: up to 10 searches in one $0.05 call (buyer
+    analysis 2026-11-05 — the largest stranger event on record was 20
+    single searches in ~30 seconds). Per-query failures ride in their
+    own entries; the batch fails only when every query fails."""
+    pack_id = _presented_toolkit_pack_id(req, request)
+    if pack_id:
+        return _batch_pack_refusal(pack_id, "/v1/tube-search/batch")
+    queries = [q.strip() for q in req.queries if q and q.strip()]
+    if not queries:
+        return JSONResponse(
+            {"error": "queries must contain at least one non-empty query"},
+            status_code=422,
+        )
+    if len(req.queries) > 10:
+        return JSONResponse(
+            {"error": "at most 10 queries per batch"}, status_code=422
+        )
+
+    async def go():
+        client, _, _ = _clients()
+        async with client:
+            return await fetch_svc.tube_search_batch(
+                client,
+                queries,
+                req.max_results,
+                duration=req.duration,
+                uploaded_within=req.uploaded_within,
+                channel=(req.channel or "").strip() or None,
+            )
+
+    return await _run(go)
+
+
+@app.post("/v1/page-to-markdown/batch")
+async def page_to_markdown_batch(req: PageBatchRequest, request: Request):
+    """Page to Markdown Batch: up to 10 page conversions in one
+    $0.05 call — the page-side twin of /v1/tube-search/batch. Each
+    URL runs the full single-route pipeline (reader-proxy fallback
+    included); per-URL failures ride in their own entries and the
+    batch fails only when every URL fails."""
+    pack_id = _presented_toolkit_pack_id(req, request)
+    if pack_id:
+        return _batch_pack_refusal(pack_id, "/v1/page-to-markdown/batch")
+    urls = [u.strip() for u in req.urls if u and u.strip()]
+    if not urls:
+        return JSONResponse(
+            {"error": "urls must contain at least one non-empty URL"},
+            status_code=422,
+        )
+    if len(req.urls) > 10:
+        return JSONResponse(
+            {"error": "at most 10 URLs per batch"}, status_code=422
+        )
+
+    async def go():
+        return await fetch_svc.page_to_markdown_batch(_fetch_client(), urls)
 
     return await _run(go)
 
@@ -2008,8 +2227,9 @@ async def toolkit_pack_buy(request: Request):
     identity (see _payment_key), so a re-presented payment returns
     the pack it already bought instead of minting a second one. The
     pack binds to the toolkit route FAMILY (sign-read / score-book /
-    guard) — no URL is named at buy time, because the tools take a
-    different target per call."""
+    guard / tube-search / page-to-markdown / video-details) — no URL
+    is named at buy time, because the tools take a different target
+    per call."""
     payment_key = _payment_key(request)
     if payment_key is None:
         return JSONResponse(
@@ -2024,8 +2244,9 @@ async def toolkit_pack_buy(request: Request):
         "expiry_days": recheck_svc.TOOLKIT_PACK_TTL_DAYS,
         "price_units": recheck_svc.TOOLKIT_PACK_PRICE_UNITS,
         "note": (
-            "Spend credits with POST /v1/sign-read, /v1/score-book or "
-            "/v1/guard: send this pack_id in the body or the "
+            "Spend credits with POST /v1/sign-read, /v1/score-book, "
+            "/v1/guard, /v1/tube-search, /v1/page-to-markdown or "
+            "/v1/video-details: send this pack_id in the body or the "
             "X-Toolkit-Pack header. Read the balance free at "
             "POST /v1/toolkit/pack-balance."
             + ("" if created else " This payment already minted this pack; returning it.")

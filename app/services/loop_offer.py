@@ -27,6 +27,13 @@ and an adaptive offer line priced off that proven spend, with deep
 links that pre-bind the pack / webhook offers to their identity.
 First-time payers (and payers whose identity the delivery does not
 expose, e.g. Solana-payload settlements) get the static block.
+
+Utility shelf (buyer analysis 2026-11-05): deliveries on the utility
+routes (UTILITY_ROUTES below) additionally carry the Toolkit Pack
+offer — the pack funds that shelf since the same date, so a utility
+buyer is finally pitched a prepaid product that pays for what they
+buy — and a returning utility payer's block gains an adaptive
+``utility_offer`` next to the Recheck one.
 """
 
 from __future__ import annotations
@@ -113,6 +120,81 @@ def _returning_payer_block(payer: dict, route: str | None) -> dict:
                 f"{base}/v1/recheck/webhooks?payer={quote(identity, safe='')}"
             ),
         },
+    }
+
+
+# Utility-shelf routes (buyer analysis 2026-11-05): the deliveries a
+# Tube Search / Page to Markdown / Video Details buyer reads. Their
+# block gains the Toolkit Pack offer — since 2026-11-05 the pack
+# funds this shelf, so for the first time the offer a utility buyer
+# sees is a product that pays for what they were just buying. The
+# batch routes carry it too: a batch buyer is the pack's natural
+# customer even though the pack never funds the batch itself.
+UTILITY_ROUTES = frozenset(
+    {
+        "/v1/tube-search",
+        "/v1/page-to-markdown",
+        "/v1/video-details",
+        "/v1/tube-search/batch",
+        "/v1/page-to-markdown/batch",
+    }
+)
+
+
+def _toolkit_pack_offer() -> dict:
+    base = CANONICAL_BASE
+    pack_usd = _usd(recheck_svc.TOOLKIT_PACK_PRICE_UNITS)
+    per_check_usd = pack_usd / recheck_svc.TOOLKIT_PACK_CREDITS
+    return {
+        "id": "toolkit_pack",
+        "route": "/v1/toolkit/pack",
+        "method": "POST",
+        "price_usd": pack_usd,
+        "what_it_is": (
+            "125 prepaid calls spendable on Tube Search, Page to "
+            "Markdown, Video Details, Sign Reader, Score Book, or "
+            "Guard in any mix, bought once and spent via pack_id "
+            "(body field or X-Toolkit-Pack header) instead of a "
+            "per-call payment."
+        ),
+        "terms": {
+            "credits": recheck_svc.TOOLKIT_PACK_CREDITS,
+            "ttl_days": recheck_svc.TOOLKIT_PACK_TTL_DAYS,
+            "per_check_usd": per_check_usd,
+            "per_call_price_usd": _usd(PRICE_UNITS["/v1/tube-search"]),
+            "routes": list(recheck_svc.TOOLKIT_PACK_ROUTES),
+            "balance_route": "/v1/toolkit/pack-balance",
+            "deep_link": f"{base}/v1/toolkit/pack",
+        },
+    }
+
+
+def _utility_offer(payer: dict) -> dict:
+    """The returning-payer adaptive form of the Toolkit Pack offer,
+    attached when the delivery's route is on the utility shelf."""
+    base = CANONICAL_BASE
+    identity = payer["payer_key"]
+    pack_usd = _usd(recheck_svc.TOOLKIT_PACK_PRICE_UNITS)
+    per_check_usd = pack_usd / recheck_svc.TOOLKIT_PACK_CREDITS
+    single_usd = _usd(PRICE_UNITS["/v1/tube-search"])
+    line = (
+        f"Returning payer: the Toolkit Pack does "
+        f"{recheck_svc.TOOLKIT_PACK_CREDITS} Tube Search / Page to "
+        f"Markdown / Video Details calls for ${pack_usd:.2f} "
+        f"(${per_check_usd:.3f} a call instead of ${single_usd:.3f} "
+        f"per call) — it funds the shelf this delivery came from."
+    )
+    return {
+        "line": line,
+        "offer_id": "toolkit_pack",
+        "route": "/v1/toolkit/pack",
+        "price_usd": pack_usd,
+        "credits": recheck_svc.TOOLKIT_PACK_CREDITS,
+        "per_check_usd": per_check_usd,
+        "per_call_price_usd": single_usd,
+        "deep_link": (
+            f"{base}/v1/toolkit/pack?payer={quote(identity, safe='')}"
+        ),
     }
 
 
@@ -228,8 +310,12 @@ def loop_offer(payer: dict | None = None, route: str | None = None) -> dict:
             },
         ],
     }
+    if route in UTILITY_ROUTES:
+        block["offers"].append(_toolkit_pack_offer())
     if payer is not None:
         block["returning_payer"] = _returning_payer_block(payer, route)
+        if route in UTILITY_ROUTES:
+            block["returning_payer"]["utility_offer"] = _utility_offer(payer)
     return block
 
 

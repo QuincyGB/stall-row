@@ -147,16 +147,23 @@ async def test_page_to_markdown_retries_transient_503():
 async def test_page_to_markdown_persistent_503_fails_after_retries():
     import httpx
 
-    calls = {"n": 0}
+    calls = {"target": 0, "fallback": 0}
 
     def handler(request):
-        calls["n"] += 1
+        if request.url.host == "r.jina.ai":
+            calls["fallback"] += 1
+        else:
+            calls["target"] += 1
         return httpx.Response(503, text="upstream busy")
 
     async with _client(handler) as client:
         with pytest.raises(UpstreamError, match="HTTP 503"):
             await fetch.page_to_markdown(client, "https://93.184.216.34/story")
-    assert calls["n"] == fetch._FETCH_ATTEMPTS
+    # The direct pipeline's retry discipline is unchanged; the
+    # reader-proxy fallback (2026-11-05) adds exactly one last-resort
+    # attempt after it, which also fails here, so the honest 503 stands.
+    assert calls["target"] == fetch._FETCH_ATTEMPTS
+    assert calls["fallback"] == 1
 
 
 @pytest.mark.asyncio
@@ -185,16 +192,23 @@ async def test_page_to_markdown_403_retries_with_descriptive_ua():
 async def test_page_to_markdown_hard_404_fails_without_retry():
     import httpx
 
-    calls = {"n": 0}
+    calls = {"target": 0, "fallback": 0}
 
     def handler(request):
-        calls["n"] += 1
+        if request.url.host == "r.jina.ai":
+            calls["fallback"] += 1
+        else:
+            calls["target"] += 1
         return httpx.Response(404, text="gone")
 
     async with _client(handler) as client:
         with pytest.raises(UpstreamError, match="HTTP 404"):
             await fetch.page_to_markdown(client, "https://93.184.216.34/missing")
-    assert calls["n"] == 1
+    # No retry on a hard 404 from the direct pipeline (still exactly
+    # one target fetch); the reader-proxy fallback then gets its one
+    # attempt, 404s too, and the honest error stands.
+    assert calls["target"] == 1
+    assert calls["fallback"] == 1
 
 
 @pytest.mark.asyncio

@@ -56,7 +56,14 @@ def test_mint_toolkit_pack_shape_and_expiry(store):
     assert len(pack["pack_id"]) == len("tkpack_") + 32
     # Family binding, not a URL binding.
     assert pack["family"] == "toolkit"
-    assert pack["routes"] == ["/v1/sign-read", "/v1/score-book", "/v1/guard"]
+    assert pack["routes"] == [
+        "/v1/sign-read",
+        "/v1/score-book",
+        "/v1/guard",
+        "/v1/tube-search",
+        "/v1/page-to-markdown",
+        "/v1/video-details",
+    ]
     assert "url" not in pack
     assert pack["credits_total"] == 125
     assert pack["credits_remaining"] == 125

@@ -653,14 +653,23 @@ ROUTES: dict[str, dict] = {
     "/v1/tube-search": {
         "description": (
             "YouTube search results as clean JSON: title, video id, URL, "
-            "channel, duration, and views for each result, scraped from the "
-            "public results page with no API key. Use this when an agent "
-            "needs to find a video mid-task and cannot drive a browser or "
-            "hold a Google API key."
+            "channel, duration, views, publish age, and thumbnail for each "
+            "result, scraped from the public results page with no API key. "
+            "Optional duration, upload-recency, and channel filters; "
+            "max_results up to 50 digs past page one. Pays per call or with "
+            "one Toolkit Pack credit. Use this when an agent needs to find "
+            "a video mid-task without a browser or a Google API key."
         ),
         "tags": ["search", "youtube", "video", "data", "agents", "youtube-search", "video-search"],
         "input_schema": _obj(
-            {"query": _S, "max_results": {"type": "integer", "minimum": 1, "maximum": 20}},
+            {
+                "query": _S,
+                "max_results": {"type": "integer", "minimum": 1, "maximum": 50},
+                "duration": {"type": ["string", "null"], "enum": ["short", "medium", "long", None]},
+                "uploaded_within": {"type": ["string", "null"], "enum": ["day", "week", "month", "year", None]},
+                "channel": _N,
+                "pack_id": _N,
+            },
             ["query"],
         ),
         "input_example": {"query": "base blockchain x402 tutorial", "max_results": 5},
@@ -677,7 +686,10 @@ ROUTES: dict[str, dict] = {
                             "url": _S,
                             "channel": _N,
                             "duration": _N,
+                            "duration_seconds": _IN,
                             "views": _N,
+                            "published": _N,
+                            "thumbnail": _S,
                         },
                         ["title", "video_id", "url"],
                     ),
@@ -695,7 +707,10 @@ ROUTES: dict[str, dict] = {
                     "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
                     "channel": "Example Channel",
                     "duration": "10:24",
+                    "duration_seconds": 624,
                     "views": "12K views",
+                    "published": "3 days ago",
+                    "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
                 }
             ],
         },
@@ -703,13 +718,16 @@ ROUTES: dict[str, dict] = {
     "/v1/page-to-markdown": {
         "description": (
             "Fetch one web page and return its main content as clean "
-            "Markdown with title and word count, extracted server-side. "
-            "Private and loopback targets are refused. Use this when an "
-            "agent needs to read a page inside a workflow without a browser "
-            "and without wading through navigation and boilerplate."
+            "Markdown with title and word count, extracted server-side; "
+            "a reader-proxy fallback retries pages that refuse the "
+            "direct fetch (marked in-band). Private and loopback "
+            "targets are refused. Pays per call or with one Toolkit "
+            "Pack credit. Use this when an agent needs to read a page "
+            "inside a workflow without a browser and without wading "
+            "through navigation and boilerplate."
         ),
         "tags": ["fetch", "markdown", "web", "reading", "agents", "web-fetch", "content-extraction"],
-        "input_schema": _obj({"url": _S}, ["url"]),
+        "input_schema": _obj({"url": _S, "pack_id": _N}, ["url"]),
         "input_example": {"url": "https://www.x402.org/"},
         "output_schema": _obj(
             {
@@ -718,6 +736,7 @@ ROUTES: dict[str, dict] = {
                 "title": _N,
                 "markdown": _S,
                 "word_count": _I,
+                "fallback": _N,
             },
             ["url", "final_url", "markdown", "word_count"],
         ),
@@ -727,6 +746,216 @@ ROUTES: dict[str, dict] = {
             "title": "x402 — internet-native payments",
             "markdown": "# x402\n\nAn open standard for internet-native payments.",
             "word_count": 8,
+        },
+    },
+    "/v1/video-details": {
+        "description": (
+            "Full details for one YouTube video in one call: title, "
+            "channel, duration, view count, publish date, description, "
+            "keywords, thumbnail, and caption-track availability (which "
+            "languages have captions), parsed from the public watch page "
+            "with no API key. Takes a video id or any youtube.com / "
+            "youtu.be URL. Pays per call or with one Toolkit Pack "
+            "credit. Use this when an agent found a video with "
+            "/v1/tube-search and needs the full record before using it."
+        ),
+        "tags": ["youtube", "video", "metadata", "data", "agents", "video-details", "captions"],
+        "input_schema": _obj({"video": _S, "pack_id": _N}, ["video"]),
+        "input_example": {"video": "dQw4w9WgXcQ"},
+        "output_schema": _obj(
+            {
+                "video_id": _S,
+                "url": _S,
+                "title": _N,
+                "channel": _N,
+                "channel_id": _N,
+                "duration_seconds": _IN,
+                "duration": _N,
+                "views": _IN,
+                "published": _N,
+                "description": _S,
+                "keywords": {"type": "array", "items": _S},
+                "thumbnail": _S,
+                "is_live": _B,
+                "captions_available": _B,
+                "captions": {
+                    "type": "array",
+                    "items": _obj(
+                        {
+                            "language_code": _N,
+                            "language": _N,
+                            "kind": _N,
+                        },
+                        [],
+                    ),
+                },
+            },
+            ["video_id", "url", "description", "thumbnail", "captions_available", "captions"],
+        ),
+        "output_example": {
+            "video_id": "dQw4w9WgXcQ",
+            "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            "title": "x402 explained in 10 minutes",
+            "channel": "Example Channel",
+            "channel_id": "UCexamplechannel",
+            "duration_seconds": 624,
+            "duration": "10:24",
+            "views": 12000,
+            "published": "2026-10-30T14:00:00Z",
+            "description": "A walkthrough of the x402 payment standard.",
+            "keywords": ["x402", "payments", "tutorial"],
+            "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+            "is_live": False,
+            "captions_available": True,
+            "captions": [
+                {"language_code": "en", "language": "English", "kind": None}
+            ],
+        },
+    },
+    "/v1/tube-search/batch": {
+        "description": (
+            "Up to 10 YouTube searches in one call, each with its own "
+            "result list in the /v1/tube-search shape, filters included; "
+            "a query that fails is reported in its own entry instead of "
+            "failing the batch, and the batch only fails when every "
+            "query does. Pack credits do not fund batch routes. Use "
+            "this when an agent sweeps many searches at once instead "
+            "of paying settlement overhead on every single search."
+        ),
+        "tags": ["search", "youtube", "video", "batch", "agents", "youtube-search", "bulk"],
+        "input_schema": _obj(
+            {
+                "queries": {"type": "array", "items": _S, "minItems": 1, "maxItems": 10},
+                "max_results": {"type": "integer", "minimum": 1, "maximum": 20},
+                "duration": {"type": ["string", "null"], "enum": ["short", "medium", "long", None]},
+                "uploaded_within": {"type": ["string", "null"], "enum": ["day", "week", "month", "year", None]},
+                "channel": _N,
+            },
+            ["queries"],
+        ),
+        "input_example": {
+            "queries": ["base blockchain x402 tutorial", "x402 facilitator explained"],
+            "max_results": 5,
+        },
+        "output_schema": _obj(
+            {
+                "count": _I,
+                "succeeded": _I,
+                "results": {
+                    "type": "array",
+                    "items": _obj(
+                        {
+                            "query": _S,
+                            "count": _IN,
+                            "results": {"type": "array", "items": {"type": "object"}},
+                            "error": _N,
+                        },
+                        ["query"],
+                    ),
+                },
+            },
+            ["count", "succeeded", "results"],
+        ),
+        "output_example": {
+            "count": 2,
+            "succeeded": 2,
+            "results": [
+                {
+                    "query": "base blockchain x402 tutorial",
+                    "count": 1,
+                    "results": [
+                        {
+                            "title": "x402 explained in 10 minutes",
+                            "video_id": "dQw4w9WgXcQ",
+                            "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                            "channel": "Example Channel",
+                            "duration": "10:24",
+                            "duration_seconds": 624,
+                            "views": "12K views",
+                            "published": "3 days ago",
+                            "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+                        }
+                    ],
+                },
+                {
+                    "query": "x402 facilitator explained",
+                    "count": 1,
+                    "results": [
+                        {
+                            "title": "How x402 facilitators settle",
+                            "video_id": "abc123XYZ09",
+                            "url": "https://www.youtube.com/watch?v=abc123XYZ09",
+                            "channel": "Example Channel",
+                            "duration": "8:02",
+                            "duration_seconds": 482,
+                            "views": "3K views",
+                            "published": "1 week ago",
+                            "thumbnail": "https://i.ytimg.com/vi/abc123XYZ09/hqdefault.jpg",
+                        }
+                    ],
+                },
+            ],
+        },
+    },
+    "/v1/page-to-markdown/batch": {
+        "description": (
+            "Up to 10 page conversions in one call, each fetched and "
+            "converted exactly as /v1/page-to-markdown (reader-proxy "
+            "fallback included); a URL that fails is reported in its "
+            "own entry instead of failing the batch, and the batch "
+            "only fails when every URL does. Pack credits do not fund "
+            "batch routes. Use this when an agent reads pages in bulk "
+            "instead of paying settlement overhead on every fetch."
+        ),
+        "tags": ["fetch", "markdown", "web", "batch", "agents", "web-fetch", "bulk"],
+        "input_schema": _obj(
+            {
+                "urls": {"type": "array", "items": _S, "minItems": 1, "maxItems": 10},
+            },
+            ["urls"],
+        ),
+        "input_example": {"urls": ["https://www.x402.org/", "https://example.com/"]},
+        "output_schema": _obj(
+            {
+                "count": _I,
+                "succeeded": _I,
+                "results": {
+                    "type": "array",
+                    "items": _obj(
+                        {
+                            "url": _S,
+                            "final_url": _N,
+                            "title": _N,
+                            "markdown": _N,
+                            "word_count": _IN,
+                            "fallback": _N,
+                            "error": _N,
+                        },
+                        ["url"],
+                    ),
+                },
+            },
+            ["count", "succeeded", "results"],
+        ),
+        "output_example": {
+            "count": 2,
+            "succeeded": 2,
+            "results": [
+                {
+                    "url": "https://www.x402.org/",
+                    "final_url": "https://www.x402.org/",
+                    "title": "x402 — internet-native payments",
+                    "markdown": "# x402\n\nAn open standard for internet-native payments.",
+                    "word_count": 8,
+                },
+                {
+                    "url": "https://example.com/",
+                    "final_url": "https://example.com/",
+                    "title": "Example Domain",
+                    "markdown": "# Example Domain\n\nThis domain is for use in documentation examples.",
+                    "word_count": 9,
+                },
+            ],
         },
     },
     "/v1/repo-vitals": {
@@ -1813,15 +2042,15 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/toolkit/pack": {
         "description": (
-            "Toolkit Pack — the prepaid form of the inspector toolkit: "
-            "one $1.00 payment buys 125 checks spendable on Sign Reader, "
-            "Score Book, or Guard in any mix ($0.008/check instead of "
-            "the $0.01 singles), good for 90 days. Spend credits via "
-            "POST /v1/sign-read, /v1/score-book, or /v1/guard (body "
-            "pack_id or X-Toolkit-Pack header); read the balance free "
-            "at POST /v1/toolkit/pack-balance. An exhausted pack "
-            "returns 402 rather than charging per call. Use this when "
-            "your agent runs the toolkit regularly."
+            "Toolkit Pack — one $1.00 payment buys 125 prepaid calls "
+            "($0.008 each instead of the $0.01 singles) spendable on "
+            "Sign Reader, Score Book, Guard, Tube Search, Page to "
+            "Markdown, or Video Details in any mix, good for 90 days. "
+            "Spend via pack_id (body or X-Toolkit-Pack header) on "
+            "those routes; read the balance free at POST "
+            "/v1/toolkit/pack-balance. An exhausted pack returns 402 "
+            "rather than charging per call. Use this when your agent "
+            "runs these tools regularly."
         ),
         "tags": ["x402", "inspector", "prepaid", "agents", "toolkit", "inspector-toolkit", "preflight"],
         "input_schema": _obj({}, []),
@@ -1857,7 +2086,7 @@ ROUTES: dict[str, dict] = {
             "expired": False,
             "expiry_days": 90,
             "price_units": 1000000,
-            "note": "Spend credits with POST /v1/sign-read, /v1/score-book or /v1/guard: send this pack_id in the body or the X-Toolkit-Pack header. Read the balance free at POST /v1/toolkit/pack-balance.",
+            "note": "Spend credits with POST /v1/sign-read, /v1/score-book, /v1/guard, /v1/tube-search, /v1/page-to-markdown or /v1/video-details: send this pack_id in the body or the X-Toolkit-Pack header. Read the balance free at POST /v1/toolkit/pack-balance.",
         },
     },
     "/v1/ledger-dataset": {
@@ -2290,7 +2519,9 @@ CARD_PROVIDER = {"organization": "Verdict Row", "url": "https://github.com/Quinc
 # reference is the repo and its server.json manifest; linked from the
 # manifest, the agent card, skill.md and llms.txt so MCP hosts and
 # registries can find it. Tools wrap the priced routes (the inspector
-# toolkit — sign-read / score-book / guard — included) plus the free
+# toolkit — sign-read / score-book / guard — included; the stdio
+# server's tool list predates the utility routes joining the pack
+# family and is refreshed separately) plus the free
 # Recheck feed v2 read. The HOSTED streamable-HTTP endpoint (POST /mcp,
 # app/services/hosted_mcp.py — the fleet's 25 cheap tools for runtimes
 # that cannot spawn stdio) rides additively as this block's "hosted"
@@ -2445,9 +2676,10 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "/v1/recheck/pack-balance.",
         "",
         "Toolkit Pack: buy POST /v1/toolkit/pack once ($1.00 = 125 "
-        "checks spendable on Sign Reader, Score Book, or Guard in any "
-        "mix — the pack binds to the toolkit family, not one target — "
-        "90-day expiry), then call those routes with the pack id in "
+        "calls spendable on Sign Reader, Score Book, Guard, Tube "
+        "Search, Page to Markdown, or Video Details in any mix — the "
+        "pack binds to the toolkit family, not one target — 90-day "
+        "expiry), then call those routes with the pack id in "
         "the body (pack_id) or the X-Toolkit-Pack header to spend "
         "credits instead of paying per call. Check the balance free "
         "at POST /v1/toolkit/pack-balance.",
@@ -2685,9 +2917,10 @@ def llms_txt(settings: Settings, base_url: str) -> str:
             ]
         if path == "/v1/toolkit/pack":
             lines += [
-                "Inspector loop? The Toolkit Pack is the default: $1.00 = 125 checks",
-                "spendable on Sign Reader, Score Book, or Guard in any mix for 90",
-                "days ($0.008/check). Spend with pack_id on those routes; check",
+                "Inspector loop? The Toolkit Pack is the default: $1.00 = 125 calls",
+                "spendable on Sign Reader, Score Book, Guard, Tube Search, Page to",
+                "Markdown, or Video Details in any mix for 90 days ($0.008/call).",
+                "Spend with pack_id on those routes; check",
                 "the balance free at POST /v1/toolkit/pack-balance. Exhausted packs",
                 "return 402 — they never fall back to per-call billing.",
             ]

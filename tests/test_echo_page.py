@@ -69,4 +69,4 @@ def test_echo_html_summary_and_linkage():
 def test_echo_does_not_move_health_route_count():
     with TestClient(main.app) as client:
         health = client.get("/health").json()
-        assert health["routes"] == 34
+        assert health["routes"] == 37

@@ -159,6 +159,14 @@
       "pulled_from": "app/discovery.py output example for this route (schema-validated)"
     },
     {
+      "route": "/v1/page-to-markdown/batch",
+      "slug": "page-to-markdown-batch",
+      "source": "schema-example",
+      "target": "https://www.x402.org/",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
       "route": "/v1/payto-pin/verify",
       "slug": "payto-pin-verify",
       "source": "schema-example",
@@ -259,10 +267,26 @@
       "pulled_from": "app/discovery.py output example for this route (schema-validated)"
     },
     {
+      "route": "/v1/tube-search/batch",
+      "slug": "tube-search-batch",
+      "source": "schema-example",
+      "target": "base blockchain x402 tutorial",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
       "route": "/v1/tx-decoder",
       "slug": "tx-decoder",
       "source": "schema-example",
       "target": "0xabababababababababababababababababababababababababababababababab",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/video-details",
+      "slug": "video-details",
+      "source": "schema-example",
+      "target": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       "recorded_at": null,
       "pulled_from": "app/discovery.py output example for this route (schema-validated)"
     },

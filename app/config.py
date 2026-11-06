@@ -1,4 +1,4 @@
-"""Settings for the stall-row x402 service (one deployment, 28 paid routes)."""
+"""Settings for the stall-row x402 service (one deployment, 37 paid routes)."""
 
 from __future__ import annotations
 
@@ -62,6 +62,9 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/pre-trade-guard": 5_000,      # $0.005 — Pre-Trade Guard: screen a payTo before paying it
     "/v1/tube-search": 10_000,         # $0.01
     "/v1/page-to-markdown": 10_000,    # $0.01
+    "/v1/video-details": 10_000,       # $0.01 — Video Details: one video's full record (buyer analysis 2026-11-05)
+    "/v1/tube-search/batch": 50_000,   # $0.05 — up to 10 searches in one call (buyer analysis 2026-11-05)
+    "/v1/page-to-markdown/batch": 50_000,  # $0.05 — up to 10 page conversions in one call (buyer analysis 2026-11-05)
     "/v1/repo-vitals": 5_000,          # $0.005
     "/v1/price-check": 50_000,        # $0.05
     "/v1/card-smith": 100_000,         # $0.10
@@ -76,7 +79,7 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/flagged-paytos": 5_000,       # $0.005 — the bad-payTo registry feed (probe tier)
     "/v1/agent-card-verify": 5_000,    # $0.005 — one ERC-8004 agent-card verification (probe tier)
     "/v1/recheck/pack": 1_000_000,     # $1.00 — 250 prepaid rechecks on one endpoint
-    "/v1/toolkit/pack": 1_000_000,     # $1.00 — 125 prepaid toolkit checks (sign-read/score-book/guard, any mix)
+    "/v1/toolkit/pack": 1_000_000,     # $1.00 — 125 prepaid toolkit checks (sign-read/score-book/guard + tube-search/page-to-markdown/video-details, any mix)
     "/v1/fleet-check": 100_000,        # $0.10 — one whole-fleet health sweep (unpaid probes)
     "/v1/fleet-check/pack": 5_000_000,  # $5.00 — 100 prepaid fleet sweeps of one fixed fleet definition
     "/v1/fleet-pass": 5_000_000,       # $5.00 — prepaid USD balance for all fleet routes

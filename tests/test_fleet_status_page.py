@@ -83,4 +83,4 @@ def test_fleet_status_linked_from_skill_llms_and_tools():
 def test_fleet_status_does_not_move_health_route_count():
     with TestClient(main.app) as client:
         health = client.get("/health").json()
-        assert health["routes"] == 34
+        assert health["routes"] == 37
