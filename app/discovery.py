@@ -751,10 +751,10 @@ ROUTES: dict[str, dict] = {
     "/v1/video-details": {
         "description": (
             "Full details for one YouTube video in one call: title, "
-            "channel, duration, view count, publish date, description, "
-            "keywords, thumbnail, and caption-track availability (which "
-            "languages have captions), parsed from the public watch page "
-            "with no API key. Takes a video id or any youtube.com / "
+            "channel, duration, view count, description, keywords, "
+            "thumbnail, and caption-track availability (which languages "
+            "have captions), read from the video's own player data with "
+            "no API key. Takes a video id or any youtube.com / "
             "youtu.be URL. Pays per call or with one Toolkit Pack "
             "credit. Use this when an agent found a video with "
             "/v1/tube-search and needs the full record before using it."
