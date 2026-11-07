@@ -1,6 +1,6 @@
 {
   "contact": "patrol@verdictrow.com",
-  "generated_at": "2026-11-07T14:41:21Z",
+  "generated_at": "2026-11-07T15:40:47Z",
   "generated_by": "Ren, Verdict Row Patrol \u2014 patrol@verdictrow.com",
   "host": {
     "html": "https://stall-row-production.up.railway.app/tools",
@@ -374,7 +374,7 @@
               "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
             }
           ],
-          "description": "Full details for one YouTube video in one call: title, channel, duration, view count, publish date, description, keywords, thumbnail, and caption-track availability (which languages have captions), parsed from the public watch page with no API key. Takes a video id or any youtube.com / youtu.be URL. Pays per call or with one Toolkit Pack credit. Use this when an agent found a video with /v1/tube-search and needs the full record before using it.",
+          "description": "Full details for one YouTube video in one call: title, channel, duration, view count, description, keywords, thumbnail, and caption-track availability (which languages have captions), read from the video's own player data with no API key. Takes a video id or any youtube.com / youtu.be URL. Pays per call or with one Toolkit Pack credit. Use this when an agent found a video with /v1/tube-search and needs the full record before using it.",
           "method": "POST",
           "price_display": "$0.01",
           "resource": "https://stall-row-production.up.railway.app/v1/video-details"

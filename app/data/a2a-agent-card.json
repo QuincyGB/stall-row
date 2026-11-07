@@ -662,7 +662,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/page-to-markdown"
     },
     {
-      "description": "Full details for one YouTube video in one call: title, channel, duration, view count, publish date, description, keywords, thumbnail, and caption-track availability (which languages have captions), parsed from the public watch page with no API key. Takes a video id or any youtube.com / youtu.be URL. Pays per call or with one Toolkit Pack credit. Use this when an agent found a video with /v1/tube-search and needs the full record before using it.",
+      "description": "Full details for one YouTube video in one call: title, channel, duration, view count, description, keywords, thumbnail, and caption-track availability (which languages have captions), read from the video's own player data with no API key. Takes a video id or any youtube.com / youtu.be URL. Pays per call or with one Toolkit Pack credit. Use this when an agent found a video with /v1/tube-search and needs the full record before using it.",
       "id": "v1-video-details",
       "inputModes": [
         "application/json"

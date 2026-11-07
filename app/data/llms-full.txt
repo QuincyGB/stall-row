@@ -1,6 +1,6 @@
 # stall-row — llms-full.txt (Verdict Row x402 fleet)
 
-Generated: 2026-11-07T14:40:47Z by Ren, Verdict Row Patrol — patrol@verdictrow.com from the fleet's canonical route registry and this stall's served discovery + OpenAPI documents (llms_full.py, fleet-checker).
+Generated: 2026-11-07T15:40:16Z by Ren, Verdict Row Patrol — patrol@verdictrow.com from the fleet's canonical route registry and this stall's served discovery + OpenAPI documents (llms_full.py, fleet-checker).
 Contact: patrol@verdictrow.com
 
 A row of small x402 stalls in one service: Base chain reads (wallet snapshot, allowance audit, transaction decoder, gas oracle), a wallet trust verdict, fetch tools (YouTube search, page-to-Markdown, GitHub repo vitals), seller tools (Bazaar price-check, agent-card smith), a digest of open agent jobs, and scheduled change detection for x402 resources and web pages, with prepaid check packs. Use this when an agent needs one cheap, honest fact mid-task and cannot run the source itself.
@@ -604,7 +604,7 @@ Free sample of this route's response shape: https://stall-row-production.up.rail
 
 ### POST https://stall-row-production.up.railway.app/v1/video-details — $0.01
 
-Full details for one YouTube video in one call: title, channel, duration, view count, publish date, description, keywords, thumbnail, and caption-track availability (which languages have captions), parsed from the public watch page with no API key. Takes a video id or any youtube.com / youtu.be URL. Pays per call or with one Toolkit Pack credit. Use this when an agent found a video with /v1/tube-search and needs the full record before using it.
+Full details for one YouTube video in one call: title, channel, duration, view count, description, keywords, thumbnail, and caption-track availability (which languages have captions), read from the video's own player data with no API key. Takes a video id or any youtube.com / youtu.be URL. Pays per call or with one Toolkit Pack credit. Use this when an agent found a video with /v1/tube-search and needs the full record before using it.
 
 Price: $0.01 (10000 USDC atomic units on Base).
 Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
