@@ -174,6 +174,7 @@ from .services import claims as claims_svc
 from .services import hosted_inbox as hosted_svc
 from .services import hosted_mcp as hosted_mcp_svc
 from .services import counterparty as counterparty_svc
+from .services import deliveryledger as deliveryledger_svc
 from .services import fetch as fetch_svc
 from .services import fleetcheck as fleetcheck_svc
 from .services import gradestall as gradestall_svc
@@ -655,9 +656,13 @@ async def x402_middleware(request: Request, call_next):
         pack_id = await _request_pack_id(request)
         if pack_id:
             response = await call_next(request)
-            return await _attach_loop_offer(
+            response = await _attach_loop_offer(
                 request, response, credential=("recheck-pack", pack_id)
             )
+            await _record_delivery_or_raise(
+                request, response, credential=("recheck-pack", pack_id)
+            )
+            return response
     # Same bypass for the toolkit routes presenting a toolkit pack
     # id: paid from the pack, validated by the handler against the
     # store before any work runs — an invalid pack delivers nothing
@@ -666,9 +671,13 @@ async def x402_middleware(request: Request, call_next):
         toolkit_pack_id = await _request_toolkit_pack_id(request)
         if toolkit_pack_id:
             response = await call_next(request)
-            return await _attach_loop_offer(
+            response = await _attach_loop_offer(
                 request, response, credential=("toolkit-pack", toolkit_pack_id)
             )
+            await _record_delivery_or_raise(
+                request, response, credential=("toolkit-pack", toolkit_pack_id)
+            )
+            return response
     # The Inspector Physical is a separate bundle, NOT one of the
     # toolkit three: pack credits never fund it. A call presenting a
     # pack id skips the paywall only so the handler can refuse it
@@ -718,12 +727,28 @@ async def x402_middleware(request: Request, call_next):
             if response.status_code >= 400:
                 _recheck_store.refund_debit(debit["debit_id"])
                 return response
-            return await _attach_loop_offer(
-                request, response, credential=("fleet-pass", pass_id)
-            )
+            try:
+                response = await _attach_loop_offer(
+                    request, response, credential=("fleet-pass", pass_id)
+                )
+                await _record_delivery_or_raise(
+                    request,
+                    response,
+                    credential=("fleet-pass", pass_id),
+                    debit_id=debit["debit_id"],
+                )
+            except Exception:
+                # A delivery whose ledger record cannot be written
+                # must not keep the debit either: refund, then fail
+                # loudly (fail-closed recording, 2026-11-07).
+                _recheck_store.refund_debit(debit["debit_id"])
+                raise
+            return response
     response = await _payment_middleware(request, call_next)
     response = _mirror_challenge_body(response)
-    return await _attach_loop_offer(request, response)
+    response = await _attach_loop_offer(request, response)
+    await _record_delivery_or_raise(request, response)
+    return response
 
 
 # Request-body cap (security audit 2026-10-25): every legitimate body in
@@ -1412,6 +1437,58 @@ async def job_scout(req: JobScoutRequest | None = None):
 _recheck_store = recheck_svc.WatchStore(
     settings.recheck_db_path, persistent=settings.recheck_db_persistent
 )
+
+# Fleet delivery ledger (2026-11-07): the fleet's ONE durable record
+# of what every settled payment bought, in the same durable store
+# file as the fleet-pass ledger. StallRow is the hub: the other
+# stalls POST their records to /v1/delivery-ledger/record, and
+# StallRow's own deliveries are written through the same verified
+# write_record path locally. Fail-closed by design — see
+# app/services/deliveryledger.py. The store resolves off the
+# recheck store's own path (one store file, one place) so the two
+# can never drift onto different databases.
+_delivery_ledger_stores: dict[str, deliveryledger_svc.DeliveryLedgerStore] = {}
+
+
+def _delivery_store() -> deliveryledger_svc.DeliveryLedgerStore:
+    path = _recheck_store._path
+    store = _delivery_ledger_stores.get(path)
+    if store is None:
+        store = deliveryledger_svc.DeliveryLedgerStore(path)
+        _delivery_ledger_stores[path] = store
+    return store
+
+
+async def _record_delivery_or_raise(
+    request: Request,
+    response,
+    credential: tuple[str, str] | None = None,
+    debit_id: str | None = None,
+) -> None:
+    """Record this delivery in the fleet delivery ledger, or raise.
+
+    Called by the delivery layer AFTER settlement and BEFORE the
+    delivery response is released: if the record cannot be written
+    or verified, the exception propagates and the delivery fails
+    loudly (the fleet's catch-all 502) instead of passing as a
+    settled-but-unrecorded sale. Non-deliveries (unpaid, error,
+    unpriced) build no payload and return quietly."""
+    payload = deliveryledger_svc.build_payload(
+        request,
+        response,
+        service=settings.service_name,
+        price_units=PRICE_UNITS,
+        credential=credential,
+        debit_id=debit_id,
+    )
+    if payload is None:
+        return
+    await deliveryledger_svc.write_record(
+        _delivery_store(),
+        payload,
+        rpc_url=settings.rpc_url,
+        pay_to=settings.pay_to,
+    )
 log.info(
     "recheck store durability: %s (path %s)",
     "persistent" if settings.recheck_db_persistent else "EPHEMERAL",
@@ -2849,6 +2926,45 @@ async def fleet_pass_balance(req: FleetPassBalanceRequest):
         "history_limit": summary["history_limit"],
         "history_returned": summary["history_returned"],
         "history_truncated": summary["history_truncated"],
+    }
+
+
+@app.post("/v1/delivery-ledger/record")
+async def delivery_ledger_record(payload: dict):
+    """Fleet delivery ledger — record one paid delivery (2026-11-07).
+
+    Called by a stall's delivery layer after settlement, before the
+    delivery is released (fail-closed: a rejection here fails the
+    delivery loudly; nothing records silently). The record is
+    verified before it is accepted: per-call records must prove a
+    matching USDC transfer in their settlement tx on Base; pass /
+    pack records must name a funding row this hub's own ledger
+    holds. See app/services/deliveryledger.py."""
+    try:
+        record = await deliveryledger_svc.write_record(
+            _delivery_store(),
+            payload,
+            rpc_url=settings.rpc_url,
+            pay_to=settings.pay_to,
+        )
+    except deliveryledger_svc.RecordRejected as e:
+        return JSONResponse(
+            {"error": e.message, "code": "delivery_record_rejected"},
+            status_code=422,
+        )
+    return {"recorded": True, "record": record}
+
+
+@app.get("/v1/delivery-ledger/recent")
+async def delivery_ledger_recent(limit: int = 500, since_id: int = 0):
+    """Fleet delivery ledger — read the durable records (free,
+    read-only). The fleet checker harvests from here into its own
+    durable ledger file and reconciles on-chain transfers to payTo
+    against these records."""
+    return {
+        "records": _delivery_store().recent(
+            limit=max(1, min(int(limit), 1000)), since_id=max(0, int(since_id))
+        )
     }
 
 

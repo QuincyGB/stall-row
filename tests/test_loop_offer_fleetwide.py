@@ -50,6 +50,14 @@ def _settled_client(monkeypatch, tmp_path, wallet=WALLET):
     fresh = recheck.WatchStore(str(tmp_path / "w.db"))
     monkeypatch.setattr(main, "_recheck_store", fresh)
 
+    # Fleet delivery-ledger recording (2026-11-07) is a delivery
+    # side effect like the others stubbed in this harness; its own
+    # behavior is pinned by tests/test_delivery_ledger.py.
+    async def _no_record(request, response, credential=None, debit_id=None):
+        return None
+
+    monkeypatch.setattr(main, "_record_delivery_or_raise", _no_record)
+
     async def passthrough(request, call_next):
         request.state.payment_payload = _payload(wallet)
         return await call_next(request)
