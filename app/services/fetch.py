@@ -562,6 +562,80 @@ def _pick_caption_track(tracks: list, lang: str | None) -> dict:
     return (manual or usable)[0]
 
 
+def _parse_timedtext(body: str) -> list[dict] | None:
+    """Parse a timedtext response into segments, whichever wire format
+    YouTube actually returns: json3 (what we ask for) or the default
+    XML — srv1 (<transcript><text start dur>, seconds) or srv3
+    (<p t d>, milliseconds). Returns None when the body is neither
+    (an empty or error body), [] when it parses but holds no text."""
+    body = (body or "").strip()
+    if not body:
+        return None
+    if body.startswith("{"):
+        try:
+            data = json.loads(body)
+        except ValueError:
+            return None
+        events = data.get("events") if isinstance(data, dict) else None
+        if not events:
+            return []
+        segments: list[dict] = []
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            text = "".join(
+                s.get("utf8", "")
+                for s in (event.get("segs") or [])
+                if isinstance(s, dict)
+            )
+            text = re.sub(r"\s+", " ", text).strip()
+            if text:
+                segments.append(
+                    {
+                        "start_ms": event.get("tStartMs"),
+                        "duration_ms": event.get("dDurationMs"),
+                        "text": text,
+                    }
+                )
+        return segments
+    if body.startswith("<"):
+        import xml.etree.ElementTree as ET
+
+        try:
+            root = ET.fromstring(body)
+        except ET.ParseError:
+            return None
+        segments = []
+        for elem in root.iter():
+            tag = elem.tag.rpartition("}")[-1]
+            if tag == "text":  # srv1: start/dur in seconds (float)
+                text = re.sub(r"\s+", " ", "".join(elem.itertext())).strip()
+                if not text:
+                    continue
+                try:
+                    start_ms = int(float(elem.get("start") or 0) * 1000)
+                    dur_ms = int(float(elem.get("dur") or 0) * 1000)
+                except ValueError:
+                    start_ms, dur_ms = None, None
+                segments.append(
+                    {"start_ms": start_ms, "duration_ms": dur_ms, "text": text}
+                )
+            elif tag == "p":  # srv3: t/d in milliseconds
+                text = re.sub(r"\s+", " ", "".join(elem.itertext())).strip()
+                if not text:
+                    continue
+                try:
+                    start_ms = int(elem.get("t") or 0)
+                    dur_ms = int(elem.get("d") or 0)
+                except ValueError:
+                    start_ms, dur_ms = None, None
+                segments.append(
+                    {"start_ms": start_ms, "duration_ms": dur_ms, "text": text}
+                )
+        return segments
+    return None
+
+
 async def video_transcript(
     client: httpx.AsyncClient, video: str, *, lang: str | None = None
 ) -> dict:
@@ -586,32 +660,9 @@ async def video_transcript(
     base = track["baseUrl"]
     sep = "&" if "?" in base else "?"
     timed = await _youtube_get(client, base + sep + "fmt=json3")
-    try:
-        data = timed.json()
-    except ValueError as e:
-        raise UpstreamError("caption track returned unreadable data") from e
-    events = data.get("events") if isinstance(data, dict) else None
-    if not events:
-        raise UpstreamError("caption track returned no transcript data")
-    segments: list[dict] = []
-    for event in events:
-        if not isinstance(event, dict):
-            continue
-        text = "".join(
-            s.get("utf8", "")
-            for s in (event.get("segs") or [])
-            if isinstance(s, dict)
-        )
-        text = re.sub(r"\s+", " ", text).strip()
-        if not text:
-            continue
-        segments.append(
-            {
-                "start_ms": event.get("tStartMs"),
-                "duration_ms": event.get("dDurationMs"),
-                "text": text,
-            }
-        )
+    segments = _parse_timedtext(timed.text)
+    if segments is None:
+        raise UpstreamError("caption track returned unreadable data")
     if not segments:
         raise UpstreamError("caption track returned an empty transcript")
     full_text = " ".join(s["text"] for s in segments)

@@ -413,3 +413,36 @@ def test_loop_block_utility_offer_covers_lane3_routes():
         tk = next(o for o in block["offers"] if o["id"] == "toolkit_pack")
         assert "/v1/video-transcript" in tk["terms"]["routes"]
         assert "/v1/feed-digest" in tk["terms"]["routes"]
+
+
+# --- timedtext wire formats (json3 asked for; XML is YouTube's default) --
+
+SRV1_XML = """<?xml version="1.0" encoding="utf-8"?>
+<transcript>
+<text start="0.5" dur="2.25">Never gonna give you up,</text>
+<text start="2.75" dur="2.0">never gonna let you down</text>
+</transcript>"""
+
+SRV3_XML = """<?xml version="1.0" encoding="utf-8"?>
+<timedtext format="3"><body>
+<p t="500" d="2250"><s>Never gonna give you up,</s></p>
+<p t="2750" d="2000"><s>never gonna let you down</s></p>
+</body></timedtext>"""
+
+
+def test_timedtext_srv1_xml_seconds_become_ms():
+    segs = fetch._parse_timedtext(SRV1_XML)
+    assert [s["text"] for s in segs] == [
+        "Never gonna give you up,", "never gonna let you down"]
+    assert segs[0]["start_ms"] == 500 and segs[0]["duration_ms"] == 2250
+
+
+def test_timedtext_srv3_xml_ms_passthrough():
+    segs = fetch._parse_timedtext(SRV3_XML)
+    assert segs[1]["start_ms"] == 2750 and segs[1]["duration_ms"] == 2000
+
+
+def test_timedtext_empty_or_junk_is_none():
+    assert fetch._parse_timedtext("") is None
+    assert fetch._parse_timedtext("  ") is None
+    assert fetch._parse_timedtext("<html>error</html>") == []
