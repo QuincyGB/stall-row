@@ -88,9 +88,49 @@
       "name": "/v1/page-to-markdown"
     },
     {
+      "amount": "10000",
+      "endpoint": "https://stall-row-production.up.railway.app/v1/video-details",
+      "name": "/v1/video-details"
+    },
+    {
+      "amount": "10000",
+      "endpoint": "https://stall-row-production.up.railway.app/v1/video-transcript",
+      "name": "/v1/video-transcript"
+    },
+    {
+      "amount": "5000",
+      "endpoint": "https://stall-row-production.up.railway.app/v1/page-metadata",
+      "name": "/v1/page-metadata"
+    },
+    {
+      "amount": "10000",
+      "endpoint": "https://stall-row-production.up.railway.app/v1/feed-digest",
+      "name": "/v1/feed-digest"
+    },
+    {
+      "amount": "5000",
+      "endpoint": "https://stall-row-production.up.railway.app/v1/url-unshorten",
+      "name": "/v1/url-unshorten"
+    },
+    {
+      "amount": "50000",
+      "endpoint": "https://stall-row-production.up.railway.app/v1/tube-search/batch",
+      "name": "/v1/tube-search/batch"
+    },
+    {
+      "amount": "50000",
+      "endpoint": "https://stall-row-production.up.railway.app/v1/page-to-markdown/batch",
+      "name": "/v1/page-to-markdown/batch"
+    },
+    {
       "amount": "5000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/repo-vitals",
       "name": "/v1/repo-vitals"
+    },
+    {
+      "amount": "5000",
+      "endpoint": "https://stall-row-production.up.railway.app/v1/repo-readme",
+      "name": "/v1/repo-readme"
     },
     {
       "amount": "50000",
@@ -358,7 +398,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/wallet-verdict"
     },
     {
-      "description": "Pre-Trade Guard \u2014 before you pay an x402 listing, screen the payTo you are about to pay: its Verdict Index catalog history (first seen, payTo rotations, listings added or removed across the snapshots held), an OFAC SDN exact-match check, and the wallet's Base age and activity, combined into PROCEED, CAUTION, or ABORT with itemized reasons. Use this when an agent is about to pay a payTo it has never paid before.",
+      "description": "Pre-Trade Guard — before you pay an x402 listing, screen the payTo you are about to pay: its Verdict Index catalog history (first seen, payTo rotations, listings added or removed across the snapshots held), an OFAC SDN exact-match check, and the wallet's Base age and activity, combined into PROCEED, CAUTION, or ABORT with itemized reasons. Use this when an agent is about to pay a payTo it has never paid before.",
       "id": "v1-pre-trade-guard",
       "inputModes": [
         "application/json"
@@ -393,7 +433,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/pre-trade-guard"
     },
     {
-      "description": "Counterparty Report \u2014 one bundled report on one seller: the payTo's wallet snapshot, an OFAC SDN exact-match screen, and its Verdict Index listing history, plus a Token Verdict when you name a token, a LockSmith audit when you name a service URL, and a ListSmith grade when you name a listing URL. Legs that are not requested or cannot run are marked, never padded. Use this when an agent is about to rely on a seller it has never dealt with.",
+      "description": "Counterparty Report — one bundled report on one seller: the payTo's wallet snapshot, an OFAC SDN exact-match screen, and its Verdict Index listing history, plus a Token Verdict when you name a token, a LockSmith audit when you name a service URL, and a ListSmith grade when you name a listing URL. Legs that are not requested or cannot run are marked, never padded. Use this when an agent is about to rely on a seller it has never dealt with.",
       "id": "v1-counterparty-report",
       "inputModes": [
         "application/json"
@@ -427,7 +467,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/counterparty-report"
     },
     {
-      "description": "Grade My Stall \u2014 a seller-side report card for one x402 resource: a live unpaid probe (does it answer 402 with a parseable challenge?), the description measured against the 500-character limit, CDP listing presence in the newest catalog snapshot, Settled's record, the origin's x402scan ownership declaration, and payTo consistency across sources. Checks that cannot be performed report unverified, never a guess. Use this when you run a stall and want to know how buyers' tools see it.",
+      "description": "Grade My Stall — a seller-side report card for one x402 resource: a live unpaid probe (does it answer 402 with a parseable challenge?), the description measured against the 500-character limit, CDP listing presence in the newest catalog snapshot, Settled's record, the origin's x402scan ownership declaration, and payTo consistency across sources. Checks that cannot be performed report unverified, never a guess. Use this when you run a stall and want to know how buyers' tools see it.",
       "id": "v1-grade-my-stall",
       "inputModes": [
         "application/json"
@@ -460,7 +500,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/grade-my-stall"
     },
     {
-      "description": "Receipt Verifier \u2014 a Base transaction hash in, a normalized verified receipt out: payer, payTo and amount from the USDC Transfer log, asset and network, settled status and confirmations. When the payTo is this fleet's own and the amount matches a priced route, routes at that price are listed as candidates \u2014 an amount alone never proves which route was called. Unknown transactions error honestly, unsettled. Use this when someone claims they paid and you want the chain's version. Base only.",
+      "description": "Receipt Verifier — a Base transaction hash in, a normalized verified receipt out: payer, payTo and amount from the USDC Transfer log, asset and network, settled status and confirmations. When the payTo is this fleet's own and the amount matches a priced route, routes at that price are listed as candidates — an amount alone never proves which route was called. Unknown transactions error honestly, unsettled. Use this when someone claims they paid and you want the chain's version. Base only.",
       "id": "v1-receipt-verify",
       "inputModes": [
         "application/json"
@@ -492,7 +532,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/receipt-verify"
     },
     {
-      "description": "Bad-payTo Registry Feed \u2014 the currently flagged payTos, each with its evidence: every address in the bundled OFAC SDN snapshot, payTos the newest catalog snapshot pair shows rotated away from live listings, and payTos of listings that vanished between snapshots. Built from the same two sources the Pre-Trade Guard screens against. No entry without evidence; entry and evidence caps are stated, never silent. Use this when a router or guard wants the fleet's current avoid-list in one cheap call.",
+      "description": "Bad-payTo Registry Feed — the currently flagged payTos, each with its evidence: every address in the bundled OFAC SDN snapshot, payTos the newest catalog snapshot pair shows rotated away from live listings, and payTos of listings that vanished between snapshots. Built from the same two sources the Pre-Trade Guard screens against. No entry without evidence; entry and evidence caps are stated, never silent. Use this when a router or guard wants the fleet's current avoid-list in one cheap call.",
       "id": "v1-flagged-paytos",
       "inputModes": [
         "application/json"
@@ -525,7 +565,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/flagged-paytos"
     },
     {
-      "description": "Agent-Card Verifier \u2014 an ERC-8004 agent id (resolved on Base via the registry) or an agent.json URL in; the card is fetched and checked against live reality: declared endpoints probed unpaid (402 is correct for a paid service), challenge payTos compared with the card's declared wallets, declared prices with live challenge amounts. Undeclared fields report not_checked, never a guess; an unreachable card errors honestly, unsettled. Use this when an agent's card claims more than its endpoints do.",
+      "description": "Agent-Card Verifier — an ERC-8004 agent id (resolved on Base via the registry) or an agent.json URL in; the card is fetched and checked against live reality: declared endpoints probed unpaid (402 is correct for a paid service), challenge payTos compared with the card's declared wallets, declared prices with live challenge amounts. Undeclared fields report not_checked, never a guess; an unreachable card errors honestly, unsettled. Use this when an agent's card claims more than its endpoints do.",
       "id": "v1-agent-card-verify",
       "inputModes": [
         "application/json"
@@ -622,70 +662,6 @@
       "url": "https://stall-row-production.up.railway.app/v1/page-to-markdown"
     },
     {
-      "description": "Up to 10 YouTube searches in one call, each with its own result list in the /v1/tube-search shape, filters included; a query that fails is reported in its own entry instead of failing the batch, and the batch only fails when every query does. Pack credits do not fund batch routes. Use this when an agent sweeps many searches at once instead of paying settlement overhead on every single search.",
-      "id": "v1-tube-search-batch",
-      "inputModes": [
-        "application/json"
-      ],
-      "method": "POST",
-      "name": "Tube Search Batch",
-      "outputModes": [
-        "application/json"
-      ],
-      "price": {
-        "amount_units": "50000",
-        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$0.05",
-        "network": "eip155:8453",
-        "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
-        "protocol": "x402",
-        "scheme": "exact",
-        "usd": "0.05"
-      },
-      "tags": [
-        "search",
-        "youtube",
-        "video",
-        "batch",
-        "agents",
-        "youtube-search",
-        "bulk"
-      ],
-      "url": "https://stall-row-production.up.railway.app/v1/tube-search/batch"
-    },
-    {
-      "description": "Up to 10 page conversions in one call, each fetched and converted exactly as /v1/page-to-markdown (reader-proxy fallback included); a URL that fails is reported in its own entry instead of failing the batch, and the batch only fails when every URL does. Pack credits do not fund batch routes. Use this when an agent reads pages in bulk instead of paying settlement overhead on every fetch.",
-      "id": "v1-page-to-markdown-batch",
-      "inputModes": [
-        "application/json"
-      ],
-      "method": "POST",
-      "name": "Page to Markdown Batch",
-      "outputModes": [
-        "application/json"
-      ],
-      "price": {
-        "amount_units": "50000",
-        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$0.05",
-        "network": "eip155:8453",
-        "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
-        "protocol": "x402",
-        "scheme": "exact",
-        "usd": "0.05"
-      },
-      "tags": [
-        "fetch",
-        "markdown",
-        "web",
-        "batch",
-        "agents",
-        "web-fetch",
-        "bulk"
-      ],
-      "url": "https://stall-row-production.up.railway.app/v1/page-to-markdown/batch"
-    },
-    {
       "description": "Full details for one YouTube video in one call: title, channel, duration, view count, publish date, description, keywords, thumbnail, and caption-track availability (which languages have captions), parsed from the public watch page with no API key. Takes a video id or any youtube.com / youtu.be URL. Pays per call or with one Toolkit Pack credit. Use this when an agent found a video with /v1/tube-search and needs the full record before using it.",
       "id": "v1-video-details",
       "inputModes": [
@@ -718,6 +694,200 @@
       "url": "https://stall-row-production.up.railway.app/v1/video-details"
     },
     {
+      "description": "The full caption text of one YouTube video with timed segments: every word, with start and duration per segment, in the language you ask for (or a human-made track by default), fetched from the video's own caption track with no API key. Takes a video id or any youtube.com / youtu.be URL. Pays per call or with one Toolkit Pack credit. Use this when an agent needs what a video says — to summarize, quote, or index it — not just that it exists.",
+      "id": "v1-video-transcript",
+      "inputModes": [
+        "application/json"
+      ],
+      "method": "POST",
+      "name": "Video Transcript",
+      "outputModes": [
+        "application/json"
+      ],
+      "price": {
+        "amount_units": "10000",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "display": "$0.01",
+        "network": "eip155:8453",
+        "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+        "protocol": "x402",
+        "scheme": "exact",
+        "usd": "0.01"
+      },
+      "tags": [
+        "youtube",
+        "video",
+        "transcript",
+        "captions",
+        "data",
+        "agents",
+        "video-transcript",
+        "subtitles"
+      ],
+      "url": "https://stall-row-production.up.railway.app/v1/video-transcript"
+    },
+    {
+      "description": "One web page's declared metadata in one call: title, description, canonical URL, OpenGraph and Twitter card fields, document language, favicon, the h1/h2 heading outline, and word count — fetched through the same SSRF-guarded pipeline as page-to-markdown. Use this when an agent needs a page's identity and shape before deciding whether the full content is worth fetching.",
+      "id": "v1-page-metadata",
+      "inputModes": [
+        "application/json"
+      ],
+      "method": "POST",
+      "name": "Page Metadata",
+      "outputModes": [
+        "application/json"
+      ],
+      "price": {
+        "amount_units": "5000",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "display": "$0.005",
+        "network": "eip155:8453",
+        "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+        "protocol": "x402",
+        "scheme": "exact",
+        "usd": "0.005"
+      },
+      "tags": [
+        "fetch",
+        "metadata",
+        "web",
+        "opengraph",
+        "agents",
+        "web-fetch",
+        "page-metadata"
+      ],
+      "url": "https://stall-row-production.up.railway.app/v1/page-metadata"
+    },
+    {
+      "description": "One RSS or Atom feed digested in one call: the feed's title, link and description, its newest items (title, link, publish date, author, summary) in one normalized shape across RSS 2.0, Atom and RDF, plus a ready-to-read Markdown digest of the same items. Pays per call or with one Toolkit Pack credit. Use this when an agent monitors a feed inside a workflow and wants the items, not a parser project.",
+      "id": "v1-feed-digest",
+      "inputModes": [
+        "application/json"
+      ],
+      "method": "POST",
+      "name": "Feed Digest",
+      "outputModes": [
+        "application/json"
+      ],
+      "price": {
+        "amount_units": "10000",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "display": "$0.01",
+        "network": "eip155:8453",
+        "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+        "protocol": "x402",
+        "scheme": "exact",
+        "usd": "0.01"
+      },
+      "tags": [
+        "fetch",
+        "rss",
+        "atom",
+        "feed",
+        "markdown",
+        "agents",
+        "feed-digest",
+        "monitoring"
+      ],
+      "url": "https://stall-row-production.up.railway.app/v1/feed-digest"
+    },
+    {
+      "description": "The full redirect chain of one URL, walked server-side: every hop's URL and status, the final URL, its status and content type. Each hop is SSRF-checked before it is fetched, and the trace is the delivery — a final 404 still resolves honestly. Use this when an agent needs to know where a short or wrapped link really goes before trusting or fetching it.",
+      "id": "v1-url-unshorten",
+      "inputModes": [
+        "application/json"
+      ],
+      "method": "POST",
+      "name": "Url Unshorten",
+      "outputModes": [
+        "application/json"
+      ],
+      "price": {
+        "amount_units": "5000",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "display": "$0.005",
+        "network": "eip155:8453",
+        "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+        "protocol": "x402",
+        "scheme": "exact",
+        "usd": "0.005"
+      },
+      "tags": [
+        "fetch",
+        "url",
+        "redirect",
+        "unshorten",
+        "agents",
+        "url-unshorten",
+        "link-check"
+      ],
+      "url": "https://stall-row-production.up.railway.app/v1/url-unshorten"
+    },
+    {
+      "description": "Up to 10 YouTube searches in one call, each with its own result list in the /v1/tube-search shape, filters included; a query that fails is reported in its own entry instead of failing the batch, and the batch only fails when every query does. Pack credits do not fund batch routes. Use this when an agent sweeps many searches at once instead of paying settlement overhead on every single search.",
+      "id": "v1-tube-search-batch",
+      "inputModes": [
+        "application/json"
+      ],
+      "method": "POST",
+      "name": "Batch",
+      "outputModes": [
+        "application/json"
+      ],
+      "price": {
+        "amount_units": "50000",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "display": "$0.05",
+        "network": "eip155:8453",
+        "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+        "protocol": "x402",
+        "scheme": "exact",
+        "usd": "0.05"
+      },
+      "tags": [
+        "search",
+        "youtube",
+        "video",
+        "batch",
+        "agents",
+        "youtube-search",
+        "bulk"
+      ],
+      "url": "https://stall-row-production.up.railway.app/v1/tube-search/batch"
+    },
+    {
+      "description": "Up to 10 page conversions in one call, each fetched and converted exactly as /v1/page-to-markdown (reader-proxy fallback included); a URL that fails is reported in its own entry instead of failing the batch, and the batch only fails when every URL does. Pack credits do not fund batch routes. Use this when an agent reads pages in bulk instead of paying settlement overhead on every fetch.",
+      "id": "v1-page-to-markdown-batch",
+      "inputModes": [
+        "application/json"
+      ],
+      "method": "POST",
+      "name": "Batch",
+      "outputModes": [
+        "application/json"
+      ],
+      "price": {
+        "amount_units": "50000",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "display": "$0.05",
+        "network": "eip155:8453",
+        "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+        "protocol": "x402",
+        "scheme": "exact",
+        "usd": "0.05"
+      },
+      "tags": [
+        "fetch",
+        "markdown",
+        "web",
+        "batch",
+        "agents",
+        "web-fetch",
+        "bulk"
+      ],
+      "url": "https://stall-row-production.up.railway.app/v1/page-to-markdown/batch"
+    },
+    {
       "description": "Vital signs for one GitHub repository in a single call: stars, forks, open issues, license, last push, archived flag, and a 0-100 health score with a verdict line. Use this when an agent is choosing a dependency, a repo to contribute to, or a project to trust, and needs the quick read before the deep one.",
       "id": "v1-repo-vitals",
       "inputModes": [
@@ -747,6 +917,38 @@
         "repository-health"
       ],
       "url": "https://stall-row-production.up.railway.app/v1/repo-vitals"
+    },
+    {
+      "description": "One GitHub repository's README as Markdown, with its path, size and truncation state: the document an agent actually needs before depending on a project, fetched from the GitHub API with no key. Takes 'owner/name' or a github.com URL. Use this when Repo Vitals scored a repo and the agent needs to read what the project says it does, not just how it scores.",
+      "id": "v1-repo-readme",
+      "inputModes": [
+        "application/json"
+      ],
+      "method": "POST",
+      "name": "Repo Readme",
+      "outputModes": [
+        "application/json"
+      ],
+      "price": {
+        "amount_units": "5000",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "display": "$0.005",
+        "network": "eip155:8453",
+        "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+        "protocol": "x402",
+        "scheme": "exact",
+        "usd": "0.005"
+      },
+      "tags": [
+        "github",
+        "readme",
+        "markdown",
+        "documentation",
+        "agents",
+        "repo-readme",
+        "repository"
+      ],
+      "url": "https://stall-row-production.up.railway.app/v1/repo-readme"
     },
     {
       "description": "Pricing comps for an x402 listing, read live from the CDP Bazaar public catalog: how many resources match your keywords, their price distribution, the closest comparables, and a recommended listing price with its rationale. Use this when you operate an x402 route and are setting or changing its price.",
@@ -845,7 +1047,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/job-scout"
     },
     {
-      "description": "Probe one x402 resource or page WITHOUT paying it: BASELINE / UNCHANGED / CHANGED with a diff (price, asset, payTo, schema, body) vs the last check. Use this when a scheduled agent must know what changed first. Watch and pack state persist across redeploys on the service volume. Checking the same endpoint on a schedule? Buy the pack instead \u2014 POST /v1/recheck/pack is $1 for 250 checks (90 days) and this route spends pack credits when you send pack_id, so a loop makes one payment, not hundreds.",
+      "description": "Probe one x402 resource or page WITHOUT paying it: BASELINE / UNCHANGED / CHANGED with a diff (price, asset, payTo, schema, body) vs the last check. Use this when a scheduled agent must know what changed first. Watch and pack state persist across redeploys on the service volume. Checking the same endpoint on a schedule? Buy the pack instead — POST /v1/recheck/pack is $1 for 250 checks (90 days) and this route spends pack credits when you send pack_id, so a loop makes one payment, not hundreds.",
       "id": "v1-recheck",
       "inputModes": [
         "application/json"
@@ -879,7 +1081,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/recheck"
     },
     {
-      "description": "Verdict Index \u2014 the CDP Bazaar catalog changelog: the diff between our two newest full-catalog snapshots (price, asset, network, payTo, description, service name), with added and removed resources counted. Snapshots refresh about every 6 hours; until two exist this returns 502 and charges nothing. Filter by resource, payTo, service name, or network \u2014 every chain covered, Solana included; the summary breaks counts down by network. Use this when a router needs what changed since its last sync.",
+      "description": "Verdict Index — the CDP Bazaar catalog changelog: the diff between our two newest full-catalog snapshots (price, asset, network, payTo, description, service name), with added and removed resources counted. Snapshots refresh about every 6 hours; until two exist this returns 502 and charges nothing. Filter by resource, payTo, service name, or network — every chain covered, Solana included; the summary breaks counts down by network. Use this when a router needs what changed since its last sync.",
       "id": "v1-index-changes",
       "inputModes": [
         "application/json"
@@ -913,7 +1115,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/index/changes"
     },
     {
-      "description": "Verdict Index History \u2014 the CDP Bazaar catalog as a time series across ALL retained snapshots, not just the newest two: first-seen, delisted, relisted, and price/payTo/contract changes per route, filterable by resource, origin, payTo, service name, network, or catalogue. The payload states the earliest snapshot actually held \u2014 depth is never invented. Standing queries fund from a Fleet Pass at this same $0.01. Use this when an inspector needs a route's history, not just its latest diff.",
+      "description": "Verdict Index History — the CDP Bazaar catalog as a time series across ALL retained snapshots, not just the newest two: first-seen, delisted, relisted, and price/payTo/contract changes per route, filterable by resource, origin, payTo, service name, network, or catalogue. The payload states the earliest snapshot actually held — depth is never invented. Standing queries fund from a Fleet Pass at this same $0.01. Use this when an inspector needs a route's history, not just its latest diff.",
       "id": "v1-index-history",
       "inputModes": [
         "application/json"
@@ -947,7 +1149,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/index/history"
     },
     {
-      "description": "One combined fleet report for $0.75: Token Verdict's verdict on a token, RouteVerdict's delivery check and LockSmith's security audit summary on a service URL, and ListSmith's grade on a listing URL \u2014 four fleet services in one call. A failed leg is marked in the report, not hidden; only a total failure returns 502 and charges nothing. Use this when an agent is about to trust a token and a stall in the same workflow and wants one receipt instead of four payments.",
+      "description": "One combined fleet report for $0.75: Token Verdict's verdict on a token, RouteVerdict's delivery check and LockSmith's security audit summary on a service URL, and ListSmith's grade on a listing URL — four fleet services in one call. A failed leg is marked in the report, not hidden; only a total failure returns 502 and charges nothing. Use this when an agent is about to trust a token and a stall in the same workflow and wants one receipt instead of four payments.",
       "id": "v1-orchestrate",
       "inputModes": [
         "application/json"
@@ -981,7 +1183,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/orchestrate"
     },
     {
-      "description": "Recheck watch pack \u2014 the default for monitoring loops: one $1.00 payment buys 250 change-checks for ONE endpoint ($0.004 per check instead of $0.005), good for 90 days. Returns an unguessable pack id \u2014 spend credits via POST /v1/recheck (body pack_id or X-Recheck-Pack header); read the balance free at POST /v1/recheck/pack-balance, and an exhausted pack returns 402 rather than charging per call. Use this when anything checks the same endpoint more than ~3 times a week.",
+      "description": "Recheck watch pack — the default for monitoring loops: one $1.00 payment buys 250 change-checks for ONE endpoint ($0.004 per check instead of $0.005), good for 90 days. Returns an unguessable pack id — spend credits via POST /v1/recheck (body pack_id or X-Recheck-Pack header); read the balance free at POST /v1/recheck/pack-balance, and an exhausted pack returns 402 rather than charging per call. Use this when anything checks the same endpoint more than ~3 times a week.",
       "id": "v1-recheck-pack",
       "inputModes": [
         "application/json"
@@ -1013,7 +1215,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/recheck/pack"
     },
     {
-      "description": "Fleet Check \u2014 one health sweep of your whole x402 fleet: name resource URLs and/or origins (expanded from their own /.well-known/x402) and get a per-route table \u2014 alive, status, whether the 402 challenge decodes, each accept's network/asset/payTo/amount, an OK / DEGRADED / DOWN verdict naming the defect, and a grade per origin. Probes are unpaid only \u2014 this route never pays any route it checks. Use this when you run more than one x402 stall and want one honest answer about all of them.",
+      "description": "Fleet Check — one health sweep of your whole x402 fleet: name resource URLs and/or origins (expanded from their own /.well-known/x402) and get a per-route table — alive, status, whether the 402 challenge decodes, each accept's network/asset/payTo/amount, an OK / DEGRADED / DOWN verdict naming the defect, and a grade per origin. Probes are unpaid only — this route never pays any route it checks. Use this when you run more than one x402 stall and want one honest answer about all of them.",
       "id": "v1-fleet-check",
       "inputModes": [
         "application/json"
@@ -1047,7 +1249,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/fleet-check"
     },
     {
-      "description": "Fleet Check pack \u2014 the standing form of Fleet Check: one $5.00 payment buys 100 sweep credits for ONE fixed fleet definition (resources and/or origins), good for 90 days. Sweeps run on your interval or on demand via POST /v1/fleet-check/run \u2014 one credit per sweep, never per route \u2014 diff against the last sweep, and POST failures and recoveries to your webhook (heartbeats optional); the latest table is free at POST /v1/fleet-check/status. Use this when your stalls should be watched continuously.",
+      "description": "Fleet Check pack — the standing form of Fleet Check: one $5.00 payment buys 100 sweep credits for ONE fixed fleet definition (resources and/or origins), good for 90 days. Sweeps run on your interval or on demand via POST /v1/fleet-check/run — one credit per sweep, never per route — diff against the last sweep, and POST failures and recoveries to your webhook (heartbeats optional); the latest table is free at POST /v1/fleet-check/status. Use this when your stalls should be watched continuously.",
       "id": "v1-fleet-check-pack",
       "inputModes": [
         "application/json"
@@ -1081,7 +1283,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/fleet-check/pack"
     },
     {
-      "description": "Fleet Pass \u2014 one prepaid balance for the whole fleet: one $5.00 payment buys a $5.00 balance that spends on any paid route across Token Verdict, RouteVerdict, ListSmith, StallRow and LockSmith, each call debited at that route's listed price (90 days). Send the pass id as the X-Fleet-Pass header; read the balance free at POST /v1/fleet-pass/balance. Use this when a loop calls more than one fleet service and wants one budget, not a payment per call.",
+      "description": "Fleet Pass — one prepaid balance for the whole fleet: one $5.00 payment buys a $5.00 balance that spends on any paid route across Token Verdict, RouteVerdict, ListSmith, StallRow and LockSmith, each call debited at that route's listed price (90 days). Send the pass id as the X-Fleet-Pass header; read the balance free at POST /v1/fleet-pass/balance. Use this when a loop calls more than one fleet service and wants one budget, not a payment per call.",
       "id": "v1-fleet-pass",
       "inputModes": [
         "application/json"
@@ -1113,7 +1315,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/fleet-pass"
     },
     {
-      "description": "Fleet Pass v2 \u2014 the $20 working pass for agent frameworks: one $20.00 payment buys a $20.00 prepaid balance that spends on any paid route across Token Verdict, RouteVerdict, ListSmith, StallRow and LockSmith, each call debited at that route's listed price \u2014 no holder discounts (90 days). Send the pass id as the X-Fleet-Pass header; read the balance free at POST /v1/fleet-pass/balance. Use this when a framework loop calls the fleet often enough that a $5 pass would run dry mid-run.",
+      "description": "Fleet Pass v2 — the $20 working pass for agent frameworks: one $20.00 payment buys a $20.00 prepaid balance that spends on any paid route across Token Verdict, RouteVerdict, ListSmith, StallRow and LockSmith, each call debited at that route's listed price — no holder discounts (90 days). Send the pass id as the X-Fleet-Pass header; read the balance free at POST /v1/fleet-pass/balance. Use this when a framework loop calls the fleet often enough that a $5 pass would run dry mid-run.",
       "id": "v1-fleet-pass-20",
       "inputModes": [
         "application/json"
@@ -1146,7 +1348,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/fleet-pass-20"
     },
     {
-      "description": "Sign Reader \u2014 read one x402 endpoint's 402 challenge: both wire formats (v2 PAYMENT-REQUIRED header, v1 JSON body) parsed and normalized (network, asset, amount atomic and exact decimal, payTo, scheme), malformed fields named, declared-vs-live mismatches (method included) when you pass your catalogue entry, and a compatibility verdict for the official Python and TypeScript x402 SDKs. Probe is unpaid. Use this when a checker's parser keeps choking on sellers' signs.",
+      "description": "Sign Reader — read one x402 endpoint's 402 challenge: both wire formats (v2 PAYMENT-REQUIRED header, v1 JSON body) parsed and normalized (network, asset, amount atomic and exact decimal, payTo, scheme), malformed fields named, declared-vs-live mismatches (method included) when you pass your catalogue entry, and a compatibility verdict for the official Python and TypeScript x402 SDKs. Probe is unpaid. Use this when a checker's parser keeps choking on sellers' signs.",
       "id": "v1-sign-read",
       "inputModes": [
         "application/json"
@@ -1180,7 +1382,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/sign-read"
     },
     {
-      "description": "Score Book \u2014 an x402 target's track record from our records: check history, prices/payTos carried, catalogue presence, and \u2014 for url/origin \u2014 patrol facts from the patrol snapshot (open defects by class, first/last seen; recoveries with receipt ids; snapshot provenance). Patrol is periodic \u2014 facts are as of the snapshot, never live; it holds no payTo data, so payTo patrol sections are empty. Unknown: found=false. Use this when judging a stall needs its history, not just its current sign.",
+      "description": "Score Book — an x402 target's track record from our records: check history, prices/payTos carried, catalogue presence, and — for url/origin — patrol facts from the patrol snapshot (open defects by class, first/last seen; recoveries with receipt ids; snapshot provenance). Patrol is periodic — facts are as of the snapshot, never live; it holds no payTo data, so payTo patrol sections are empty. Unknown: found=false. Use this when judging a stall needs its history, not just its current sign.",
       "id": "v1-score-book",
       "inputModes": [
         "application/json"
@@ -1213,7 +1415,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/score-book"
     },
     {
-      "description": "Guard \u2014 one pay / caution / avoid verdict for one x402 endpoint, composed from the row's inspector tools: the live 402 sign read and SDK-checked, the payTo screened against the bad-payTo registry (OFAC plus rotation/vanishing flags, evidence attached), and the resource's recorded history \u2014 unknown history caps the verdict at CAUTION. Every verdict carries its reasons; the one probe inside is unpaid. Use this when your agent is about to pay an endpoint it does not know.",
+      "description": "Guard — one pay / caution / avoid verdict for one x402 endpoint, composed from the row's inspector tools: the live 402 sign read and SDK-checked, the payTo screened against the bad-payTo registry (OFAC plus rotation/vanishing flags, evidence attached), and the resource's recorded history — unknown history caps the verdict at CAUTION. Every verdict carries its reasons; the one probe inside is unpaid. Use this when your agent is about to pay an endpoint it does not know.",
       "id": "v1-guard",
       "inputModes": [
         "application/json"
@@ -1247,7 +1449,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/guard"
     },
     {
-      "description": "Inspector Physical \u2014 the full pre-pay workup for one x402 resource in ONE $0.05 call (the singles sum to $0.075): Sign Reader's challenge report, Score Book's track record, Guard's PROCEED/CAUTION/ABORT verdict as the headline, and a Recheck that probes and records the target (BASELINE/UNCHANGED/CHANGED, in the public feed). No RouteVerdict leg. Bad targets are delivered reports; only SSRF refusals are 422. Use this when your agent wants one endpoint's complete picture before paying it.",
+      "description": "Inspector Physical — the full pre-pay workup for one x402 resource in ONE $0.05 call (the singles sum to $0.075): Sign Reader's challenge report, Score Book's track record, Guard's PROCEED/CAUTION/ABORT verdict as the headline, and a Recheck that probes and records the target (BASELINE/UNCHANGED/CHANGED, in the public feed). No RouteVerdict leg. Bad targets are delivered reports; only SSRF refusals are 422. Use this when your agent wants one endpoint's complete picture before paying it.",
       "id": "v1-physical",
       "inputModes": [
         "application/json"
@@ -1281,7 +1483,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/physical"
     },
     {
-      "description": "PayTo Pin Verify \u2014 check one pinned x402 route against its first-seen payTo set: a fresh unpaid probe compares the live payTo set with the pin's hash-committed baseline, answering MATCH, MOVED with before/after sets, or ROUTE_GONE as a delivered report. A swap fires one signed PAYTO_MOVED webhook per distinct new set. Pins are created free at POST /v1/payto-pin. Use this when a payTo swap must be caught before you pay the route again.",
+      "description": "PayTo Pin Verify — check one pinned x402 route against its first-seen payTo set: a fresh unpaid probe compares the live payTo set with the pin's hash-committed baseline, answering MATCH, MOVED with before/after sets, or ROUTE_GONE as a delivered report. A swap fires one signed PAYTO_MOVED webhook per distinct new set. Pins are created free at POST /v1/payto-pin. Use this when a payTo swap must be caught before you pay the route again.",
       "id": "v1-payto-pin-verify",
       "inputModes": [
         "application/json"
@@ -1313,7 +1515,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/payto-pin/verify"
     },
     {
-      "description": "Toolkit Pack \u2014 the prepaid form of the inspector toolkit: one $1.00 payment buys 125 checks spendable on Sign Reader, Score Book, or Guard in any mix ($0.008/check instead of the $0.01 singles), good for 90 days. Spend credits via POST /v1/sign-read, /v1/score-book, or /v1/guard (body pack_id or X-Toolkit-Pack header); read the balance free at POST /v1/toolkit/pack-balance. An exhausted pack returns 402 rather than charging per call. Use this when your agent runs the toolkit regularly.",
+      "description": "Toolkit Pack — one $1.00 payment buys 125 prepaid calls ($0.008 each instead of the $0.01 singles) spendable on Sign Reader, Score Book, Guard, Tube Search, Page to Markdown, or Video Details in any mix, good for 90 days. Spend via pack_id (body or X-Toolkit-Pack header) on those routes; read the balance free at POST /v1/toolkit/pack-balance. An exhausted pack returns 402 rather than charging per call. Use this when your agent runs these tools regularly.",
       "id": "v1-toolkit-pack",
       "inputModes": [
         "application/json"
@@ -1345,7 +1547,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/toolkit/pack"
     },
     {
-      "description": "Ledger Dataset (summary) \u2014 per-origin rollup of the fleet's x402 observation ledger (Recheck history + held CDP snapshots + the committed patrol snapshot): routes, checks, change/recovery counts, patrol open defects and recoveries by class, last-seen times, provenance. Observation data only \u2014 no operator contacts. Use this when you want the town-wide state of the x402 catalogue before buying the full per-route pull.",
+      "description": "Ledger Dataset (summary) — per-origin rollup of the fleet's x402 observation ledger (Recheck history + held CDP snapshots + the committed patrol snapshot): routes, checks, change/recovery counts, patrol open defects and recoveries by class, last-seen times, provenance. Observation data only — no operator contacts. Use this when you want the town-wide state of the x402 catalogue before buying the full per-route pull.",
       "id": "v1-ledger-dataset",
       "inputModes": [
         "application/json"
@@ -1376,7 +1578,7 @@
       "url": "https://stall-row-production.up.railway.app/v1/ledger-dataset"
     },
     {
-      "description": "Ledger Dataset (full) \u2014 every route in the fleet's x402 observation ledger: observed/listed terms, latest status, check/change/recovery counts, derived defect class, catalogue listing + usage counters, and its patrol block (open defect by class, first/last seen; or recovery + receipt id), plus the per-origin rollup and provenance. Sources: Recheck history, held CDP + patrol snapshots; observation data only. Use this when you need route-level state for monitoring, grading, or dataset work.",
+      "description": "Ledger Dataset (full) — every route in the fleet's x402 observation ledger: observed/listed terms, latest status, check/change/recovery counts, derived defect class, catalogue listing + usage counters, and its patrol block (open defect by class, first/last seen; or recovery + receipt id), plus the per-origin rollup and provenance. Sources: Recheck history, held CDP + patrol snapshots; observation data only. Use this when you need route-level state for monitoring, grading, or dataset work.",
       "id": "v1-ledger-dataset-full",
       "inputModes": [
         "application/json"

@@ -1,6 +1,6 @@
 {
   "contact": "patrol@verdictrow.com",
-  "generated_at": "2026-11-04T08:23:08Z",
+  "generated_at": "2026-11-07T14:41:21Z",
   "generated_by": "Ren, Verdict Row Patrol \u2014 patrol@verdictrow.com",
   "host": {
     "html": "https://stall-row-production.up.railway.app/tools",
@@ -59,6 +59,10 @@
           "url": "https://stall-row-production.up.railway.app/samples`"
         },
         {
+          "label": "Sandbox twins (free): `GET https://stall-row-production.up.railway.app/sandbox` lists a free sandbox twin of every priced route on this stall \u2014 POST to https://stall-row-production.up.railway.app/sandbox plus the priced route's path (same request schema and validation, no payment leg, deterministic fixture delivery marked sandbox=true, never a real delivery); edge-case scenarios normal / rotated_payto / drifted_schema / flagged_wallet via the X-Sandbox-Scenario header",
+          "url": "https://stall-row-production.up.railway.app/sandbox`"
+        },
+        {
           "label": "POST https://stall-row-production.up.railway.app/v1/recheck/pack-balance \u2014 free pack balance (pack id required)",
           "url": "https://stall-row-production.up.railway.app/v1/recheck/pack-balance"
         },
@@ -115,6 +119,26 @@
           "url": "https://stall-row-production.up.railway.app/v1/index/subscription/pause"
         },
         {
+          "label": "POST https://stall-row-production.up.railway.app/v1/heartbeat/register \u2014 free Heartbeat Watch registration (liveness-only watch over a resource SET; unpaid knocks, $0.001/knock debited from a Recheck pack or Fleet Pass, transition-only up/down/degraded alerts, unfunded registrations pause); /status, /run, /pause, /resume, /cancel beside it",
+          "url": "https://stall-row-production.up.railway.app/v1/heartbeat/register"
+        },
+        {
+          "label": "POST https://stall-row-production.up.railway.app/v1/defect-watch/register \u2014 free Defect-Class Watch registration (one patrol-taxonomy defect class, optional origin/resource/service-name scope; $0.005 per confirmed event from a pack/pass; silent baseline); /status, /run, /pause, /resume, /cancel beside it",
+          "url": "https://stall-row-production.up.railway.app/v1/defect-watch/register"
+        },
+        {
+          "label": "POST https://stall-row-production.up.railway.app/v1/portfolio-watch/register \u2014 free Portfolio Watch registration (one registration per operator family as the Index holds it; family expanded at registration and re-expanded every evaluation; heartbeat $0.001/knock, recheck $0.005/route or digest $0.005/evaluation tiers from one Fleet Pass); /status, /run, /pause, /resume, /cancel beside it",
+          "url": "https://stall-row-production.up.railway.app/v1/portfolio-watch/register"
+        },
+        {
+          "label": "POST https://stall-row-production.up.railway.app/v1/stall-watch/register \u2014 free Stall Watch registration (claim-verified stall owners only, X-Claim-Session; composes claim + $1 Recheck pack + Standing Watch + signed recovery receipts on recovery events); GET https://stall-row-production.up.railway.app/v1/stall-watch/status?origin=, /evaluate, /pause, /resume, /cancel beside it",
+          "url": "https://stall-row-production.up.railway.app/v1/stall-watch/register"
+        },
+        {
+          "label": "Alert Digest Mode: watch registrations accept delivery_mode='digest' + digest_interval hourly|daily (batched delivery: counts by class, events, period bounds; debits unchanged per knock/event); POST https://stall-row-production.up.railway.app/v1/watch/digest/pending and /v1/watch/digest/flush read/drain a queue free. Pack/pass mints and watch/webhook registrations honour ?payer= pre-binding (payer_hint)",
+          "url": "https://stall-row-production.up.railway.app/v1/watch/digest/pending"
+        },
+        {
           "label": "GET https://stall-row-production.up.railway.app/widget/verdict.js \u2014 free embeddable verdict widget: <script src=\"https://stall-row-production.up.railway.app/widget/verdict.js\" data-target=\"https://example.com/v1/your-route\" async></script> renders the recorded verdict + last-change (shadow DOM, no global CSS); iframe form: GET https://stall-row-production.up.railway.app/widget/verdict.html?url= (self-contained, server-rendered). Branding: Verdict Row Patrol, patrol@verdictrow.com",
           "url": "https://stall-row-production.up.railway.app/widget/verdict.js"
         }
@@ -130,7 +154,7 @@
           ],
           "title": "Verdict Row Fleet \u2014 Hosted MCP (streamable HTTP)",
           "tool_source": "Item 4 function-calling pack (function-tools.json): every fleet route priced <= $0.05, generated from the canonical route registry",
-          "tools": 24,
+          "tools": 25,
           "transport": "streamable-http",
           "url": "https://stall-row-production.up.railway.app/mcp"
         },
@@ -143,7 +167,7 @@
       "name": "stall-row",
       "network": "eip155:8453",
       "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
-      "priced_route_count": 34,
+      "priced_route_count": 42,
       "priced_routes": [
         {
           "accepts": [
@@ -320,7 +344,7 @@
               "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
             }
           ],
-          "description": "YouTube search results as clean JSON: title, video id, URL, channel, duration, and views for each result, scraped from the public results page with no API key. Use this when an agent needs to find a video mid-task and cannot drive a browser or hold a Google API key.",
+          "description": "YouTube search results as clean JSON: title, video id, URL, channel, duration, views, publish age, and thumbnail for each result, scraped from the public results page with no API key. Optional duration, upload-recency, and channel filters; max_results up to 50 digs past page one. Pays per call or with one Toolkit Pack credit. Use this when an agent needs to find a video mid-task without a browser or a Google API key.",
           "method": "POST",
           "price_display": "$0.01",
           "resource": "https://stall-row-production.up.railway.app/v1/tube-search"
@@ -335,10 +359,115 @@
               "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
             }
           ],
-          "description": "Fetch one web page and return its main content as clean Markdown with title and word count, extracted server-side. Private and loopback targets are refused. Use this when an agent needs to read a page inside a workflow without a browser and without wading through navigation and boilerplate.",
+          "description": "Fetch one web page and return its main content as clean Markdown with title and word count, extracted server-side; a reader-proxy fallback retries pages that refuse the direct fetch (marked in-band). Private and loopback targets are refused. Pays per call or with one Toolkit Pack credit. Use this when an agent needs to read a page inside a workflow without a browser and without wading through navigation and boilerplate.",
           "method": "POST",
           "price_display": "$0.01",
           "resource": "https://stall-row-production.up.railway.app/v1/page-to-markdown"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.01",
+              "amount_units": "10000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Full details for one YouTube video in one call: title, channel, duration, view count, publish date, description, keywords, thumbnail, and caption-track availability (which languages have captions), parsed from the public watch page with no API key. Takes a video id or any youtube.com / youtu.be URL. Pays per call or with one Toolkit Pack credit. Use this when an agent found a video with /v1/tube-search and needs the full record before using it.",
+          "method": "POST",
+          "price_display": "$0.01",
+          "resource": "https://stall-row-production.up.railway.app/v1/video-details"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.01",
+              "amount_units": "10000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "The full caption text of one YouTube video with timed segments: every word, with start and duration per segment, in the language you ask for (or a human-made track by default), fetched from the video's own caption track with no API key. Takes a video id or any youtube.com / youtu.be URL. Pays per call or with one Toolkit Pack credit. Use this when an agent needs what a video says \u2014 to summarize, quote, or index it \u2014 not just that it exists.",
+          "method": "POST",
+          "price_display": "$0.01",
+          "resource": "https://stall-row-production.up.railway.app/v1/video-transcript"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.005",
+              "amount_units": "5000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "One web page's declared metadata in one call: title, description, canonical URL, OpenGraph and Twitter card fields, document language, favicon, the h1/h2 heading outline, and word count \u2014 fetched through the same SSRF-guarded pipeline as page-to-markdown. Use this when an agent needs a page's identity and shape before deciding whether the full content is worth fetching.",
+          "method": "POST",
+          "price_display": "$0.005",
+          "resource": "https://stall-row-production.up.railway.app/v1/page-metadata"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.01",
+              "amount_units": "10000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "One RSS or Atom feed digested in one call: the feed's title, link and description, its newest items (title, link, publish date, author, summary) in one normalized shape across RSS 2.0, Atom and RDF, plus a ready-to-read Markdown digest of the same items. Pays per call or with one Toolkit Pack credit. Use this when an agent monitors a feed inside a workflow and wants the items, not a parser project.",
+          "method": "POST",
+          "price_display": "$0.01",
+          "resource": "https://stall-row-production.up.railway.app/v1/feed-digest"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.005",
+              "amount_units": "5000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "The full redirect chain of one URL, walked server-side: every hop's URL and status, the final URL, its status and content type. Each hop is SSRF-checked before it is fetched, and the trace is the delivery \u2014 a final 404 still resolves honestly. Use this when an agent needs to know where a short or wrapped link really goes before trusting or fetching it.",
+          "method": "POST",
+          "price_display": "$0.005",
+          "resource": "https://stall-row-production.up.railway.app/v1/url-unshorten"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.05",
+              "amount_units": "50000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Up to 10 YouTube searches in one call, each with its own result list in the /v1/tube-search shape, filters included; a query that fails is reported in its own entry instead of failing the batch, and the batch only fails when every query does. Pack credits do not fund batch routes. Use this when an agent sweeps many searches at once instead of paying settlement overhead on every single search.",
+          "method": "POST",
+          "price_display": "$0.05",
+          "resource": "https://stall-row-production.up.railway.app/v1/tube-search/batch"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.05",
+              "amount_units": "50000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "Up to 10 page conversions in one call, each fetched and converted exactly as /v1/page-to-markdown (reader-proxy fallback included); a URL that fails is reported in its own entry instead of failing the batch, and the batch only fails when every URL does. Pack credits do not fund batch routes. Use this when an agent reads pages in bulk instead of paying settlement overhead on every fetch.",
+          "method": "POST",
+          "price_display": "$0.05",
+          "resource": "https://stall-row-production.up.railway.app/v1/page-to-markdown/batch"
         },
         {
           "accepts": [
@@ -354,6 +483,21 @@
           "method": "POST",
           "price_display": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/repo-vitals"
+        },
+        {
+          "accepts": [
+            {
+              "amount_decimal": "0.005",
+              "amount_units": "5000",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "network": "eip155:8453",
+              "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            }
+          ],
+          "description": "One GitHub repository's README as Markdown, with its path, size and truncation state: the document an agent actually needs before depending on a project, fetched from the GitHub API with no key. Takes 'owner/name' or a github.com URL. Use this when Repo Vitals scored a repo and the agent needs to read what the project says it does, not just how it scores.",
+          "method": "POST",
+          "price_display": "$0.005",
+          "resource": "https://stall-row-production.up.railway.app/v1/repo-readme"
         },
         {
           "accepts": [
@@ -634,7 +778,7 @@
               "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
             }
           ],
-          "description": "Toolkit Pack \u2014 the prepaid form of the inspector toolkit: one $1.00 payment buys 125 checks spendable on Sign Reader, Score Book, or Guard in any mix ($0.008/check instead of the $0.01 singles), good for 90 days. Spend credits via POST /v1/sign-read, /v1/score-book, or /v1/guard (body pack_id or X-Toolkit-Pack header); read the balance free at POST /v1/toolkit/pack-balance. An exhausted pack returns 402 rather than charging per call. Use this when your agent runs the toolkit regularly.",
+          "description": "Toolkit Pack \u2014 one $1.00 payment buys 125 prepaid calls ($0.008 each instead of the $0.01 singles) spendable on Sign Reader, Score Book, Guard, Tube Search, Page to Markdown, or Video Details in any mix, good for 90 days. Spend via pack_id (body or X-Toolkit-Pack header) on those routes; read the balance free at POST /v1/toolkit/pack-balance. An exhausted pack returns 402 rather than charging per call. Use this when your agent runs these tools regularly.",
           "method": "POST",
           "price_display": "$1",
           "resource": "https://stall-row-production.up.railway.app/v1/toolkit/pack"
@@ -728,6 +872,10 @@
         {
           "label": "Free samples: `GET https://route-verdict-production.up.railway.app/samples` \u2014 one sample response per priced route on this stall (recorded responses and schema-examples, labelled in-band: sample=true, live=false); `GET https://route-verdict-production.up.railway.app/sample/<route-slug>` for a single route",
           "url": "https://route-verdict-production.up.railway.app/samples`"
+        },
+        {
+          "label": "Sandbox twins (free): `GET https://route-verdict-production.up.railway.app/sandbox` lists a free sandbox twin of every priced route on this stall \u2014 POST to https://route-verdict-production.up.railway.app/sandbox plus the priced route's path (same request schema and validation, no payment leg, deterministic fixture delivery marked sandbox=true, never a real delivery); edge-case scenarios normal / rotated_payto / drifted_schema / flagged_wallet via the X-Sandbox-Scenario header",
+          "url": "https://route-verdict-production.up.railway.app/sandbox`"
         }
       ],
       "mcp": {
@@ -812,6 +960,10 @@
         {
           "label": "Free samples: `GET https://token-verdict-production.up.railway.app/samples` \u2014 one sample response per priced route on this stall (recorded responses and schema-examples, labelled in-band: sample=true, live=false); `GET https://token-verdict-production.up.railway.app/sample/<route-slug>` for a single route",
           "url": "https://token-verdict-production.up.railway.app/samples`"
+        },
+        {
+          "label": "Sandbox twins (free): `GET https://token-verdict-production.up.railway.app/sandbox` lists a free sandbox twin of every priced route on this stall \u2014 POST to https://token-verdict-production.up.railway.app/sandbox plus the priced route's path (same request schema and validation, no payment leg, deterministic fixture delivery marked sandbox=true, never a real delivery); edge-case scenarios normal / rotated_payto / drifted_schema / flagged_wallet via the X-Sandbox-Scenario header",
+          "url": "https://token-verdict-production.up.railway.app/sandbox`"
         }
       ],
       "mcp": {
@@ -947,6 +1099,10 @@
         {
           "label": "Free samples: `GET https://list-smith-production.up.railway.app/samples` \u2014 one sample response per priced route on this stall (recorded responses and schema-examples, labelled in-band: sample=true, live=false); `GET https://list-smith-production.up.railway.app/sample/<route-slug>` for a single route",
           "url": "https://list-smith-production.up.railway.app/samples`"
+        },
+        {
+          "label": "Sandbox twins (free): `GET https://list-smith-production.up.railway.app/sandbox` lists a free sandbox twin of every priced route on this stall \u2014 POST to https://list-smith-production.up.railway.app/sandbox plus the priced route's path (same request schema and validation, no payment leg, deterministic fixture delivery marked sandbox=true, never a real delivery); edge-case scenarios normal / rotated_payto / drifted_schema / flagged_wallet via the X-Sandbox-Scenario header",
+          "url": "https://list-smith-production.up.railway.app/sandbox`"
         }
       ],
       "mcp": {
@@ -1042,6 +1198,10 @@
         {
           "label": "Free samples: `GET https://lock-smith-production.up.railway.app/samples` \u2014 one sample response per priced route on this stall (recorded responses and schema-examples, labelled in-band: sample=true, live=false); `GET https://lock-smith-production.up.railway.app/sample/<route-slug>` for a single route",
           "url": "https://lock-smith-production.up.railway.app/samples`"
+        },
+        {
+          "label": "Sandbox twins (free): `GET https://lock-smith-production.up.railway.app/sandbox` lists a free sandbox twin of every priced route on this stall \u2014 POST to https://lock-smith-production.up.railway.app/sandbox plus the priced route's path (same request schema and validation, no payment leg, deterministic fixture delivery marked sandbox=true, never a real delivery); edge-case scenarios normal / rotated_payto / drifted_schema / flagged_wallet via the X-Sandbox-Scenario header",
+          "url": "https://lock-smith-production.up.railway.app/sandbox`"
         }
       ],
       "mcp": {
@@ -1094,7 +1254,7 @@
   ],
   "title": "Verdict Row \u2014 Tools Index",
   "totals": {
-    "priced_routes": 41,
+    "priced_routes": 49,
     "stalls": 5
   }
 }
