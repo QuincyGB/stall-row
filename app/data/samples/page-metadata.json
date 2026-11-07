@@ -1,0 +1,32 @@
+{
+  "canonical": "https://www.x402.org/",
+  "description": "An open standard for internet-native payments.",
+  "favicon": "https://www.x402.org/favicon.ico",
+  "final_url": "https://www.x402.org/",
+  "headings": {
+    "h1": [
+      "x402"
+    ],
+    "h2": [
+      "How it works"
+    ]
+  },
+  "lang": "en",
+  "live": false,
+  "og": {
+    "title": "x402",
+    "type": "website"
+  },
+  "recorded_at": null,
+  "route": "/v1/page-metadata",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "https://www.x402.org/",
+  "title": "x402 \u2014 internet-native payments",
+  "twitter": {
+    "card": "summary"
+  },
+  "url": "https://www.x402.org/",
+  "word_count": 120
+}

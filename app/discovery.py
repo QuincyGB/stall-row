@@ -812,6 +812,222 @@ ROUTES: dict[str, dict] = {
             ],
         },
     },
+    "/v1/video-transcript": {
+        "description": (
+            "The full caption text of one YouTube video with timed "
+            "segments: every word, with start and duration per segment, "
+            "in the language you ask for (or a human-made track by "
+            "default), fetched from the video's own caption track with "
+            "no API key. Takes a video id or any youtube.com / youtu.be "
+            "URL. Pays per call or with one Toolkit Pack credit. Use "
+            "this when an agent needs what a video says — to summarize, "
+            "quote, or index it — not just that it exists."
+        ),
+        "tags": ["youtube", "video", "transcript", "captions", "data", "agents", "video-transcript", "subtitles"],
+        "input_schema": _obj(
+            {"video": _S, "lang": _N, "pack_id": _N},
+            ["video"],
+        ),
+        "input_example": {"video": "dQw4w9WgXcQ"},
+        "output_schema": _obj(
+            {
+                "video_id": _S,
+                "url": _S,
+                "title": _N,
+                "language_code": _N,
+                "language": _N,
+                "kind": _N,
+                "segment_count": _I,
+                "char_count": _I,
+                "transcript": _S,
+                "segments": {
+                    "type": "array",
+                    "items": _obj(
+                        {
+                            "start_ms": _IN,
+                            "duration_ms": _IN,
+                            "text": _S,
+                        },
+                        ["text"],
+                    ),
+                },
+                "truncated": _B,
+            },
+            ["video_id", "url", "segment_count", "char_count", "transcript", "segments", "truncated"],
+        ),
+        "output_example": {
+            "video_id": "dQw4w9WgXcQ",
+            "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            "title": "x402 explained in 10 minutes",
+            "language_code": "en",
+            "language": "English",
+            "kind": None,
+            "segment_count": 2,
+            "char_count": 46,
+            "transcript": "Welcome back. Today we walk through x402 payments.",
+            "segments": [
+                {"start_ms": 0, "duration_ms": 2400, "text": "Welcome back."},
+                {"start_ms": 2400, "duration_ms": 3100, "text": "Today we walk through x402 payments."},
+            ],
+            "truncated": False,
+        },
+    },
+    "/v1/page-metadata": {
+        "description": (
+            "One web page's declared metadata in one call: title, "
+            "description, canonical URL, OpenGraph and Twitter card "
+            "fields, document language, favicon, the h1/h2 heading "
+            "outline, and word count — fetched through the same "
+            "SSRF-guarded pipeline as page-to-markdown. Use this when "
+            "an agent needs a page's identity and shape before "
+            "deciding whether the full content is worth fetching."
+        ),
+        "tags": ["fetch", "metadata", "web", "opengraph", "agents", "web-fetch", "page-metadata"],
+        "input_schema": _obj({"url": _S}, ["url"]),
+        "input_example": {"url": "https://www.x402.org/"},
+        "output_schema": _obj(
+            {
+                "url": _S,
+                "final_url": _S,
+                "title": _N,
+                "description": _N,
+                "canonical": _N,
+                "lang": _N,
+                "favicon": _N,
+                "og": {"type": "object"},
+                "twitter": {"type": "object"},
+                "headings": _obj(
+                    {
+                        "h1": {"type": "array", "items": _S},
+                        "h2": {"type": "array", "items": _S},
+                    },
+                    ["h1", "h2"],
+                ),
+                "word_count": _I,
+            },
+            ["url", "final_url", "og", "twitter", "headings", "word_count"],
+        ),
+        "output_example": {
+            "url": "https://www.x402.org/",
+            "final_url": "https://www.x402.org/",
+            "title": "x402 — internet-native payments",
+            "description": "An open standard for internet-native payments.",
+            "canonical": "https://www.x402.org/",
+            "lang": "en",
+            "favicon": "https://www.x402.org/favicon.ico",
+            "og": {"title": "x402", "type": "website"},
+            "twitter": {"card": "summary"},
+            "headings": {"h1": ["x402"], "h2": ["How it works"]},
+            "word_count": 120,
+        },
+    },
+    "/v1/feed-digest": {
+        "description": (
+            "One RSS or Atom feed digested in one call: the feed's "
+            "title, link and description, its newest items (title, "
+            "link, publish date, author, summary) in one normalized "
+            "shape across RSS 2.0, Atom and RDF, plus a ready-to-read "
+            "Markdown digest of the same items. Pays per call or with "
+            "one Toolkit Pack credit. Use this when an agent monitors "
+            "a feed inside a workflow and wants the items, not a "
+            "parser project."
+        ),
+        "tags": ["fetch", "rss", "atom", "feed", "markdown", "agents", "feed-digest", "monitoring"],
+        "input_schema": _obj(
+            {
+                "url": _S,
+                "max_items": {"type": "integer", "minimum": 1, "maximum": 25},
+                "pack_id": _N,
+            },
+            ["url"],
+        ),
+        "input_example": {"url": "https://www.x402.org/feed.xml", "max_items": 10},
+        "output_schema": _obj(
+            {
+                "url": _S,
+                "final_url": _S,
+                "feed_title": _N,
+                "feed_link": _N,
+                "feed_description": _N,
+                "count": _I,
+                "items": {
+                    "type": "array",
+                    "items": _obj(
+                        {
+                            "title": _N,
+                            "link": _N,
+                            "published": _N,
+                            "author": _N,
+                            "summary": _N,
+                        },
+                        [],
+                    ),
+                },
+                "markdown": _S,
+            },
+            ["url", "final_url", "count", "items", "markdown"],
+        ),
+        "output_example": {
+            "url": "https://www.x402.org/feed.xml",
+            "final_url": "https://www.x402.org/feed.xml",
+            "feed_title": "x402 Updates",
+            "feed_link": "https://www.x402.org/",
+            "feed_description": "News about the x402 standard.",
+            "count": 1,
+            "items": [
+                {
+                    "title": "x402 v2 is live",
+                    "link": "https://www.x402.org/news/v2",
+                    "published": "Fri, 07 Nov 2026 10:00:00 GMT",
+                    "author": None,
+                    "summary": "The v2 specification is published.",
+                }
+            ],
+            "markdown": "# x402 Updates\n\n## x402 v2 is live\n\nFri, 07 Nov 2026 10:00:00 GMT · https://www.x402.org/news/v2\n\nThe v2 specification is published.",
+        },
+    },
+    "/v1/url-unshorten": {
+        "description": (
+            "The full redirect chain of one URL, walked server-side: "
+            "every hop's URL and status, the final URL, its status and "
+            "content type. Each hop is SSRF-checked before it is "
+            "fetched, and the trace is the delivery — a final 404 "
+            "still resolves honestly. Use this when an agent needs to "
+            "know where a short or wrapped link really goes before "
+            "trusting or fetching it."
+        ),
+        "tags": ["fetch", "url", "redirect", "unshorten", "agents", "url-unshorten", "link-check"],
+        "input_schema": _obj({"url": _S}, ["url"]),
+        "input_example": {"url": "https://bit.ly/3x402example"},
+        "output_schema": _obj(
+            {
+                "url": _S,
+                "final_url": _S,
+                "final_status": _I,
+                "content_type": _N,
+                "redirects": _I,
+                "hops": {
+                    "type": "array",
+                    "items": _obj(
+                        {"url": _S, "status": _I},
+                        ["url", "status"],
+                    ),
+                },
+            },
+            ["url", "final_url", "final_status", "redirects", "hops"],
+        ),
+        "output_example": {
+            "url": "https://bit.ly/3x402example",
+            "final_url": "https://www.x402.org/",
+            "final_status": 200,
+            "content_type": "text/html; charset=utf-8",
+            "redirects": 1,
+            "hops": [
+                {"url": "https://bit.ly/3x402example", "status": 301},
+                {"url": "https://www.x402.org/", "status": 200},
+            ],
+        },
+    },
     "/v1/tube-search/batch": {
         "description": (
             "Up to 10 YouTube searches in one call, each with its own "
@@ -1001,6 +1217,41 @@ ROUTES: dict[str, dict] = {
             "health_score": 45,
             "health_notes": ["Very few stars (<10)."],
             "verdict": "Active-looking repository with a modest footprint.",
+        },
+    },
+    "/v1/repo-readme": {
+        "description": (
+            "One GitHub repository's README as Markdown, with its "
+            "path, size and truncation state: the document an agent "
+            "actually needs before depending on a project, fetched "
+            "from the GitHub API with no key. Takes 'owner/name' or a "
+            "github.com URL. Use this when Repo Vitals scored a repo "
+            "and the agent needs to read what the project says it "
+            "does, not just how it scores."
+        ),
+        "tags": ["github", "readme", "markdown", "documentation", "agents", "repo-readme", "repository"],
+        "input_schema": _obj({"repo": _S}, ["repo"]),
+        "input_example": {"repo": "QuincyGB/token-verdict"},
+        "output_schema": _obj(
+            {
+                "repo": _S,
+                "path": _N,
+                "html_url": _N,
+                "bytes": _I,
+                "chars": _I,
+                "truncated": _B,
+                "markdown": _S,
+            },
+            ["repo", "bytes", "chars", "truncated", "markdown"],
+        ),
+        "output_example": {
+            "repo": "QuincyGB/token-verdict",
+            "path": "README.md",
+            "html_url": "https://github.com/QuincyGB/token-verdict/blob/main/README.md",
+            "bytes": 2048,
+            "chars": 2048,
+            "truncated": False,
+            "markdown": "# Token Verdict\n\nOne-call token verdicts for x402 sellers.",
         },
     },
     "/v1/price-check": {
@@ -2086,7 +2337,7 @@ ROUTES: dict[str, dict] = {
             "expired": False,
             "expiry_days": 90,
             "price_units": 1000000,
-            "note": "Spend credits with POST /v1/sign-read, /v1/score-book, /v1/guard, /v1/tube-search, /v1/page-to-markdown or /v1/video-details: send this pack_id in the body or the X-Toolkit-Pack header. Read the balance free at POST /v1/toolkit/pack-balance.",
+            "note": "Spend credits with POST /v1/sign-read, /v1/score-book, /v1/guard, /v1/tube-search, /v1/page-to-markdown, /v1/video-details, /v1/video-transcript or /v1/feed-digest: send this pack_id in the body or the X-Toolkit-Pack header. Read the balance free at POST /v1/toolkit/pack-balance.",
         },
     },
     "/v1/ledger-dataset": {

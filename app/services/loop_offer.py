@@ -137,6 +137,8 @@ UTILITY_ROUTES = frozenset(
         "/v1/video-details",
         "/v1/tube-search/batch",
         "/v1/page-to-markdown/batch",
+        "/v1/video-transcript",
+        "/v1/feed-digest",
     }
 )
 
@@ -152,10 +154,10 @@ def _toolkit_pack_offer() -> dict:
         "price_usd": pack_usd,
         "what_it_is": (
             "125 prepaid calls spendable on Tube Search, Page to "
-            "Markdown, Video Details, Sign Reader, Score Book, or "
-            "Guard in any mix, bought once and spent via pack_id "
-            "(body field or X-Toolkit-Pack header) instead of a "
-            "per-call payment."
+            "Markdown, Video Details, Video Transcript, Feed Digest, "
+            "Sign Reader, Score Book, or Guard in any mix, bought once "
+            "and spent via pack_id (body field or X-Toolkit-Pack "
+            "header) instead of a per-call payment."
         ),
         "terms": {
             "credits": recheck_svc.TOOLKIT_PACK_CREDITS,
@@ -180,7 +182,8 @@ def _utility_offer(payer: dict) -> dict:
     line = (
         f"Returning payer: the Toolkit Pack does "
         f"{recheck_svc.TOOLKIT_PACK_CREDITS} Tube Search / Page to "
-        f"Markdown / Video Details calls for ${pack_usd:.2f} "
+        f"Markdown / Video Details / Video Transcript / Feed Digest "
+        f"calls for ${pack_usd:.2f} "
         f"(${per_check_usd:.3f} a call instead of ${single_usd:.3f} "
         f"per call) — it funds the shelf this delivery came from."
     )

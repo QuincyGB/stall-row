@@ -1,0 +1,31 @@
+{
+  "char_count": 46,
+  "kind": null,
+  "language": "English",
+  "language_code": "en",
+  "live": false,
+  "recorded_at": null,
+  "route": "/v1/video-transcript",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "segment_count": 2,
+  "segments": [
+    {
+      "duration_ms": 2400,
+      "start_ms": 0,
+      "text": "Welcome back."
+    },
+    {
+      "duration_ms": 3100,
+      "start_ms": 2400,
+      "text": "Today we walk through x402 payments."
+    }
+  ],
+  "source": "schema-example",
+  "target": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "title": "x402 explained in 10 minutes",
+  "transcript": "Welcome back. Today we walk through x402 payments.",
+  "truncated": false,
+  "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "video_id": "dQw4w9WgXcQ"
+}

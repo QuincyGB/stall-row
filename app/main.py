@@ -102,7 +102,8 @@ through to the handler, which validates the pack against the store
 before any check runs — an invalid pack delivers nothing.
 
 Toolkit packs: POST /v1/sign-read, /v1/score-book, /v1/guard,
-/v1/tube-search, /v1/page-to-markdown or /v1/video-details
+/v1/tube-search, /v1/page-to-markdown, /v1/video-details,
+/v1/video-transcript or /v1/feed-digest
 presenting a toolkit pack id (body field `pack_id` or X-Toolkit-Pack
 header) spends one prepaid credit from a pack bought at
 POST /v1/toolkit/pack — the pack binds to the toolkit route family,
@@ -1035,6 +1036,48 @@ class VideoDetailsRequest(BaseModel):
     )
 
 
+class VideoTranscriptRequest(BaseModel):
+    video: str = Field(
+        description="YouTube video id (11 chars) or a youtube.com / youtu.be URL"
+    )
+    lang: str | None = Field(
+        default=None,
+        description=(
+            "Optional caption language code (e.g. 'en', 'es'); defaults "
+            "to a human-made track when one exists, else the first "
+            "available track. A language the video does not carry is "
+            "refused (422) with the available languages named"
+        ),
+    )
+    pack_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional toolkit pack id (or send the X-Toolkit-Pack header): "
+            "spends one pack credit instead of the per-call payment"
+        ),
+    )
+
+
+class PageMetadataRequest(BaseModel):
+    url: str = Field(description="Public http(s) URL to read the metadata of")
+
+
+class FeedDigestRequest(BaseModel):
+    url: str = Field(description="Public http(s) URL of an RSS or Atom feed")
+    max_items: int = Field(default=10, ge=1, le=25)
+    pack_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional toolkit pack id (or send the X-Toolkit-Pack header): "
+            "spends one pack credit instead of the per-call payment"
+        ),
+    )
+
+
+class UrlUnshortenRequest(BaseModel):
+    url: str = Field(description="Public http(s) URL to resolve through its redirect chain")
+
+
 class TubeSearchBatchRequest(BaseModel):
     queries: list[str] = Field(
         description="Up to 10 YouTube search queries, run in one call"
@@ -1323,6 +1366,75 @@ def _batch_pack_refusal(pack_id: str, route: str) -> JSONResponse:
     )
 
 
+@app.post("/v1/video-transcript")
+async def video_transcript(req: VideoTranscriptRequest, request: Request):
+    """Video Transcript: one video's caption text with timed
+    segments, from the caption track the video itself carries (Lane
+    3, 2026-11-07). The third YouTube leg: search finds it, details
+    describe it, this returns the words. No tracks / an empty track
+    is an upstream failure (502, no settlement); a language the
+    video does not carry is a caller fault (422)."""
+
+    async def go():
+        client, _, _ = _clients()
+        async with client:
+            return await fetch_svc.video_transcript(
+                client,
+                req.video,
+                lang=(req.lang or "").strip() or None,
+            )
+
+    pack_id = _presented_toolkit_pack_id(req, request)
+    if pack_id:
+        return await _run_pack_funded(pack_id, go)
+    return await _run(go)
+
+
+@app.post("/v1/page-metadata")
+async def page_metadata(req: PageMetadataRequest):
+    """Page Metadata: a page's declared identity — title,
+    description, canonical, OpenGraph / Twitter card fields,
+    language, favicon, heading outline, word count — through the
+    same hardened fetch pipeline as page-to-markdown (Lane 3,
+    2026-11-07). The cheap head-read before the full conversion."""
+
+    async def go():
+        return await fetch_svc.page_metadata(_fetch_client(), req.url.strip())
+
+    return await _run(go)
+
+
+@app.post("/v1/feed-digest")
+async def feed_digest(req: FeedDigestRequest, request: Request):
+    """Feed Digest: one RSS/Atom feed's newest items in one
+    normalized shape plus a ready-to-read Markdown digest (Lane 3,
+    2026-11-07). A document with no parseable items is an upstream
+    failure (502, no settlement)."""
+
+    async def go():
+        return await fetch_svc.feed_digest(
+            _fetch_client(), req.url.strip(), req.max_items
+        )
+
+    pack_id = _presented_toolkit_pack_id(req, request)
+    if pack_id:
+        return await _run_pack_funded(pack_id, go)
+    return await _run(go)
+
+
+@app.post("/v1/url-unshorten")
+async def url_unshorten(req: UrlUnshortenRequest):
+    """URL Unshorten: the full redirect chain of a URL, walked
+    server-side with every hop SSRF-checked before it is fetched
+    (Lane 3, 2026-11-07). The trace is the delivery — a final 404
+    still resolves; only an unreachable or unsafe chain fails."""
+
+    async def go():
+        return await fetch_svc.resolve_url(_fetch_client(), req.url.strip())
+
+    return await _run(go)
+
+
 @app.post("/v1/tube-search/batch")
 async def tube_search_batch(req: TubeSearchBatchRequest, request: Request):
     """Tube Search Batch: up to 10 searches in one $0.05 call (buyer
@@ -1391,6 +1503,22 @@ async def repo_vitals(req: RepoRequest):
         client, _, _ = _clients()
         async with client:
             return await fetch_svc.repo_vitals(client, req.repo, settings.github_token)
+
+    return await _run(go)
+
+
+@app.post("/v1/repo-readme")
+async def repo_readme(req: RepoRequest):
+    """Repo README: one GitHub repo's README as Markdown (Lane 3,
+    2026-11-07) — the companion read to Repo Vitals' score. A repo
+    or README that is not there is an upstream failure (502, no
+    settlement); oversize READMEs are capped with the truncation
+    stated in-band."""
+
+    async def go():
+        client, _, _ = _clients()
+        async with client:
+            return await fetch_svc.repo_readme(client, req.repo, settings.github_token)
 
     return await _run(go)
 
@@ -2322,7 +2450,8 @@ async def toolkit_pack_buy(request: Request):
     identity (see _payment_key), so a re-presented payment returns
     the pack it already bought instead of minting a second one. The
     pack binds to the toolkit route FAMILY (sign-read / score-book /
-    guard / tube-search / page-to-markdown / video-details) — no URL
+    guard / tube-search / page-to-markdown / video-details /
+    video-transcript / feed-digest) — no URL
     is named at buy time, because the tools take a different target
     per call."""
     payment_key = _payment_key(request)
@@ -2340,8 +2469,9 @@ async def toolkit_pack_buy(request: Request):
         "price_units": recheck_svc.TOOLKIT_PACK_PRICE_UNITS,
         "note": (
             "Spend credits with POST /v1/sign-read, /v1/score-book, "
-            "/v1/guard, /v1/tube-search, /v1/page-to-markdown or "
-            "/v1/video-details: send this pack_id in the body or the "
+            "/v1/guard, /v1/tube-search, /v1/page-to-markdown, "
+            "/v1/video-details, /v1/video-transcript or "
+            "/v1/feed-digest: send this pack_id in the body or the "
             "X-Toolkit-Pack header. Read the balance free at "
             "POST /v1/toolkit/pack-balance."
             + ("" if created else " This payment already minted this pack; returning it.")

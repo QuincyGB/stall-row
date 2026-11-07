@@ -81,4 +81,4 @@ def test_changelog_linked_from_skill_llms_and_tools():
 def test_changelog_does_not_move_health_route_count():
     with TestClient(main.app) as client:
         health = client.get("/health").json()
-        assert health["routes"] == 37
+        assert health["routes"] == 42

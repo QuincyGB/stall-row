@@ -22,6 +22,11 @@ authentication** (x402 v2, exact scheme, USDC on Base).
 | `POST /v1/tube-search` | $0.01 | YouTube search results as JSON (public page scrape, no API key) |
 | `POST /v1/page-to-markdown` | $0.01 | One page → clean Markdown (SSRF-guarded) |
 | `POST /v1/repo-vitals` | $0.005 | GitHub repo vitals + health score |
+| `POST /v1/video-transcript` | $0.01 | One YouTube video's full caption text with timed segments (Toolkit Pack credit OK) |
+| `POST /v1/page-metadata` | $0.005 | One page's title / description / canonical / OpenGraph + heading outline |
+| `POST /v1/feed-digest` | $0.01 | One RSS/Atom feed's newest items normalized + a Markdown digest (Toolkit Pack credit OK) |
+| `POST /v1/url-unshorten` | $0.005 | A URL's full redirect chain, SSRF-checked hop by hop, + the final URL report |
+| `POST /v1/repo-readme` | $0.005 | One GitHub repo's README as Markdown |
 | `POST /v1/price-check` | $0.05 | Live CDP Bazaar comps + a recommended listing price |
 | `POST /v1/card-smith` | $0.10 | Generate/grade `agent-card.json` for A2A/AgentWorld registries |
 | `POST /v1/job-scout` | $0.05 | Digest of open agent jobs from our own marketplace sweeps |

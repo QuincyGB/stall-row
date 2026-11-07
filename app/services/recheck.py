@@ -164,6 +164,12 @@ _PACK_ID_PREFIX = "pack_"
 # is deliberately NOT family: a credit would overcharge it. The batch
 # routes ($0.05) are NOT family either — one credit must never buy a
 # ten-item batch; their handlers refuse pack ids cleanly.
+#
+# Lane 3 (distribution pivot 2026-11-07): the shelf's two new $0.01
+# singles (Video Transcript, Feed Digest) join on the same terms.
+# The Lane-3 $0.005 singles (Page Metadata, URL Unshorten, Repo
+# README) stay out, exactly like Repo Vitals: a $0.008 credit would
+# overcharge them.
 
 TOOLKIT_PACK_CREDITS = 125
 TOOLKIT_PACK_PRICE_UNITS = 1_000_000  # $1.00 — mirrors config.PRICE_UNITS
@@ -175,6 +181,8 @@ TOOLKIT_PACK_ROUTES = (
     "/v1/tube-search",
     "/v1/page-to-markdown",
     "/v1/video-details",
+    "/v1/video-transcript",
+    "/v1/feed-digest",
 )
 _TK_PACK_ID_PREFIX = "tkpack_"
 

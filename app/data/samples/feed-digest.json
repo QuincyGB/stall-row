@@ -1,0 +1,25 @@
+{
+  "count": 1,
+  "feed_description": "News about the x402 standard.",
+  "feed_link": "https://www.x402.org/",
+  "feed_title": "x402 Updates",
+  "final_url": "https://www.x402.org/feed.xml",
+  "items": [
+    {
+      "author": null,
+      "link": "https://www.x402.org/news/v2",
+      "published": "Fri, 07 Nov 2026 10:00:00 GMT",
+      "summary": "The v2 specification is published.",
+      "title": "x402 v2 is live"
+    }
+  ],
+  "live": false,
+  "markdown": "# x402 Updates\n\n## x402 v2 is live\n\nFri, 07 Nov 2026 10:00:00 GMT \u00b7 https://www.x402.org/news/v2\n\nThe v2 specification is published.",
+  "recorded_at": null,
+  "route": "/v1/feed-digest",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "https://www.x402.org/feed.xml",
+  "url": "https://www.x402.org/feed.xml"
+}

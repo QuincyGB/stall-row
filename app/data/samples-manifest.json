@@ -39,6 +39,14 @@
       "pulled_from": "app/discovery.py output example for this route (schema-validated)"
     },
     {
+      "route": "/v1/feed-digest",
+      "slug": "feed-digest",
+      "source": "schema-example",
+      "target": "https://www.x402.org/feed.xml",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
       "route": "/v1/flagged-paytos",
       "slug": "flagged-paytos",
       "source": "schema-example",
@@ -151,6 +159,14 @@
       "pulled_from": "app/discovery.py output example for this route (schema-validated)"
     },
     {
+      "route": "/v1/page-metadata",
+      "slug": "page-metadata",
+      "source": "schema-example",
+      "target": "https://www.x402.org/",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
       "route": "/v1/page-to-markdown",
       "slug": "page-to-markdown",
       "source": "schema-example",
@@ -223,6 +239,14 @@
       "pulled_from": "app/discovery.py output example for this route (schema-validated)"
     },
     {
+      "route": "/v1/repo-readme",
+      "slug": "repo-readme",
+      "source": "schema-example",
+      "target": "QuincyGB/token-verdict",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
       "route": "/v1/repo-vitals",
       "slug": "repo-vitals",
       "source": "schema-example",
@@ -283,8 +307,24 @@
       "pulled_from": "app/discovery.py output example for this route (schema-validated)"
     },
     {
+      "route": "/v1/url-unshorten",
+      "slug": "url-unshorten",
+      "source": "schema-example",
+      "target": "https://bit.ly/3x402example",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
       "route": "/v1/video-details",
       "slug": "video-details",
+      "source": "schema-example",
+      "target": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/video-transcript",
+      "slug": "video-transcript",
       "source": "schema-example",
       "target": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       "recorded_at": null,

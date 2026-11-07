@@ -63,6 +63,8 @@ def test_mint_toolkit_pack_shape_and_expiry(store):
         "/v1/tube-search",
         "/v1/page-to-markdown",
         "/v1/video-details",
+        "/v1/video-transcript",
+        "/v1/feed-digest",
     ]
     assert "url" not in pack
     assert pack["credits_total"] == 125

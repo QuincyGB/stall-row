@@ -1,0 +1,16 @@
+{
+  "bytes": 2048,
+  "chars": 2048,
+  "html_url": "https://github.com/QuincyGB/token-verdict/blob/main/README.md",
+  "live": false,
+  "markdown": "# Token Verdict\n\nOne-call token verdicts for x402 sellers.",
+  "path": "README.md",
+  "recorded_at": null,
+  "repo": "QuincyGB/token-verdict",
+  "route": "/v1/repo-readme",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "QuincyGB/token-verdict",
+  "truncated": false
+}

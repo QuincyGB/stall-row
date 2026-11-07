@@ -43,7 +43,7 @@ def _settings(**env):
                 os.environ[k] = v
 
 
-def test_thirty_seven_routes_priced_as_specified():
+def test_forty_two_routes_priced_as_specified():
     assert PRICE_UNITS == {
         "/v1/wallet-snapshot": 5000,
         "/v1/allowance-audit": 5000,
@@ -54,6 +54,11 @@ def test_thirty_seven_routes_priced_as_specified():
         "/v1/tube-search": 10000,
         "/v1/page-to-markdown": 10000,
         "/v1/video-details": 10000,
+        "/v1/video-transcript": 10000,
+        "/v1/page-metadata": 5000,
+        "/v1/feed-digest": 10000,
+        "/v1/url-unshorten": 5000,
+        "/v1/repo-readme": 5000,
         "/v1/tube-search/batch": 50000,
         "/v1/page-to-markdown/batch": 50000,
         "/v1/repo-vitals": 5000,
@@ -83,7 +88,7 @@ def test_thirty_seven_routes_priced_as_specified():
         "/v1/physical": 50_000,
         "/v1/payto-pin/verify": 10_000,
     }
-    assert sum(PRICE_UNITS.values()) == 35_545_000  # $35.545 to catalog the row
+    assert sum(PRICE_UNITS.values()) == 35_580_000  # $35.58 to catalog the row
     assert set(ROUTES) == set(PRICE_UNITS)
 
 
@@ -146,7 +151,7 @@ def test_output_schema_types_real_fields(path):
 def test_manifest_lists_all_thirty_seven_with_matching_accepts():
     manifest = x402_manifest(main.settings, "https://stall-row.example.com")
     paid = [r for r in manifest["resources"] if r["method"] == "POST"]
-    assert len(paid) == 37
+    assert len(paid) == 42
     for r in paid:
         path = r["resource"].removeprefix("https://stall-row.example.com")
         a = r["accepts"][0]
@@ -169,13 +174,13 @@ def test_live_manifest_endpoint_matches():
     client = TestClient(main.app, raise_server_exceptions=False)
     body = client.get("/.well-known/x402").json()
     assert body["service"] == "stall-row"
-    assert len([r for r in body["resources"] if r["method"] == "POST"]) == 37
+    assert len([r for r in body["resources"] if r["method"] == "POST"]) == 42
 
 
 def test_manifest_embeds_worked_examples_for_every_priced_route():
     manifest = x402_manifest(main.settings, "https://stall-row.example.com")
     paid = [r for r in manifest["resources"] if r["method"] == "POST"]
-    assert len(paid) == 37
+    assert len(paid) == 42
     for r in paid:
         path = r["resource"].removeprefix("https://stall-row.example.com")
         assert "example" in r["inputSchema"], path
@@ -191,7 +196,7 @@ def test_live_manifest_embeds_worked_examples_for_every_priced_route():
     client = TestClient(main.app, raise_server_exceptions=False)
     body = client.get("/.well-known/x402").json()
     paid = [r for r in body["resources"] if r["method"] == "POST"]
-    assert len(paid) == 37
+    assert len(paid) == 42
     for r in paid:
         path = r["resource"][r["resource"].index("/v1/") :]
         assert r["inputSchema"]["example"] == ROUTES[path]["input_example"], path

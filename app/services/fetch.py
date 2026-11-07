@@ -517,6 +517,124 @@ async def video_details(client: httpx.AsyncClient, video: str) -> dict:
     }
 
 
+# --- YouTube video transcript ---------------------------------------------------
+#
+# Lane 3 (distribution pivot 2026-11-07): the shelf's third YouTube
+# leg. Video Details reports WHICH caption tracks exist; this route
+# returns the words themselves — the full caption text with timed
+# segments, fetched from the chosen track's own timedtext URL in
+# json3 form. Same honesty rule as every fetch stall: no tracks, an
+# unreadable track, or an empty transcript is an UpstreamError (502,
+# no settlement), never a fabricated or silently-wrong-language
+# delivery — a language the video doesn't carry is a caller fault
+# (ValueError, 422) naming the languages it does carry.
+
+_TRANSCRIPT_TEXT_CAP = 60_000
+_TRANSCRIPT_SEGMENT_CAP = 1_000
+
+
+def _pick_caption_track(tracks: list, lang: str | None) -> dict:
+    """Choose the caption track to deliver: an explicit language wins
+    (exact code, then same primary language); otherwise a human-made
+    track beats an auto-generated (asr) one, else the first usable."""
+    usable = [
+        t for t in tracks if isinstance(t, dict) and t.get("baseUrl")
+    ]
+    if not usable:
+        raise UpstreamError("video has no usable caption tracks")
+    if lang is not None:
+        want = lang.strip().lower()
+        for t in usable:
+            if (t.get("languageCode") or "").lower() == want:
+                return t
+        for t in usable:
+            code = (t.get("languageCode") or "").lower()
+            if code.split("-")[0] == want.split("-")[0]:
+                return t
+        available = sorted(
+            {t.get("languageCode") for t in usable if t.get("languageCode")}
+        )
+        raise ValueError(
+            f"no caption track in language {lang!r}; "
+            f"available: {', '.join(available) or 'none'}"
+        )
+    manual = [t for t in usable if t.get("kind") != "asr"]
+    return (manual or usable)[0]
+
+
+async def video_transcript(
+    client: httpx.AsyncClient, video: str, *, lang: str | None = None
+) -> dict:
+    video_id = parse_video_input(video)
+    resp = await _youtube_get(
+        client, "https://www.youtube.com/watch", params={"v": video_id}
+    )
+    pr = _extract_js_object(
+        resp.text, "ytInitialPlayerResponse", "YouTube watch page"
+    )
+    playability = pr.get("playabilityStatus") or {}
+    if playability.get("status") != "OK":
+        reason = playability.get("reason") or playability.get("status") or "unknown"
+        raise UpstreamError(f"video unavailable: {reason}")
+    tracks = (
+        ((pr.get("captions") or {}).get("playerCaptionsTracklistRenderer") or {})
+        .get("captionTracks")
+    ) or []
+    if not tracks:
+        raise UpstreamError("video has no caption tracks")
+    track = _pick_caption_track(tracks, lang)
+    base = track["baseUrl"]
+    sep = "&" if "?" in base else "?"
+    timed = await _youtube_get(client, base + sep + "fmt=json3")
+    try:
+        data = timed.json()
+    except ValueError as e:
+        raise UpstreamError("caption track returned unreadable data") from e
+    events = data.get("events") if isinstance(data, dict) else None
+    if not events:
+        raise UpstreamError("caption track returned no transcript data")
+    segments: list[dict] = []
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        text = "".join(
+            s.get("utf8", "")
+            for s in (event.get("segs") or [])
+            if isinstance(s, dict)
+        )
+        text = re.sub(r"\s+", " ", text).strip()
+        if not text:
+            continue
+        segments.append(
+            {
+                "start_ms": event.get("tStartMs"),
+                "duration_ms": event.get("dDurationMs"),
+                "text": text,
+            }
+        )
+    if not segments:
+        raise UpstreamError("caption track returned an empty transcript")
+    full_text = " ".join(s["text"] for s in segments)
+    truncated = (
+        len(full_text) > _TRANSCRIPT_TEXT_CAP
+        or len(segments) > _TRANSCRIPT_SEGMENT_CAP
+    )
+    vd = pr.get("videoDetails") or {}
+    return {
+        "video_id": video_id,
+        "url": f"https://www.youtube.com/watch?v={video_id}",
+        "title": vd.get("title"),
+        "language_code": track.get("languageCode"),
+        "language": _renderer_text(track.get("name")) or None,
+        "kind": track.get("kind"),
+        "segment_count": len(segments),
+        "char_count": len(full_text),
+        "transcript": full_text[:_TRANSCRIPT_TEXT_CAP],
+        "segments": segments[:_TRANSCRIPT_SEGMENT_CAP],
+        "truncated": truncated,
+    }
+
+
 # --- page → markdown ---------------------------------------------------------------
 
 def ssrf_check(url: str) -> None:
@@ -916,6 +1034,314 @@ async def page_to_markdown_batch(client: httpx.AsyncClient, urls: list[str]) -> 
     }
 
 
+# --- page metadata ---------------------------------------------------------------
+#
+# Lane 3 (distribution pivot 2026-11-07): the cheap head-read twin of
+# page-to-markdown. Buyers deciding WHETHER a page is worth the $0.01
+# conversion get its declared identity first — title, description,
+# canonical, OpenGraph / Twitter card fields, language, favicon, and
+# the heading outline — through the same hardened, SSRF-checked fetch
+# pipeline, parsed in one pass. A non-HTML delivery is not metadata
+# and fails honestly (502, no settlement).
+
+class _HeadMeta(HTMLParser):
+    """One-pass collector for a page's declared metadata: <title>,
+    meta name/property pairs, canonical + icon links, the document
+    language, and the h1/h2 outline."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.lang: str | None = None
+        self.title: str | None = None
+        self.meta: dict[str, str] = {}
+        self.canonical: str | None = None
+        self.favicon: str | None = None
+        self.headings: dict[str, list[str]] = {"h1": [], "h2": []}
+        self._capture: str | None = None  # "title" | "h1" | "h2"
+        self._buf: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs) -> None:  # noqa: ANN001
+        a = {k.lower(): (v or "") for k, v in attrs}
+        if tag == "html":
+            self.lang = a.get("lang") or self.lang
+        elif tag == "title":
+            self._capture, self._buf = "title", []
+        elif tag == "meta":
+            key = (a.get("property") or a.get("name") or "").strip().lower()
+            content = a.get("content", "").strip()
+            if key and content and key not in self.meta:
+                self.meta[key] = content
+        elif tag == "link":
+            rel = a.get("rel", "").lower()
+            href = a.get("href", "").strip()
+            if not href:
+                return
+            if rel == "canonical" and self.canonical is None:
+                self.canonical = href
+            elif (
+                rel in ("icon", "shortcut icon", "apple-touch-icon")
+                and self.favicon is None
+            ):
+                self.favicon = href
+        elif tag in ("h1", "h2"):
+            self._capture, self._buf = tag, []
+
+    def handle_endtag(self, tag: str) -> None:
+        if self._capture is None or tag != self._capture:
+            return
+        text = re.sub(r"\s+", " ", "".join(self._buf)).strip()
+        if tag == "title":
+            self.title = text or self.title
+        elif text:
+            cap = 10 if tag == "h1" else 20
+            if len(self.headings[tag]) < cap:
+                self.headings[tag].append(text)
+        self._capture, self._buf = None, []
+
+    def handle_data(self, data: str) -> None:
+        if self._capture is not None:
+            self._buf.append(data)
+
+
+def _parse_page_metadata(text: str, final_url: str) -> dict:
+    parser = _HeadMeta()
+    try:
+        parser.feed(text)
+    except Exception:  # noqa: BLE001 — malformed HTML: keep what parsed
+        pass
+    meta = parser.meta
+    og = {
+        k[len("og:"):]: v for k, v in meta.items() if k.startswith("og:")
+    }
+    twitter = {
+        k[len("twitter:"):]: v
+        for k, v in meta.items()
+        if k.startswith("twitter:")
+    }
+    description = meta.get("description") or og.get("description")
+    canonical = (
+        urljoin(final_url, parser.canonical) if parser.canonical else None
+    )
+    favicon = urljoin(final_url, parser.favicon) if parser.favicon else None
+    return {
+        "title": parser.title,
+        "description": description,
+        "canonical": canonical,
+        "lang": parser.lang,
+        "favicon": favicon,
+        "og": og,
+        "twitter": twitter,
+        "headings": parser.headings,
+        "word_count": len(_visible_text(text).split()),
+    }
+
+
+async def page_metadata(client: httpx.AsyncClient, url: str) -> dict:
+    await asyncio.to_thread(ssrf_check, url)  # blocking DNS — off the loop
+    final_url, headers, body = await _fetch_page(client, url)
+    text = _decode_body(body, headers)
+    ctype = headers.get("content-type", "").split(";")[0].strip().lower()
+    if ctype and ctype not in _HTML_TYPES and not _looks_like_html(text):
+        raise UpstreamError(f"unsupported content type for metadata: {ctype}")
+    parsed = await asyncio.to_thread(_parse_page_metadata, text, final_url)
+    return {"url": url, "final_url": final_url, **parsed}
+
+
+# --- feed digest (RSS / Atom → structured items + Markdown) -----------------------
+#
+# Lane 3 (distribution pivot 2026-11-07): feeds are the other thing
+# agents poll constantly and parse badly. One call fetches the feed
+# through the hardened pipeline and returns the feed's identity, its
+# newest items in a single normalized shape across RSS 2.0 / Atom /
+# RDF, and a ready-to-read Markdown digest of the same items. A
+# document that parses as neither feed nor item list is junk and
+# fails honestly (502, no settlement).
+
+_FEED_SUMMARY_CAP = 600
+_FEED_MARKDOWN_CAP = 40_000
+
+
+def _local(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1].lower()
+
+
+def _child_text(elem, names: tuple[str, ...]) -> str | None:  # noqa: ANN001
+    for child in elem:
+        if _local(child.tag) in names:
+            text = (child.text or "").strip()
+            if text:
+                return text
+            href = child.get("href")  # Atom <link href="..."/>
+            if href:
+                return href.strip()
+    return None
+
+
+def _author_of(elem) -> str | None:  # noqa: ANN001
+    """Item author across feed dialects: RSS's flat <author> /
+    <dc:creator> text, or Atom's <author><name> nesting."""
+    for child in elem:
+        name = _local(child.tag)
+        if name == "creator":
+            text = (child.text or "").strip()
+            if text:
+                return text
+        elif name == "author":
+            inner = _child_text(child, ("name",))
+            if inner:
+                return inner
+            text = (child.text or "").strip()
+            if text:
+                return text
+    return None
+
+
+def _strip_markup(text: str) -> str:
+    """Feed summaries arrive as anything from plain text to full
+    HTML; the visible-text extractor normalizes both."""
+    return _visible_text(text) if "<" in text else _normalize_text(text)
+
+
+def _parse_feed(body_text: str, max_items: int) -> dict:
+    import xml.etree.ElementTree as ET
+
+    try:
+        root = ET.fromstring(body_text)
+    except ET.ParseError as e:
+        raise UpstreamError(f"feed is not well-formed XML: {e}") from e
+
+    channel = None
+    item_elems: list = []
+    for elem in root.iter():
+        name = _local(elem.tag)
+        if name == "channel" and channel is None:
+            channel = elem
+        elif name in ("item", "entry"):
+            item_elems.append(elem)
+    head = channel if channel is not None else root
+
+    feed_title = _child_text(head, ("title",))
+    feed_link = _child_text(head, ("link",))
+    feed_desc = _child_text(head, ("description", "subtitle", "tagline"))
+
+    items: list[dict] = []
+    for elem in item_elems:
+        title = _child_text(elem, ("title",))
+        link = _child_text(elem, ("link",))
+        if not title and not link:
+            continue
+        summary_raw = _child_text(
+            elem, ("description", "summary", "content", "encoded")
+        )
+        summary = None
+        if summary_raw:
+            summary = _strip_markup(summary_raw)[:_FEED_SUMMARY_CAP] or None
+        items.append(
+            {
+                "title": title,
+                "link": link,
+                "published": _child_text(
+                    elem, ("pubdate", "published", "updated", "date")
+                ),
+                "author": _author_of(elem),
+                "summary": summary,
+            }
+        )
+        if len(items) >= max_items:
+            break
+    if not items:
+        raise UpstreamError("no feed items could be parsed from the document")
+
+    lines: list[str] = []
+    if feed_title:
+        lines.append(f"# {feed_title}")
+    if feed_desc:
+        lines.append(_strip_markup(feed_desc)[:_FEED_SUMMARY_CAP])
+    for it in items:
+        if it["title"]:
+            lines.append(f"## {it['title']}")
+        meta_bits = [b for b in (it["published"], it["link"]) if b]
+        if meta_bits:
+            lines.append(" · ".join(meta_bits))
+        if it["summary"]:
+            lines.append(it["summary"])
+    markdown = "\n\n".join(lines)[:_FEED_MARKDOWN_CAP]
+    return {
+        "feed_title": feed_title,
+        "feed_link": feed_link,
+        "feed_description": (
+            _strip_markup(feed_desc)[:_FEED_SUMMARY_CAP] if feed_desc else None
+        ),
+        "count": len(items),
+        "items": items,
+        "markdown": markdown,
+    }
+
+
+async def feed_digest(
+    client: httpx.AsyncClient, url: str, max_items: int
+) -> dict:
+    await asyncio.to_thread(ssrf_check, url)  # blocking DNS — off the loop
+    final_url, headers, body = await _fetch_page(client, url)
+    text = _decode_body(body, headers)
+    parsed = await asyncio.to_thread(_parse_feed, text, max_items)
+    return {"url": url, "final_url": final_url, **parsed}
+
+
+# --- URL resolution (unshorten + redirect trace) ----------------------------------
+#
+# Lane 3 (distribution pivot 2026-11-07): short links are opaque
+# until followed, and following them client-side leaks the click.
+# This route walks the chain server-side with the same discipline as
+# the page fetcher — every hop SSRF-checked BEFORE it is fetched —
+# and delivers the full trace: each hop's URL and status, the final
+# URL, and its status and content type. The trace is the delivery, so
+# a final 404 still resolves honestly (the chain is reported, not
+# failed); only an unreachable or unsafe chain fails (502).
+
+async def resolve_url(client: httpx.AsyncClient, url: str) -> dict:
+    await asyncio.to_thread(ssrf_check, url)  # blocking DNS — off the loop
+    hops: list[dict] = []
+    current = url
+    for hop in range(_MAX_REDIRECTS + 1):
+        try:
+            async with client.stream(
+                "GET",
+                current,
+                headers={**_UA, **_PAGE_HEADERS_BASE},
+                follow_redirects=False,
+            ) as resp:
+                status = resp.status_code
+                content_type = resp.headers.get("content-type")
+                location = resp.headers.get("location")
+        except httpx.HTTPError as e:
+            raise UpstreamError(
+                f"resolution failed at {current}: {e}"
+            ) from e
+        hops.append({"url": current, "status": status})
+        if status in (301, 302, 303, 307, 308):
+            if not location:
+                raise UpstreamError(
+                    f"{current} returned HTTP {status} without a Location header"
+                )
+            if hop == _MAX_REDIRECTS:
+                raise UpstreamError("URL redirected too many times")
+            target = urljoin(current, location)
+            # getaddrinfo is blocking DNS — keep it off the event loop.
+            await asyncio.to_thread(ssrf_check, target)
+            current = target
+            continue
+        return {
+            "url": url,
+            "final_url": current,
+            "final_status": status,
+            "content_type": content_type,
+            "redirects": len(hops) - 1,
+            "hops": hops,
+        }
+    raise UpstreamError("URL redirected too many times")  # pragma: no cover
+
+
 # --- GitHub repo vitals -------------------------------------------------------------
 
 def parse_repo_input(repo: str) -> str:
@@ -991,4 +1417,56 @@ async def repo_vitals(
         "health_score": score,
         "health_notes": notes,
         "verdict": verdict,
+    }
+
+
+# --- GitHub repo README ------------------------------------------------------------
+#
+# Lane 3 (distribution pivot 2026-11-07): Repo Vitals scores a repo;
+# this is its companion read — the README itself as Markdown, the
+# document an agent actually needs before depending on a project.
+# Two GitHub API calls in the repo_vitals pattern (metadata, then the
+# raw body); a repo or README that isn't there is an UpstreamError
+# (502, no settlement). Oversize READMEs are capped with the
+# truncation stated in-band, never silently cut.
+
+_README_CAP = 20_000
+
+
+async def repo_readme(
+    client: httpx.AsyncClient, repo: str, github_token: str | None
+) -> dict:
+    full = parse_repo_input(repo)
+    headers = {"Accept": "application/vnd.github+json", **_UA}
+    if github_token:
+        headers["Authorization"] = f"Bearer {github_token}"
+    try:
+        resp = await client.get(
+            f"https://api.github.com/repos/{full}/readme", headers=headers
+        )
+    except httpx.HTTPError as e:
+        raise UpstreamError(f"GitHub fetch failed: {e}") from e
+    if resp.status_code == 404:
+        raise UpstreamError(f"GitHub repo or README not found: {full}")
+    if resp.status_code != 200:
+        raise UpstreamError(f"GitHub returned HTTP {resp.status_code}")
+    meta = resp.json()
+    download_url = meta.get("download_url")
+    if not download_url:
+        raise UpstreamError(f"GitHub returned no README body for: {full}")
+    try:
+        raw = await client.get(download_url, headers=_UA)
+    except httpx.HTTPError as e:
+        raise UpstreamError(f"GitHub README fetch failed: {e}") from e
+    if raw.status_code != 200:
+        raise UpstreamError(f"GitHub README returned HTTP {raw.status_code}")
+    text = raw.content.decode("utf-8", errors="replace")
+    return {
+        "repo": full,
+        "path": meta.get("path"),
+        "html_url": meta.get("html_url"),
+        "bytes": meta.get("size") if isinstance(meta.get("size"), int) else len(raw.content),
+        "chars": len(text),
+        "truncated": len(text) > _README_CAP,
+        "markdown": text[:_README_CAP],
     }
