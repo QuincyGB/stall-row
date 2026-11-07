@@ -67,6 +67,8 @@ def _youtube_client():
         url = str(request.url)
         if "timedtext" in url:
             return httpx.Response(200, json=_TIMEDTEXT)
+        if "youtubei/v1/player" in url:
+            return httpx.Response(200, json=_WATCH)
         if "/watch" in url:
             return httpx.Response(200, text=WATCH_HTML)
         return httpx.Response(404, text="unexpected")
@@ -155,13 +157,8 @@ async def test_transcript_missing_language_is_a_caller_fault():
 @pytest.mark.asyncio
 async def test_transcript_no_tracks_is_an_upstream_error():
     data = {"playabilityStatus": {"status": "OK"}, "videoDetails": {}}
-    html = (
-        "<html><script>var ytInitialPlayerResponse = "
-        + json.dumps(data)
-        + ";</script></html>"
-    )
     client = httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda r: httpx.Response(200, text=html))
+        transport=httpx.MockTransport(lambda r: httpx.Response(200, json=data))
     )
     async with client:
         with pytest.raises(UpstreamError):
@@ -173,7 +170,7 @@ async def test_transcript_empty_track_body_is_an_upstream_error():
     def handler(request):
         if "timedtext" in str(request.url):
             return httpx.Response(200, text="")
-        return httpx.Response(200, text=WATCH_HTML)
+        return httpx.Response(200, json=_WATCH)
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     async with client:

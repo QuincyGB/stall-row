@@ -13,7 +13,7 @@ import re
 import socket
 from html import unescape as html_unescape
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlparse
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse
 
 import httpx
 
@@ -418,8 +418,10 @@ async def tube_search_batch(
 # The natural second call (buyer analysis 2026-11-05): search returns
 # ids; everything an agent needs to decide whether a video is worth
 # using — full description, publish date, caption availability — sits
-# behind a call the shelf didn't sell. Parsed from the watch page's
-# ytInitialPlayerResponse, no API key, same parse discipline as search.
+# behind a call the shelf didn't sell. Originally parsed from the watch
+# page's ytInitialPlayerResponse; since 2026-11-07 the player response
+# comes from the Innertube player API (below) — the watch page itself
+# is walled off from datacenter egress (see the diagnosis there).
 
 _VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 
@@ -443,14 +445,189 @@ def parse_video_input(value: str) -> str:
     )
 
 
+# --- YouTube player response via the Innertube API ------------------------------
+#
+# Egress fix (2026-11-07): the watch page is hard-walled from
+# datacenter egress — GET /watch 302s to google.com/sorry ("unusual
+# traffic") and the sorry page itself answers 429, and the WEB player
+# client answers UNPLAYABLE / LOGIN_REQUIRED without a PO token. The
+# search results page is NOT walled (tube-search never broke), and the
+# Innertube player API still answers non-WEB client identities from
+# the same egress: ANDROID, IOS and VISIONOS all returned
+# playabilityStatus OK + captionTracks, and their timedtext URLs
+# fetched real json3/XML — verified live from a bot-gated datacenter
+# egress before this code was written. Client contexts + versions
+# mirror the public client definitions (the same set yt-dlp carries);
+# the API keys are the clients' own public Innertube keys, printed in
+# every shipped app. Cascade order is deliberate: ANDROID first (the
+# most standard identity), then IOS, then VISIONOS. A client that
+# refuses (non-OK playability, non-200, non-JSON) falls through to the
+# next; only when every identity refuses is the call an UpstreamError
+# — the honesty rule is unchanged: 502, no settlement, never a
+# fabricated delivery. Fragility note: these identities work because
+# YouTube currently lets them answer without a PO token; if Google
+# extends PO enforcement to them, this layer fails closed the same
+# way and the fix becomes a residential-egress hop.
+
+_PLAYER_API_URL = "https://www.youtube.com/youtubei/v1/player"
+
+_PLAYER_CLIENTS = (
+    {
+        "label": "ANDROID",
+        "api_key": "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w",
+        "client_name_header": "3",
+        "context_client": {
+            "clientName": "ANDROID",
+            "clientVersion": "21.26.364",
+            "androidSdkVersion": 30,
+            "userAgent": (
+                "com.google.android.youtube/21.26.364 "
+                "(Linux; U; Android 11) gzip"
+            ),
+            "osName": "Android",
+            "osVersion": "11",
+            "hl": "en",
+            "gl": "US",
+        },
+        "user_agent": (
+            "com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip"
+        ),
+    },
+    {
+        "label": "IOS",
+        "api_key": "AIzaSyB-63vPrdThhKuerbB2N_l7Kwwcxj6yUAc",
+        "client_name_header": "5",
+        "context_client": {
+            "clientName": "IOS",
+            "clientVersion": "21.26.4",
+            "deviceMake": "Apple",
+            "deviceModel": "iPhone16,2",
+            "userAgent": (
+                "com.google.ios.youtube/21.26.4 "
+                "(iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)"
+            ),
+            "osName": "iPhone",
+            "osVersion": "18.3.2.22D82",
+            "hl": "en",
+            "gl": "US",
+        },
+        "user_agent": (
+            "com.google.ios.youtube/21.26.4 "
+            "(iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)"
+        ),
+    },
+    {
+        "label": "VISIONOS",
+        "api_key": "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
+        "client_name_header": "101",
+        "context_client": {
+            "clientName": "VISIONOS",
+            "clientVersion": "1.02",
+            "deviceMake": "Apple",
+            "deviceModel": "RealityDevice17,1",
+            "userAgent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) "
+                "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+                "Version/26.0 Safari/605.1.15"
+            ),
+            "osName": "visionOS",
+            "osVersion": "26.5.23O471",
+            "hl": "en",
+            "gl": "US",
+        },
+        "user_agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+            "Version/26.0 Safari/605.1.15"
+        ),
+    },
+)
+
+_PLAYER_RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
+
+
+async def _player_attempt(
+    client: httpx.AsyncClient, spec: dict, video_id: str
+) -> tuple[dict | None, str | None]:
+    """One client identity's player request, with one retry on
+    transient failure (the _youtube_get discipline). Returns
+    (player_response, None) when playability is OK, else
+    (None, short_reason) — reasons are diagnostic only; the caller
+    decides whether another identity may still succeed."""
+    payload = {
+        "context": {"client": spec["context_client"]},
+        "videoId": video_id,
+        "playbackContext": {
+            "contentPlaybackContext": {"vis": 0, "splay": False}
+        },
+        "racyCheckOk": True,
+        "contentCheckOk": True,
+    }
+    headers = {
+        "User-Agent": spec["user_agent"],
+        "Content-Type": "application/json",
+        "X-YouTube-Client-Name": spec["client_name_header"],
+        "X-YouTube-Client-Version": spec["context_client"]["clientVersion"],
+    }
+    reason = f"{spec['label']}: no response"
+    for attempt in range(2):
+        if attempt:
+            await asyncio.sleep(0.5)
+        try:
+            resp = await client.post(
+                _PLAYER_API_URL,
+                params={"key": spec["api_key"], "prettyPrint": "false"},
+                json=payload,
+                headers=headers,
+            )
+        except httpx.HTTPError as e:
+            reason = f"{spec['label']}: transport error: {e}"
+            continue
+        if resp.status_code != 200:
+            reason = f"{spec['label']}: HTTP {resp.status_code}"
+            if resp.status_code in _PLAYER_RETRY_STATUSES:
+                continue
+            return None, reason
+        try:
+            data = resp.json()
+        except ValueError:
+            return None, f"{spec['label']}: non-JSON response"
+        if not isinstance(data, dict):
+            return None, f"{spec['label']}: unexpected response shape"
+        playability = data.get("playabilityStatus") or {}
+        status = playability.get("status")
+        if status == "OK":
+            return data, None
+        why = playability.get("reason") or status or "unknown"
+        return None, f"{spec['label']}: {why}"
+    return None, reason
+
+
+async def _youtube_player_response(
+    client: httpx.AsyncClient, video_id: str
+) -> dict:
+    """The video's player response (the ytInitialPlayerResponse shape:
+    playabilityStatus / videoDetails / microformat / captions) from
+    the Innertube player API, cascading across client identities.
+    Raises UpstreamError when every identity refuses — including a
+    genuinely unavailable video, whose per-client reasons ride along
+    in the message."""
+    reasons: list[str] = []
+    for spec in _PLAYER_CLIENTS:
+        data, reason = await _player_attempt(client, spec, video_id)
+        if data is not None:
+            return data
+        if reason:
+            reasons.append(reason)
+    raise UpstreamError(
+        "video unavailable via every player client identity: "
+        + "; ".join(reasons)
+    )
+
+
 async def video_details(client: httpx.AsyncClient, video: str) -> dict:
     video_id = parse_video_input(video)
-    resp = await _youtube_get(
-        client, "https://www.youtube.com/watch", params={"v": video_id}
-    )
-    pr = _extract_js_object(
-        resp.text, "ytInitialPlayerResponse", "YouTube watch page"
-    )
+    pr = await _youtube_player_response(client, video_id)
     playability = pr.get("playabilityStatus") or {}
     if playability.get("status") != "OK":
         reason = playability.get("reason") or playability.get("status") or "unknown"
@@ -636,16 +813,27 @@ def _parse_timedtext(body: str) -> list[dict] | None:
     return None
 
 
+def _timedtext_json3_url(base: str) -> str:
+    """The track URL asking for json3: an existing fmt parameter is
+    REPLACED, not duplicated — some client identities' track URLs
+    already carry fmt=srv3, and a duplicated fmt is not honoured
+    reliably (the parser accepts the XML formats too, but json3 is
+    the shape asked for)."""
+    parsed = urlparse(base)
+    pairs = [
+        (k, v)
+        for k, v in parse_qsl(parsed.query, keep_blank_values=True)
+        if k != "fmt"
+    ]
+    pairs.append(("fmt", "json3"))
+    return parsed._replace(query=urlencode(pairs)).geturl()
+
+
 async def video_transcript(
     client: httpx.AsyncClient, video: str, *, lang: str | None = None
 ) -> dict:
     video_id = parse_video_input(video)
-    resp = await _youtube_get(
-        client, "https://www.youtube.com/watch", params={"v": video_id}
-    )
-    pr = _extract_js_object(
-        resp.text, "ytInitialPlayerResponse", "YouTube watch page"
-    )
+    pr = await _youtube_player_response(client, video_id)
     playability = pr.get("playabilityStatus") or {}
     if playability.get("status") != "OK":
         reason = playability.get("reason") or playability.get("status") or "unknown"
@@ -657,9 +845,7 @@ async def video_transcript(
     if not tracks:
         raise UpstreamError("video has no caption tracks")
     track = _pick_caption_track(tracks, lang)
-    base = track["baseUrl"]
-    sep = "&" if "?" in base else "?"
-    timed = await _youtube_get(client, base + sep + "fmt=json3")
+    timed = await _youtube_get(client, _timedtext_json3_url(track["baseUrl"]))
     segments = _parse_timedtext(timed.text)
     if segments is None:
         raise UpstreamError("caption track returned unreadable data")

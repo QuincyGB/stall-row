@@ -128,6 +128,8 @@ WATCH_HTML = (
 def _youtube_client():
     def handler(request):
         url = str(request.url)
+        if "youtubei/v1/player" in url:
+            return httpx.Response(200, json=WATCH_DATA)
         if "youtubei" in url:
             return httpx.Response(200, json=CONTINUATION_JSON)
         if "/watch" in url:
@@ -254,17 +256,77 @@ async def test_video_details_happy_path():
 @pytest.mark.asyncio
 async def test_video_details_unavailable_is_upstream_error():
     data = {"playabilityStatus": {"status": "LOGIN_REQUIRED", "reason": "Sign in"}}
-    html = (
-        "<html><script>var ytInitialPlayerResponse = "
-        + json.dumps(data)
-        + ";</script></html>"
-    )
     client = httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda r: httpx.Response(200, text=html))
+        transport=httpx.MockTransport(lambda r: httpx.Response(200, json=data))
     )
     async with client:
         with pytest.raises(UpstreamError):
             await fetch.video_details(client, "dQw4w9WgXcQ")
+
+
+# --- player identity cascade (YouTube egress fix 2026-11-07) --------------------
+#
+# The watch page is walled from datacenter egress; the player API
+# answers non-WEB identities. The cascade must fall through a refused
+# identity to the next, and fail (UpstreamError, no settlement) only
+# when every identity refuses.
+
+
+@pytest.mark.asyncio
+async def test_player_cascade_falls_through_to_next_identity():
+    seen_identities = []
+
+    def handler(request):
+        seen_identities.append(request.headers.get("x-youtube-client-name"))
+        if request.headers.get("x-youtube-client-name") == "3":  # ANDROID
+            return httpx.Response(
+                200,
+                json={
+                    "playabilityStatus": {
+                        "status": "LOGIN_REQUIRED",
+                        "reason": "Sign in",
+                    }
+                },
+            )
+        return httpx.Response(200, json=WATCH_DATA)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    async with client:
+        out = await fetch.video_details(client, "dQw4w9WgXcQ")
+    assert out["title"] == "x402 explained"
+    assert seen_identities == ["3", "5"]  # ANDROID refused, IOS served
+
+
+@pytest.mark.asyncio
+async def test_player_cascade_all_refused_is_upstream_error():
+    calls = {"n": 0}
+
+    def handler(request):
+        calls["n"] += 1
+        return httpx.Response(429, text="too many requests")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    async with client:
+        with pytest.raises(UpstreamError):
+            await fetch.video_details(client, "dQw4w9WgXcQ")
+    # 3 identities x 2 attempts each (one transient retry per identity).
+    assert calls["n"] == 6
+
+
+def test_timedtext_url_replaces_existing_fmt():
+    url = fetch._timedtext_json3_url(
+        "https://www.youtube.com/api/timedtext?v=abc&lang=en&fmt=srv3"
+    )
+    assert url.count("fmt=") == 1
+    assert "fmt=json3" in url
+    assert "lang=en" in url
+
+
+def test_timedtext_url_appends_fmt_when_absent():
+    url = fetch._timedtext_json3_url(
+        "https://www.youtube.com/api/timedtext?v=abc&lang=en"
+    )
+    assert url.endswith("fmt=json3")
 
 
 # --- page-to-markdown reader fallback -------------------------------------------
