@@ -2,6 +2,132 @@
   "contact": "patrol@verdictrow.com",
   "entries": [
     {
+      "after": {
+        "amount_units": "5000"
+      },
+      "at": "2026-11-09T15:37:31Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:ff3625b5b1d0f265efe7",
+      "kind": "route_added",
+      "route": "/v1/page-metadata",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/page-metadata at 5000 units."
+    },
+    {
+      "after": {
+        "amount_units": "10000"
+      },
+      "at": "2026-11-09T15:37:31Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:be069c6b1a48f9828816",
+      "kind": "route_added",
+      "route": "/v1/video-transcript",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/video-transcript at 10000 units."
+    },
+    {
+      "after": {
+        "amount_units": "5000"
+      },
+      "at": "2026-11-09T15:37:31Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:9fa5da6434bd1ab72815",
+      "kind": "route_added",
+      "route": "/v1/repo-readme",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/repo-readme at 5000 units."
+    },
+    {
+      "after": {
+        "amount_units": "10000"
+      },
+      "at": "2026-11-09T15:37:31Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:9d24ff4e91eb32c079e8",
+      "kind": "route_added",
+      "route": "/v1/video-details",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/video-details at 10000 units."
+    },
+    {
+      "after": {
+        "amount_units": "10000"
+      },
+      "at": "2026-11-09T15:37:31Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:9aaf0756680b2decc8f0",
+      "kind": "route_added",
+      "route": "/v1/feed-digest",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/feed-digest at 10000 units."
+    },
+    {
+      "after": {
+        "amount_units": "50000"
+      },
+      "at": "2026-11-09T15:37:31Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:7fe9adaa243d3a51f0a1",
+      "kind": "route_added",
+      "route": "/v1/tube-search/batch",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/tube-search/batch at 50000 units."
+    },
+    {
+      "after": {
+        "amount_units": "10000"
+      },
+      "at": "2026-11-09T15:37:31Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:72ff8955a6db74492b5c",
+      "kind": "route_added",
+      "route": "/v1/index/history",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/index/history at 10000 units."
+    },
+    {
+      "after": {
+        "amount_units": "5000"
+      },
+      "at": "2026-11-09T15:37:31Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:59ae5f88ff711b68196c",
+      "kind": "route_added",
+      "route": "/v1/url-unshorten",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/url-unshorten at 5000 units."
+    },
+    {
+      "after": {
+        "amount_units": "50000"
+      },
+      "at": "2026-11-09T15:37:31Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:0408f0b47e3a1841ff97",
+      "kind": "route_added",
+      "route": "/v1/page-to-markdown/batch",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/page-to-markdown/batch at 50000 units."
+    },
+    {
       "after": null,
       "at": "2026-10-31T00:00:00Z",
       "at_precision": "date",
@@ -382,7 +508,7 @@
       "summary": "Pre-Trade Guard launched: POST /v1/guard at $0.01 (10000 units) on StallRow."
     }
   ],
-  "generated_at": "2026-10-31T15:57:59Z",
+  "generated_at": "2026-11-09T15:37:31Z",
   "generated_by": "Ren, Verdict Row Patrol \u2014 patrol@verdictrow.com",
   "host": {
     "atom": "https://stall-row-production.up.railway.app/changelog.atom",
@@ -392,6 +518,6 @@
   "kind": "verdict-row-changelog/v1",
   "title": "Verdict Row \u2014 Public Changelog",
   "totals": {
-    "entries": 27
+    "entries": 36
   }
 }
