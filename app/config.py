@@ -89,6 +89,8 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/fleet-check/pack": 100_000,   # $0.10 — 100 prepaid fleet sweeps of one fixed fleet definition
     "/v1/fleet-pass": 5_000_000,       # $5.00 — prepaid USD balance for all fleet routes
     "/v1/fleet-pass-20": 20_000_000,   # $20.00 — Fleet Pass v2: framework working pass, same ledger/TTL
+    "/v1/entitlement-pass": 9_000_000,  # $9.00 — W3: signed Ed25519 entitlement, 30 days / 1,800 credits (services/entitlement.py)
+    "/v1/entitlement-pack": 5_000_000,  # $5.00 — W3: signed Ed25519 entitlement, 1,000 credits / 90 days (services/entitlement.py)
     "/v1/sign-read": 10_000,           # $0.01 — Sign Reader: parse + SDK-compat verdict for one 402 challenge (price card 2026-10-30)
     "/v1/score-book": 10_000,          # $0.01 — Score Book: one resource/origin/payTo track record from our stores + the committed patrol snapshot
     "/v1/guard": 10_000,               # $0.01 — Guard: one composed pay/caution/avoid verdict for one endpoint

@@ -1,0 +1,20 @@
+{
+  "created_at": "2026-11-19T20:00:00Z",
+  "credits_remaining": 1000,
+  "credits_total": 1000,
+  "expired": false,
+  "expires_at": "2027-02-17T20:00:00Z",
+  "jti": "ent_00000000000000000000000000000000",
+  "kind": "pack",
+  "live": false,
+  "note": "Spend with the X-Entitlement header on any StallRow paid route; each call spends one credit. Read the balance free at POST /v1/entitlement/balance.",
+  "price_units": 5000000,
+  "recorded_at": null,
+  "revoked": false,
+  "route": "/v1/entitlement-pack",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "target": "POST /v1/entitlement-pack on this stall (fleet's own service as subject)",
+  "token": "ent1.eyJleHAiOjE3NzIwMDAwMDAsImp0aSI6ImVudF8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCJ9.signature"
+}

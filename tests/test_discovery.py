@@ -43,7 +43,7 @@ def _settings(**env):
                 os.environ[k] = v
 
 
-def test_forty_two_routes_priced_as_specified():
+def test_forty_four_routes_priced_as_specified():
     assert PRICE_UNITS == {
         "/v1/wallet-snapshot": 5000,
         "/v1/allowance-audit": 5000,
@@ -80,6 +80,8 @@ def test_forty_two_routes_priced_as_specified():
         "/v1/fleet-check/pack": 100_000,
         "/v1/fleet-pass": 5_000_000,
         "/v1/fleet-pass-20": 20_000_000,
+        "/v1/entitlement-pass": 9_000_000,
+        "/v1/entitlement-pack": 5_000_000,
         "/v1/sign-read": 10_000,
         "/v1/score-book": 10_000,
         "/v1/guard": 10_000,
@@ -88,7 +90,7 @@ def test_forty_two_routes_priced_as_specified():
         "/v1/physical": 30_000,
         "/v1/payto-pin/verify": 10_000,
     }
-    assert sum(PRICE_UNITS.values()) == 26_030_000  # $26.03 to catalog the row
+    assert sum(PRICE_UNITS.values()) == 40_030_000  # $40.03 to catalog the row (repriced $26.03 + $9 pass + $5 pack)
     assert set(ROUTES) == set(PRICE_UNITS)
 
 
@@ -151,7 +153,7 @@ def test_output_schema_types_real_fields(path):
 def test_manifest_lists_all_thirty_seven_with_matching_accepts():
     manifest = x402_manifest(main.settings, "https://stall-row.example.com")
     paid = [r for r in manifest["resources"] if r["method"] == "POST"]
-    assert len(paid) == 42
+    assert len(paid) == 44
     for r in paid:
         path = r["resource"].removeprefix("https://stall-row.example.com")
         a = r["accepts"][0]
@@ -174,13 +176,13 @@ def test_live_manifest_endpoint_matches():
     client = TestClient(main.app, raise_server_exceptions=False)
     body = client.get("/.well-known/x402").json()
     assert body["service"] == "stall-row"
-    assert len([r for r in body["resources"] if r["method"] == "POST"]) == 42
+    assert len([r for r in body["resources"] if r["method"] == "POST"]) == 44
 
 
 def test_manifest_embeds_worked_examples_for_every_priced_route():
     manifest = x402_manifest(main.settings, "https://stall-row.example.com")
     paid = [r for r in manifest["resources"] if r["method"] == "POST"]
-    assert len(paid) == 42
+    assert len(paid) == 44
     for r in paid:
         path = r["resource"].removeprefix("https://stall-row.example.com")
         assert "example" in r["inputSchema"], path
@@ -196,7 +198,7 @@ def test_live_manifest_embeds_worked_examples_for_every_priced_route():
     client = TestClient(main.app, raise_server_exceptions=False)
     body = client.get("/.well-known/x402").json()
     paid = [r for r in body["resources"] if r["method"] == "POST"]
-    assert len(paid) == 42
+    assert len(paid) == 44
     for r in paid:
         path = r["resource"][r["resource"].index("/v1/") :]
         assert r["inputSchema"]["example"] == ROUTES[path]["input_example"], path

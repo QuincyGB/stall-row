@@ -67,6 +67,9 @@ _REF_TABLES = {
     "fleet_pass": ("fleet_pass_debits", "debit_id"),
     "recheck_pack": ("recheck_packs", "pack_id"),
     "toolkit_pack": ("toolkit_packs", "pack_id"),
+    # W3 Build 1: an entitlement-funded delivery's ref is its
+    # entitlement_debits debit_id (services/entitlement.py).
+    "entitlement": ("entitlement_debits", "debit_id"),
 }
 
 
@@ -309,6 +312,7 @@ def build_payload(
             "fleet-pass": "fleet_pass",
             "recheck-pack": "recheck_pack",
             "toolkit-pack": "toolkit_pack",
+            "entitlement": "entitlement",
         }.get(kind, kind)
         return {
             **base,

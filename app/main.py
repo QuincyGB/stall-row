@@ -160,6 +160,7 @@ from pydantic import BaseModel, Field
 from x402.http import FacilitatorConfig, HTTPFacilitatorClient, PaymentOption, RouteConfig
 from x402.http.middleware import fastapi_payment_middleware
 from x402.mechanisms.evm.exact.server import ExactEvmScheme
+from x402.mechanisms.evm.upto.server import UptoEvmScheme
 from x402.mechanisms.svm.exact.server import ExactSvmScheme as ExactSvmServerScheme
 from x402.server import x402ResourceServer
 
@@ -182,7 +183,9 @@ from .services import gradestall as gradestall_svc
 from .services import receipts as receipts_svc
 from .services import registry as registry_svc
 from .services import watchlist as watchlist_svc
+from .services import entitlement as entitlement_svc
 from .services import fleetpass as fleetpass_svc
+from .services import upto as upto_svc
 from .services import eventfeed as eventfeed_svc
 from .services import indexfeed as indexfeed_svc
 from .services import indexsub as indexsub_svc
@@ -242,6 +245,24 @@ else:
 resource_server = x402ResourceServer(facilitator)
 resource_server.register(settings.network, ExactEvmScheme())
 
+# --- upto scheme (W3 Build 2, services/upto.py) ------------------------------
+# Feature-flagged, DEFAULT OFF: STALLROW_UPTO_ENABLED=1 registers the
+# SDK's UptoEvmScheme and adds an upto accept (cap = listed price)
+# beside `exact` on the variable-cost routes. The SDK can express
+# upto, but challenge generation requires the facilitator's
+# /supported to advertise upto for the network WITH
+# extra.facilitatorAddress — the default and PayAI facilitators do
+# not (measured 2026-11-19), so enabling this against them would
+# break those routes' challenges. See services/upto.py for the full
+# gap note. With the flag off this block never runs and every
+# challenge is byte-identical to before.
+_UPTO_ENABLED = upto_svc.upto_enabled()
+if _UPTO_ENABLED:
+    resource_server.register(settings.network, UptoEvmScheme())
+    log.info("upto scheme ENABLED for %s (cap = listed price)", sorted(upto_svc.UPTO_ROUTES))
+else:
+    log.info("upto scheme disabled (STALLROW_UPTO_ENABLED != 1)")
+
 # --- Solana rail (Fleet Check routes only; mirrors Token Verdict) ------------
 # Same facilitator: the configured facilitator supports x402 v2 exact on
 # solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp alongside eip155:8453, so the one
@@ -297,6 +318,14 @@ def _accepts_for(path: str) -> list[PaymentOption]:
                 pay_to=settings.solana_pay_to,
                 price=settings.prices[path],
                 network=settings.solana_network,
+            )
+        )
+    if _UPTO_ENABLED and path in upto_svc.UPTO_ROUTES:
+        options.append(
+            upto_svc.upto_payment_option(
+                pay_to=settings.pay_to,
+                price=settings.prices[path],
+                network=settings.network,
             )
         )
     return options
@@ -439,7 +468,15 @@ _PASS_EXEMPT = {
     "/v1/fleet-check/pack",
     "/v1/fleet-pass",
     "/v1/fleet-pass-20",
+    # W3: a pass/entitlement cannot buy prepaid products either —
+    # the entitlement buy routes are per-call-payment only (they are
+    # also absent from the fleet price table, so this is belt and
+    # braces, mirroring the pack buys above).
+    "/v1/entitlement-pass",
+    "/v1/entitlement-pack",
 }
+
+ENTITLEMENT_HEADER = entitlement_svc.ENTITLEMENT_HEADER
 
 
 # --- loop block delivery layer (Next-20 #1 + #5) ---------------------------
@@ -695,6 +732,60 @@ async def x402_middleware(request: Request, call_next):
     if request.method == "POST" and request.url.path in BATCH_PATHS:
         if await _request_toolkit_pack_id(request):
             return await call_next(request)
+    # A call presenting an entitlement token is paid from the
+    # entitlement (W3 Build 1, services/entitlement.py): verify the
+    # Ed25519 signature + expiry here, spend ONE credit atomically
+    # in the ledger BEFORE the handler runs, and refund the credit
+    # when the response is a failure — reserve-then-run, fail
+    # closed, and NEVER a silent fallback to a per-call (or pass)
+    # charge: a presented-but-invalid token is a refusal, full stop.
+    # Precedence: pack bypasses above run first (a pack id presented
+    # alongside a token spends the pack); a token presented
+    # alongside a Fleet Pass spends the token.
+    entitlement_token = (request.headers.get(ENTITLEMENT_HEADER) or "").strip()
+    if (
+        entitlement_token
+        and request.method == "POST"
+        and request.url.path in PRICE_UNITS
+        and request.url.path not in _PASS_EXEMPT
+    ):
+        try:
+            public_key = entitlement_svc.load_public_key()
+            claims = entitlement_svc.parse_and_verify(entitlement_token, public_key)
+        except entitlement_svc.EntitlementError as e:
+            return JSONResponse(
+                {"error": e.message, "code": e.code}, status_code=e.http_status
+            )
+        try:
+            spend = _recheck_store.spend_entitlement_credit(
+                claims["jti"], request.url.path
+            )
+        except recheck_svc.PackError as e:
+            return JSONResponse(
+                {"error": e.message, "code": e.code}, status_code=e.http_status
+            )
+        try:
+            response = await call_next(request)
+        except Exception:
+            _recheck_store.refund_entitlement_credit(spend["debit_id"])
+            raise
+        if response.status_code >= 400:
+            _recheck_store.refund_entitlement_credit(spend["debit_id"])
+            return response
+        try:
+            response = await _attach_loop_offer(
+                request, response, credential=("entitlement", claims["jti"])
+            )
+            await _record_delivery_or_raise(
+                request,
+                response,
+                credential=("entitlement", claims["jti"]),
+                debit_id=spend["debit_id"],
+            )
+        except Exception:
+            _recheck_store.refund_entitlement_credit(spend["debit_id"])
+            raise
+        return response
     # A call presenting a Fleet Pass id is paid from the pass: debit
     # this route's listed price from the ledger BEFORE the handler
     # runs, and refund the debit when the response is a failure —
@@ -1258,7 +1349,7 @@ async def allowance_audit(req: AddressRequest):
 
 
 @app.post("/v1/tx-decoder")
-async def tx_decoder(req: TxRequest):
+async def tx_decoder(req: TxRequest, request: Request):
     if not is_tx_hash(req.tx_hash):
         return JSONResponse({"error": "tx_hash must be a 0x transaction hash"}, status_code=422)
 
@@ -1267,7 +1358,12 @@ async def tx_decoder(req: TxRequest):
         async with client:
             return await reads_svc.tx_decoder(rpc, scout, req.tx_hash)
 
-    return await _run(go)
+    result = await _run(go)
+    # W3 Build 2: an upto-paid call settles its computed actual
+    # (no-op for every other funding path — see services/upto.py).
+    return upto_svc.apply_upto_settlement(
+        request, "/v1/tx-decoder", result, PRICE_UNITS["/v1/tx-decoder"]
+    )
 
 
 @app.post("/v1/gas-oracle")
@@ -1324,7 +1420,12 @@ async def page_to_markdown(req: PageRequest, request: Request):
     pack_id = _presented_toolkit_pack_id(req, request)
     if pack_id:
         return await _run_pack_funded(pack_id, go)
-    return await _run(go)
+    result = await _run(go)
+    # W3 Build 2: an upto-paid call settles its computed actual
+    # (no-op for every other funding path — see services/upto.py).
+    return upto_svc.apply_upto_settlement(
+        request, "/v1/page-to-markdown", result, PRICE_UNITS["/v1/page-to-markdown"]
+    )
 
 
 @app.post("/v1/video-details")
@@ -3123,6 +3224,139 @@ async def fleet_pass_refund(req: FleetPassRefundRequest):
     Idempotent per debit_id."""
     refunded = _recheck_store.refund_debit(req.debit_id.strip())
     return {"debit_id": req.debit_id.strip(), "refunded": refunded}
+
+
+# --- Prepaid entitlements (W3 Build 1, services/entitlement.py) ---------------
+# One x402 payment buys a signed Ed25519 entitlement token; later
+# calls present it as X-Entitlement instead of paying per call (the
+# middleware branch above verifies + spends). Buy is a paid route,
+# minting idempotent on the payment identity like packs/passes;
+# balance and revoke are free routes where the TOKEN itself is the
+# credential (possession = authority, mirroring pack-balance reads).
+# Issuance fails closed (502, unsettled) when no signing key is
+# configured — nobody pays for a token this deployment cannot sign.
+
+class EntitlementTokenRequest(BaseModel):
+    token: str = Field(description="Entitlement token returned by POST /v1/entitlement-pass or /v1/entitlement-pack")
+
+
+def _mint_entitlement(request: Request, kind: str):
+    """Shared buy handler for the two entitlement products. Runs
+    only after the x402 middleware has verified the payment."""
+    terms = entitlement_svc.KINDS[kind]
+    price_units = (
+        entitlement_svc.PASS_PRICE_UNITS
+        if kind == "pass"
+        else entitlement_svc.PACK_PRICE_UNITS
+    )
+    try:
+        private_key = entitlement_svc.load_private_key()
+    except entitlement_svc.EntitlementError as e:
+        return JSONResponse(
+            {"error": e.message, "code": e.code}, status_code=e.http_status
+        )
+    if private_key is None:
+        return JSONResponse(
+            {
+                "error": "entitlement signing is not configured on this service",
+                "code": "entitlement_unconfigured",
+            },
+            status_code=503,
+        )
+    payment_key = _payment_key(request)
+    if payment_key is None:
+        return JSONResponse(
+            {"error": "payment identity unavailable; entitlement cannot be minted safely"},
+            status_code=502,
+        )
+    view, created = _recheck_store.mint_entitlement(
+        payment_key,
+        kind,
+        terms["credits"],
+        terms["ttl_days"],
+        payer_hint=_payer_of(request),
+    )
+    # Recompute the exact epochs the row was minted with so the
+    # signed claims match the ledger row bit-for-bit.
+    row = _recheck_store._ent_row("jti = ?", (view["jti"],))
+    token = entitlement_svc.issue_token(
+        private_key,
+        jti=view["jti"],
+        kind=kind,
+        credits_total=view["credits_total"],
+        issued_epoch=row["created_epoch"],
+        expires_epoch=row["expires_epoch"],
+        payer_hint=view.get("payer_hint"),
+    )
+    return {
+        **view,
+        "token": token,
+        "price_units": price_units,
+        "note": (
+            "Spend with the X-Entitlement header on any StallRow paid "
+            "route; each call spends one credit. Read the balance free "
+            "at POST /v1/entitlement/balance; revoke free at POST "
+            "/v1/entitlement/revoke. No auto-renewal."
+            + ("" if created else " This payment already minted this entitlement; returning it.")
+        ),
+    }
+
+
+@app.post("/v1/entitlement-pass")
+async def entitlement_pass_buy(request: Request):
+    """Mint the 30-day / 1,800-credit entitlement ($9.00)."""
+    return _mint_entitlement(request, "pass")
+
+
+@app.post("/v1/entitlement-pack")
+async def entitlement_pack_buy(request: Request):
+    """Mint the 1,000-credit / 90-day entitlement pack ($5.00)."""
+    return _mint_entitlement(request, "pack")
+
+
+def _verified_entitlement_claims(token: str):
+    """(claims, error_response) — verify a presented token for the
+    free holder routes; the ledger row is read separately by the
+    caller so an unknown-but-well-signed token still 404s."""
+    try:
+        public_key = entitlement_svc.load_public_key()
+        claims = entitlement_svc.parse_and_verify(token, public_key)
+    except entitlement_svc.EntitlementError as e:
+        return None, JSONResponse(
+            {"error": e.message, "code": e.code}, status_code=e.http_status
+        )
+    return claims, None
+
+
+@app.post("/v1/entitlement/balance")
+async def entitlement_balance(req: EntitlementTokenRequest):
+    """Free holder read: the token is the credential. Serves ONLY
+    that entitlement's ledger state (credits remaining, expiry,
+    revocation, spend count) — the ledger, not the token's claims,
+    is the source of truth."""
+    claims, error = _verified_entitlement_claims(req.token.strip())
+    if error is not None:
+        return error
+    view = _recheck_store.get_entitlement(claims["jti"])
+    if view is None:
+        return JSONResponse({"error": "unknown entitlement"}, status_code=404)
+    return {**view, "spends": _recheck_store.entitlement_spend_count(claims["jti"])}
+
+
+@app.post("/v1/entitlement/revoke")
+async def entitlement_revoke(req: EntitlementTokenRequest):
+    """Free holder action: revoke this entitlement, effective
+    immediately (every spend re-checks the ledger's revoked flag).
+    The token is the credential — revoking is the holder's kill
+    switch for a leaked token. Idempotent in effect: revoking an
+    already-revoked token reports revoked=false (nothing changed)."""
+    claims, error = _verified_entitlement_claims(req.token.strip())
+    if error is not None:
+        return error
+    if _recheck_store.get_entitlement(claims["jti"]) is None:
+        return JSONResponse({"error": "unknown entitlement"}, status_code=404)
+    revoked = _recheck_store.revoke_entitlement(claims["jti"])
+    return {"jti": claims["jti"], "revoked": revoked}
 
 
 # --- Webhook Watch --------------------------------------------------------------
