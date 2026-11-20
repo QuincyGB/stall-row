@@ -1,6 +1,6 @@
 """Human payment rail: verify a direct on-chain USDC payment.
 
-Buyers who cannot pay via x402 can send exactly $5.00 USDC on Base
+Buyers who cannot pay via x402 can send exactly $0.10 USDC on Base
 directly to the fleet payTo wallet. This module verifies such a
 payment from the transaction receipt alone — the same USDC Transfer
 log parsing Receipt Verifier uses (app/services/receipts.py):
@@ -9,7 +9,7 @@ log parsing Receipt Verifier uses (app/services/receipts.py):
   * the receipt status must be successful (0x1);
   * a USDC Transfer log must pay the fleet payTo;
   * that transfer's sender must be the claimed buyer wallet;
-  * its amount must be exactly 5_000_000 units ($5.00).
+  * its amount must be exactly 100_000 units ($0.10).
 
 Anything else is a clean refusal (PaymentRailError) — no pack is
 minted for a wrong amount, a wrong recipient, a different sender,
@@ -24,7 +24,7 @@ from ..discovery import USDC_ASSET
 from ..rpc import Rpc, UpstreamError
 from . import receipts as receipts_svc
 
-EXPECTED_AMOUNT_UNITS = 5_000_000  # $5.00 — the Fleet Check pack price
+EXPECTED_AMOUNT_UNITS = 100_000  # $0.10 — the Fleet Check pack price
 
 
 class PaymentRailError(ValueError):
@@ -44,7 +44,7 @@ async def verify_usdc_payment(
     pay_to: str,
     amount_units: int = EXPECTED_AMOUNT_UNITS,
 ) -> dict:
-    """Verify one claimed $5.00 USDC payment. Returns the matched
+    """Verify one claimed $0.10 USDC payment. Returns the matched
     transfer {"from", "to", "amount_units"} on success; raises
     PaymentRailError on any verification failure and UpstreamError
     when the chain read itself fails (unknown/unconfirmed tx)."""

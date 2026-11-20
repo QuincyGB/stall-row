@@ -355,7 +355,7 @@ async def test_repo_readme_missing_is_an_upstream_error():
 def test_lane3_unpaid_challenges_carry_prices():
     client = TestClient(main.app, raise_server_exceptions=False)
     for path, payload, amount in (
-        ("/v1/video-transcript", {"video": "dQw4w9WgXcQ"}, "10000"),
+        ("/v1/video-transcript", {"video": "dQw4w9WgXcQ"}, "5000"),
         ("/v1/page-metadata", {"url": PAGE_URL}, "5000"),
         ("/v1/feed-digest", {"url": PAGE_URL}, "10000"),
         ("/v1/url-unshorten", {"url": PAGE_URL}, "5000"),

@@ -89,7 +89,7 @@ ORIGIN = "https://93.184.216.34"
 FEE_PAYER = "F742C4VfFLQ9zRQyithoj5229ZgtX2WqKCSFKgH2EThq"
 BLOCKHASH = "11111111111111111111111111111111"
 
-FLEET_CHECK_AMOUNTS = {"/v1/fleet-check": "100000", "/v1/fleet-check/pack": "5000000"}
+FLEET_CHECK_AMOUNTS = {"/v1/fleet-check": "30000", "/v1/fleet-check/pack": "100000"}
 
 
 # --- builders -----------------------------------------------------------------
@@ -429,7 +429,7 @@ def test_solana_paid_pack_buy_mints_once_and_replay_returns_same_pack(monkeypatc
 
     req = main.FleetCheckPackBuyRequest(origins=[ORIGIN], interval_s=3600)
     out = asyncio.run(main.fleet_check_pack_buy(req, _svm_request()))
-    assert out["credits_total"] == 100 and out["price_units"] == 5_000_000
+    assert out["credits_total"] == 100 and out["price_units"] == 100_000
 
     replay = asyncio.run(main.fleet_check_pack_buy(req, _svm_request()))
     assert replay["pack_id"] == out["pack_id"]

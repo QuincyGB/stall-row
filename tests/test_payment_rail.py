@@ -37,7 +37,7 @@ def _pad(addr: str) -> str:
     return "0x" + "0" * 24 + addr[2:].lower()
 
 
-def _receipt(*, frm=BUYER, to=PAY_TO, amount=5_000_000, status="0x1"):
+def _receipt(*, frm=BUYER, to=PAY_TO, amount=100_000, status="0x1"):
     return {
         "status": status,
         "blockNumber": "0x100",
@@ -127,7 +127,7 @@ def test_happy_path_mints(env):
 
 def test_wrong_amount_rejected(env):
     client, store, state = env
-    for amount in (4_990_000, 5_010_000, 1):
+    for amount in (99_000, 101_000, 1):
         state["receipt"] = _receipt(amount=amount)
         resp = _mint(client)
         assert resp.status_code == 422, (amount, resp.text)

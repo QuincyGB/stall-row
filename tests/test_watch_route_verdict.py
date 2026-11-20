@@ -122,15 +122,15 @@ async def test_register_route_verdict_unknown_pass_is_404(store):
 
 @pytest.mark.asyncio
 async def test_register_route_verdict_low_balance_pass_is_402(store):
-    # 40000 < price_for("route-verdict", "/v1/check") == 50000.
-    low, _ = store.mint_pass("pay-low", 40_000, fleetpass.PASS_TTL_DAYS)
+    # 20000 < price_for("route-verdict", "/v1/check") == 30000.
+    low, _ = store.mint_pass("pay-low", 20_000, fleetpass.PASS_TTL_DAYS)
     with pytest.raises(watch.WatchError) as e:
         await watch.register(
             store, TARGET, WEBHOOK, None, None, None, low["pass_id"],
             check_kind="route_verdict",
         )
     assert e.value.http_status == 402
-    assert fleetpass.price_for("route-verdict", "/v1/check") == 50_000
+    assert fleetpass.price_for("route-verdict", "/v1/check") == 30_000
 
 
 @pytest.mark.asyncio

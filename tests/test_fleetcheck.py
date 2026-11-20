@@ -413,12 +413,12 @@ def test_due_fleet_check_packs(store):
 # --- pricing / fleet pass table ------------------------------------------------------
 
 def test_prices_and_pass_table():
-    assert fleetcheck.ONE_SHOT_PRICE_UNITS == 100_000
-    assert fleetcheck.PACK_PRICE_UNITS == 5_000_000
+    assert fleetcheck.ONE_SHOT_PRICE_UNITS == 30_000
+    assert fleetcheck.PACK_PRICE_UNITS == 100_000
     assert fleetcheck.PACK_CREDITS == 100
     # A pass can pay for a sweep (a call product) but never for a
     # prepaid pack (the fleet's standing exclusion).
-    assert fleetpass.price_for("stall-row", "/v1/fleet-check") == 100_000
+    assert fleetpass.price_for("stall-row", "/v1/fleet-check") == 30_000
     assert fleetpass.price_for("stall-row", "/v1/fleet-check/pack") is None
 
 
@@ -437,8 +437,8 @@ def test_unpaid_challenges_are_exact():
     # lives in tests/test_fleetcheck_solana.py.
     client = TestClient(main.app, raise_server_exceptions=False)
     for path, amount in (
-        ("/v1/fleet-check", "100000"),
-        ("/v1/fleet-check/pack", "5000000"),
+        ("/v1/fleet-check", "30000"),
+        ("/v1/fleet-check/pack", "100000"),
     ):
         r = client.post(path, json={"origins": [ORIGIN]})
         assert r.status_code == 402
@@ -484,7 +484,7 @@ def test_buy_handler_mints_and_replay_returns_same_pack(monkeypatch, tmp_path):
     req = main.FleetCheckPackBuyRequest(origins=[ORIGIN], interval_s=3600)
     out = asyncio.run(main.fleet_check_pack_buy(req, _fake_request()))
     assert out["credits_total"] == 100 and out["credits_remaining"] == 100
-    assert out["expiry_days"] == 90 and out["price_units"] == 5_000_000
+    assert out["expiry_days"] == 90 and out["price_units"] == 100_000
     assert out["definition"] == {"resources": [], "origins": [ORIGIN]}
 
     replay = asyncio.run(main.fleet_check_pack_buy(req, _fake_request()))

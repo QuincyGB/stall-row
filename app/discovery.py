@@ -1419,7 +1419,7 @@ ROUTES: dict[str, dict] = {
             "know what changed first. Watch and pack state persist across "
             "redeploys on the service volume. Checking the same endpoint "
             "on a schedule? Buy the pack instead — POST /v1/recheck/pack "
-            "is $1 for 250 checks (90 days) and this route spends pack "
+             "is $0.10 for 250 checks and this route spends pack "
             "credits when you send pack_id, so a loop makes one payment, "
             "not hundreds."
         ),
@@ -1628,7 +1628,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/orchestrate": {
         "description": (
-            "One combined fleet report for $0.75: Token Verdict's "
+             "One combined fleet report for $0.10: Token Verdict's "
             "verdict on a token, RouteVerdict's delivery check and "
             "LockSmith's security audit summary on a service URL, and "
             "ListSmith's grade on a listing URL — four fleet services "
@@ -1681,8 +1681,8 @@ ROUTES: dict[str, dict] = {
     "/v1/recheck/pack": {
         "description": (
             "Recheck watch pack — the default for monitoring loops: one "
-            "$1.00 payment buys 250 change-checks for ONE endpoint "
-            "($0.004 per check instead of $0.005), good for 90 days. "
+            "$0.10 payment buys 250 change-checks for ONE endpoint "
+             "($0.0004 per check instead of $0.005), good for 90 days. "
             "Returns an unguessable pack id — spend credits via POST "
             "/v1/recheck (body pack_id or X-Recheck-Pack header); read "
             "the balance free at POST /v1/recheck/pack-balance, and an "
@@ -1867,7 +1867,7 @@ ROUTES: dict[str, dict] = {
     "/v1/fleet-check/pack": {
         "description": (
             "Fleet Check pack — the standing form of Fleet Check: one "
-            "$5.00 payment buys 100 sweep credits for ONE fixed fleet "
+            "$0.10 payment buys 100 sweep credits for ONE fixed fleet "
             "definition (resources and/or origins), good for 90 days. "
             "Sweeps run on your interval or on demand via POST "
             "/v1/fleet-check/run — one credit per sweep, never per "
@@ -2190,7 +2190,7 @@ ROUTES: dict[str, dict] = {
     "/v1/physical": {
         "description": (
             "Inspector Physical — the full pre-pay workup for one x402 "
-            "resource in ONE $0.05 call (the singles sum to $0.075): "
+             "resource in ONE $0.03 call (the singles sum to $0.075): "
             "Sign Reader's challenge report, Score Book's track "
             "record, Guard's PROCEED/CAUTION/ABORT verdict as the "
             "headline, and a Recheck that probes and records the "
@@ -2293,8 +2293,8 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/toolkit/pack": {
         "description": (
-            "Toolkit Pack — one $1.00 payment buys 125 prepaid calls "
-            "($0.008 each instead of the $0.01 singles) spendable on "
+             "Toolkit Pack — one $0.10 payment buys 125 prepaid calls "
+             "($0.0008 each instead of the $0.01 singles) spendable on "
             "Sign Reader, Score Book, Guard, Tube Search, Page to "
             "Markdown, or Video Details in any mix, good for 90 days. "
             "Spend via pack_id (body or X-Toolkit-Pack header) on "
@@ -2919,14 +2919,14 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "as unknown — nothing is fabricated, and an upstream failure "
         "returns 502 so the payment does not settle.",
         "",
-        "Recheck packs: buy POST /v1/recheck/pack once ($1.00 = 250 "
+         "Recheck packs: buy POST /v1/recheck/pack once ($0.10 = 250 "
         "checks on one endpoint URL, 90-day expiry), then call POST "
         "/v1/recheck with the pack id in the body (pack_id) or the "
         "X-Recheck-Pack header to spend credits instead of paying per "
         "call. Check a pack's balance free at POST "
         "/v1/recheck/pack-balance.",
         "",
-        "Toolkit Pack: buy POST /v1/toolkit/pack once ($1.00 = 125 "
+         "Toolkit Pack: buy POST /v1/toolkit/pack once ($0.10 = 125 "
         "calls spendable on Sign Reader, Score Book, Guard, Tube "
         "Search, Page to Markdown, or Video Details in any mix — the "
         "pack binds to the toolkit family, not one target — 90-day "
@@ -3008,7 +3008,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "filtered diff (empty diffs included, as the feed's "
         "heartbeat) is POSTed to your webhook. The first evaluation "
         "is a free silent baseline; each later evaluation debits "
-        "$0.10 from the pass — the listed price of one "
+        "$0.03 from the pass — the listed price of one "
         "/v1/index/changes call. Run one now via POST "
         "/v1/index/subscription/run; read state via POST "
         "/v1/index/subscription/status. A $20 Fleet Pass v2 (POST "
@@ -3064,14 +3064,14 @@ def skill_md(settings: Settings, base_url: str) -> str:
         "funding split as the Drift Event Feed (first 100 free, then "
         "$0.005 per event from a Fleet Pass).",
         "",
-        "Fleet Check: POST /v1/fleet-check ($0.10) sweeps YOUR whole "
+         "Fleet Check: POST /v1/fleet-check ($0.03) sweeps YOUR whole "
         "fleet in one call — name resource URLs and/or origins "
         "(expanded from their /.well-known/x402) and get a per-route "
         "health table (alive, challenge decodes, accept summary, "
         "OK / DEGRADED / DOWN with the defect named) plus a grade "
         "per origin. Probes are unpaid only; the checker never pays "
         "a route it checks. The standing form is the pack: POST "
-        "/v1/fleet-check/pack ($5.00 = 100 sweeps of one fixed fleet "
+        "/v1/fleet-check/pack ($0.10 = 100 sweeps of one fixed fleet "
         "definition, 90 days) — sweeps run on your interval or via "
         "POST /v1/fleet-check/run, diff against the last sweep, and "
         "push failures/recoveries to your webhook; read the latest "
@@ -3130,7 +3130,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `POST {base_url}/v1/heartbeat/register` — FREE Heartbeat Watch registration (Next-20 #9): a liveness-only standing watch over a SET of resources; the ticker knocks each on its interval with UNPAID probes (reachability + 402-presence + challenge-decodability — a heartbeat never pays the target), debits $0.001 per knock from the registration's Recheck pack or Fleet Pass, and pushes ONLY on up/down/degraded transitions, never on steady state; unfunded registrations pause. Status/run/pause/resume/cancel beside it at `POST {base_url}/v1/heartbeat/status` etc. (registration id is the credential)",
         f"- `POST {base_url}/v1/defect-watch/register` — FREE Defect-Class Watch registration (Next-20 #10): subscribe to ONE defect class from the patrol/drift taxonomy (payto_mismatch, amount_mismatch, schema_mismatch, challenge_undecodable, unexpected_status, server_error, unreachable, no_402, target_refused), optionally scoped by origin / resource substring / service name; each CONFIRMED drift/firehose event in the class is delivered and debited $0.005 from the pack/pass; first evaluation baselines silently. Manage free at `POST {base_url}/v1/defect-watch/pause` / `resume` / `cancel`, run on demand at `/run`, read at `/status`",
         f"- `POST {base_url}/v1/portfolio-watch/register` — FREE Portfolio Watch registration (Next-20 #11): ONE registration per operator family (service_name or origin as the Index holds it); every route in the family is watched under one Fleet Pass balance, one webhook, one family-level event payload. The family expands from the Index's current snapshot at registration AND re-expands on every evaluation, so later-added family routes join automatically. Tier per registration: heartbeat ($0.001/knock), recheck ($0.005/route) or digest ($0.005/evaluation diff) — debits are the underlying products' rates, no portfolio price. Status/run/pause/resume/cancel beside it",
-        f"- `POST {base_url}/v1/stall-watch/register` — FREE Stall Watch registration (Next-20 #12): a stall owner watches their OWN stall — claim-verified (X-Claim-Session header, the /v1/claims credential) — in one call composing the verified claim, the owner's $1 Recheck pack, a Standing Watch on the pack's URL and recovery-receipt attachment: drift/defect/recovery alerts for the stall, with the patrol's signed recovery receipt attached to every recovery event. Status at `GET {base_url}/v1/stall-watch/status?origin=`, evaluate/pause/resume/cancel beside it",
+        f"- `POST {base_url}/v1/stall-watch/register` — FREE Stall Watch registration (Next-20 #12): a stall owner watches their OWN stall — claim-verified (X-Claim-Session header, the /v1/claims credential) — in one call composing the verified claim, the owner's $0.10 Recheck pack, a Standing Watch on the pack's URL and recovery-receipt attachment: drift/defect/recovery alerts for the stall, with the patrol's signed recovery receipt attached to every recovery event. Status at `GET {base_url}/v1/stall-watch/status?origin=`, evaluate/pause/resume/cancel beside it",
         f"- Alert Digest Mode (Next-20 #20): every watch registration above — and Standing Watch, Rotation Alerts, Router Watchlist and Index Subscriptions — accepts delivery_mode='digest' with digest_interval 'hourly'|'daily': events accumulate and arrive as ONE batched digest delivery per interval (counts by class, events list, period bounds). Debits stay per underlying knock/event exactly as in instant mode — digest changes delivery shape only, never pricing. Read/flush the queue free at `POST {base_url}/v1/watch/digest/pending` and `POST {base_url}/v1/watch/digest/flush`. The self-serve recheck change-webhooks keep instant-only delivery: their per-event HMAC signing + retry/dead-letter contract is keyed to individual events",
         f"- Payer pre-binding (Item 5 rider): pack/pass mint and watch/webhook registration handlers honour a ?payer=<identity> query parameter (or payer body field) from Item 5 deep links — the identity is recorded as the credential's/registration's payer_hint so the loop memory can bind credential to wallet on the next delivery; absence changes nothing",
         "",
@@ -3160,17 +3160,17 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         lines.append(f"- POST {base_url}{path} — {_price_str(path, settings)} USDC")
         if path == "/v1/recheck/pack":
             lines += [
-                "Monitoring loop? The pack is the default: $1.00 = 250 checks on one",
-                "endpoint for 90 days ($0.004/check). Spend with pack_id on",
+                "Monitoring loop? The pack is the default: $0.10 = 250 checks on one",
+                "endpoint for 90 days ($0.0004/check). Spend with pack_id on",
                 "POST /v1/recheck; check the balance free at",
                 "POST /v1/recheck/pack-balance. Exhausted packs return 402 — they",
                 "never fall back to per-call billing. Renewal is a new pack purchase.",
             ]
         if path == "/v1/toolkit/pack":
             lines += [
-                "Inspector loop? The Toolkit Pack is the default: $1.00 = 125 calls",
+                "Inspector loop? The Toolkit Pack is the default: $0.10 = 125 calls",
                 "spendable on Sign Reader, Score Book, Guard, Tube Search, Page to",
-                "Markdown, or Video Details in any mix for 90 days ($0.008/call).",
+                "Markdown, or Video Details in any mix for 90 days ($0.0008/call).",
                 "Spend with pack_id on those routes; check",
                 "the balance free at POST /v1/toolkit/pack-balance. Exhausted packs",
                 "return 402 — they never fall back to per-call billing.",
@@ -3213,7 +3213,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- POST {base_url}/v1/heartbeat/register — free Heartbeat Watch registration (liveness-only watch over a resource SET; unpaid knocks, $0.001/knock debited from a Recheck pack or Fleet Pass, transition-only up/down/degraded alerts, unfunded registrations pause); /status, /run, /pause, /resume, /cancel beside it",
         f"- POST {base_url}/v1/defect-watch/register — free Defect-Class Watch registration (one patrol-taxonomy defect class, optional origin/resource/service-name scope; $0.005 per confirmed event from a pack/pass; silent baseline); /status, /run, /pause, /resume, /cancel beside it",
         f"- POST {base_url}/v1/portfolio-watch/register — free Portfolio Watch registration (one registration per operator family as the Index holds it; family expanded at registration and re-expanded every evaluation; heartbeat $0.001/knock, recheck $0.005/route or digest $0.005/evaluation tiers from one Fleet Pass); /status, /run, /pause, /resume, /cancel beside it",
-        f"- POST {base_url}/v1/stall-watch/register — free Stall Watch registration (claim-verified stall owners only, X-Claim-Session; composes claim + $1 Recheck pack + Standing Watch + signed recovery receipts on recovery events); GET {base_url}/v1/stall-watch/status?origin=, /evaluate, /pause, /resume, /cancel beside it",
+        f"- POST {base_url}/v1/stall-watch/register — free Stall Watch registration (claim-verified stall owners only, X-Claim-Session; composes claim + $0.10 Recheck pack + Standing Watch + signed recovery receipts on recovery events); GET {base_url}/v1/stall-watch/status?origin=, /evaluate, /pause, /resume, /cancel beside it",
         f"- Alert Digest Mode: watch registrations accept delivery_mode='digest' + digest_interval hourly|daily (batched delivery: counts by class, events, period bounds; debits unchanged per knock/event); POST {base_url}/v1/watch/digest/pending and /v1/watch/digest/flush read/drain a queue free. Pack/pass mints and watch/webhook registrations honour ?payer= pre-binding (payer_hint)",
         f"- GET {base_url}/widget/verdict.js — free embeddable verdict widget: <script src=\"{base_url}/widget/verdict.js\" data-target=\"https://example.com/v1/your-route\" async></script> renders the recorded verdict + last-change (shadow DOM, no global CSS); iframe form: GET {base_url}/widget/verdict.html?url= (self-contained, server-rendered). Branding: Verdict Row Patrol, patrol@verdictrow.com",
         f"- GET {base_url}/v1/sandbox/x402 — TEST FIXTURE (not a service, never listed for sale): a mutable x402 challenge for Recheck ingestion rehearsal",

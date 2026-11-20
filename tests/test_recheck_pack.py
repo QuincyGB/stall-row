@@ -217,7 +217,7 @@ def test_buy_handler_mints_and_replay_returns_same_pack(monkeypatch, tmp_path):
     req = main.RecheckPackBuyRequest(url="https://93.184.216.34/v1/verdict")
     out = asyncio.run(main.recheck_pack_buy(req, _fake_request()))
     assert out["credits_total"] == 250 and out["credits_remaining"] == 250
-    assert out["expiry_days"] == 90 and out["price_units"] == 1_000_000
+    assert out["expiry_days"] == 90 and out["price_units"] == 100_000
 
     replay = asyncio.run(main.recheck_pack_buy(req, _fake_request()))
     assert replay["pack_id"] == out["pack_id"]
@@ -225,13 +225,13 @@ def test_buy_handler_mints_and_replay_returns_same_pack(monkeypatch, tmp_path):
     assert fresh.pack_count() == 1
 
 
-def test_unpaid_pack_buy_challenge_is_exactly_one_dollar():
+def test_unpaid_pack_buy_challenge_is_exactly_ten_cents():
     client = TestClient(main.app, raise_server_exceptions=False)
     r = client.post("/v1/recheck/pack", json={"url": WEB_URL})
     assert r.status_code == 402
     challenge = json.loads(base64.b64decode(r.headers["payment-required"]))
     accept = challenge["accepts"][0]
-    assert accept["amount"] == "1000000"
+    assert accept["amount"] == "100000"
     assert accept["payTo"] == OWNER
 
 

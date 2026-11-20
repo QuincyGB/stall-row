@@ -278,12 +278,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/pre-trade-guard (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/counterparty-report — $1
+### POST https://stall-row-production.up.railway.app/v1/counterparty-report — $0.1
 
 Counterparty Report — one bundled report on one seller: the payTo's wallet snapshot, an OFAC SDN exact-match screen, and its Verdict Index listing history, plus a Token Verdict when you name a token, a LockSmith audit when you name a service URL, and a ListSmith grade when you name a listing URL. Legs that are not requested or cannot run are marked, never padded. Use this when an agent is about to rely on a seller it has never dealt with.
 
-Price: $1 (1000000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 1000000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.1 (100000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 100000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: x402, security, verdict, sellers, agents, counterparty, payto, due-diligence, preflight
 Input shape: type object; fields: chain (string), listing_url (string|null), pay_to (string, required), resource (string|null), service_url (string|null), token_address (string|null)
 Output shape: type object; fields: generated_at (string, required), legs (object, required), legs_failed (array), legs_not_requested (array), legs_ok (array, required), legs_unavailable (array), limits (string), listing_url (string|null), pay_to (string, required), service_url (string|null), token_address (string|null)
@@ -531,12 +531,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/agent-card-verify (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/tube-search — $0.01
+### POST https://stall-row-production.up.railway.app/v1/tube-search — $0.005
 
 YouTube search results as clean JSON: title, video id, URL, channel, duration, views, publish age, and thumbnail for each result, scraped from the public results page with no API key. Optional duration, upload-recency, and channel filters; max_results up to 50 digs past page one. Pays per call or with one Toolkit Pack credit. Use this when an agent needs to find a video mid-task without a browser or a Google API key.
 
-Price: $0.01 (10000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.005 (5000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 5000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: search, youtube, video, data, agents, youtube-search, video-search
 Input shape: type object; fields: channel (string|null), duration (string|null), max_results (integer), pack_id (string|null), query (string, required), uploaded_within (string|null)
 Output shape: type object; fields: count (integer, required), query (string, required), results (array, required)
@@ -572,12 +572,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/tube-search (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/page-to-markdown — $0.01
+### POST https://stall-row-production.up.railway.app/v1/page-to-markdown — $0.005
 
 Fetch one web page and return its main content as clean Markdown with title and word count, extracted server-side; a reader-proxy fallback retries pages that refuse the direct fetch (marked in-band). Private and loopback targets are refused. Pays per call or with one Toolkit Pack credit. Use this when an agent needs to read a page inside a workflow without a browser and without wading through navigation and boilerplate.
 
-Price: $0.01 (10000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.005 (5000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 5000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: fetch, markdown, web, reading, agents, web-fetch, content-extraction
 Input shape: type object; fields: pack_id (string|null), url (string, required)
 Output shape: type object; fields: fallback (string|null), final_url (string, required), markdown (string, required), title (string|null), url (string, required), word_count (integer, required)
@@ -602,12 +602,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/page-to-markdown (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/video-details — $0.01
+### POST https://stall-row-production.up.railway.app/v1/video-details — $0.005
 
 Full details for one YouTube video in one call: title, channel, duration, view count, description, keywords, thumbnail, and caption-track availability (which languages have captions), read from the video's own player data with no API key. Takes a video id or any youtube.com / youtu.be URL. Pays per call or with one Toolkit Pack credit. Use this when an agent found a video with /v1/tube-search and needs the full record before using it.
 
-Price: $0.01 (10000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.005 (5000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 5000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: youtube, video, metadata, data, agents, video-details, captions
 Input shape: type object; fields: pack_id (string|null), video (string, required)
 Output shape: type object; fields: captions (array, required), captions_available (boolean, required), channel (string|null), channel_id (string|null), description (string, required), duration (string|null), duration_seconds (integer|null), is_live (boolean), keywords (array), published (string|null), thumbnail (string, required), title (string|null), url (string, required), video_id (string, required), views (integer|null)
@@ -652,12 +652,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/video-details (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/video-transcript — $0.01
+### POST https://stall-row-production.up.railway.app/v1/video-transcript — $0.005
 
 The full caption text of one YouTube video with timed segments: every word, with start and duration per segment, in the language you ask for (or a human-made track by default), fetched from the video's own caption track with no API key. Takes a video id or any youtube.com / youtu.be URL. Pays per call or with one Toolkit Pack credit. Use this when an agent needs what a video says — to summarize, quote, or index it — not just that it exists.
 
-Price: $0.01 (10000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 10000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.005 (5000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 5000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: youtube, video, transcript, captions, data, agents, video-transcript, subtitles
 Input shape: type object; fields: lang (string|null), pack_id (string|null), video (string, required)
 Output shape: type object; fields: char_count (integer, required), kind (string|null), language (string|null), language_code (string|null), segment_count (integer, required), segments (array, required), title (string|null), transcript (string, required), truncated (boolean, required), url (string, required), video_id (string, required)
@@ -829,12 +829,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/url-unshorten (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/tube-search/batch — $0.05
+### POST https://stall-row-production.up.railway.app/v1/tube-search/batch — $0.03
 
 Up to 10 YouTube searches in one call, each with its own result list in the /v1/tube-search shape, filters included; a query that fails is reported in its own entry instead of failing the batch, and the batch only fails when every query does. Pack credits do not fund batch routes. Use this when an agent sweeps many searches at once instead of paying settlement overhead on every single search.
 
-Price: $0.05 (50000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 50000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.03 (30000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 30000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: search, youtube, video, batch, agents, youtube-search, bulk
 Input shape: type object; fields: channel (string|null), duration (string|null), max_results (integer), queries (array, required), uploaded_within (string|null)
 Output shape: type object; fields: count (integer, required), results (array, required), succeeded (integer, required)
@@ -896,12 +896,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/tube-search-batch (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/page-to-markdown/batch — $0.05
+### POST https://stall-row-production.up.railway.app/v1/page-to-markdown/batch — $0.03
 
 Up to 10 page conversions in one call, each fetched and converted exactly as /v1/page-to-markdown (reader-proxy fallback included); a URL that fails is reported in its own entry instead of failing the batch, and the batch only fails when every URL does. Pack credits do not fund batch routes. Use this when an agent reads pages in bulk instead of paying settlement overhead on every fetch.
 
-Price: $0.05 (50000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 50000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.03 (30000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 30000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: fetch, markdown, web, batch, agents, web-fetch, bulk
 Input shape: type object; fields: urls (array, required)
 Output shape: type object; fields: count (integer, required), results (array, required), succeeded (integer, required)
@@ -1014,12 +1014,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/repo-readme (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/price-check — $0.05
+### POST https://stall-row-production.up.railway.app/v1/price-check — $0.03
 
 Pricing comps for an x402 listing, read live from the CDP Bazaar public catalog: how many resources match your keywords, their price distribution, the closest comparables, and a recommended listing price with its rationale. Use this when you operate an x402 route and are setting or changing its price.
 
-Price: $0.05 (50000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 50000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.03 (30000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 30000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: x402, bazaar, pricing, sellers, agents, pricing-comps, catalogue, market-data
 Input shape: type object; fields: description (string), keywords (string, required)
 Output shape: type object; fields: catalog_status (string, required), comparables (array, required), keywords (string, required), matches_found (integer, required), price_distribution (object|null), rationale (string, required), recommended_price_usd (number|null)
@@ -1058,12 +1058,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/price-check (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/card-smith — $0.1
+### POST https://stall-row-production.up.railway.app/v1/card-smith — $0.03
 
 Generate or grade an agent card (the /.well-known/agent-card.json an agent publishes for A2A and AgentWorld-style registries). Generate builds a structurally valid card from your fields; grade scores a supplied card and itemizes its defects. Use this when you are registering an agent and want the card right the first time.
 
-Price: $0.1 (100000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 100000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.03 (30000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 30000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: agents, a2a, agent-card, identity, sellers, manifest
 Input shape: type object; fields: card (object), description (string), mode (string, required), name (string), skills (array)
 Output shape: type object; fields: card (object|null), mode (string, required), validation (object, required)
@@ -1107,12 +1107,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/card-smith (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/job-scout — $0.05
+### POST https://stall-row-production.up.railway.app/v1/job-scout — $0.03
 
 A digest of currently open agent jobs from the marketplaces we sweep daily, filtered by the capabilities you name and sorted by budget: platform, budget, capability tags, deadline, and source snapshot time on every row, with a stale flag when the snapshot ages past 24 hours. Use this when your agent is looking for paid work.
 
-Price: $0.05 (50000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 50000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.03 (30000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 30000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: jobs, bounties, agents, work, digest, agent-jobs, bounty-board
 Input shape: type object; fields: capabilities (array), limit (integer)
 Output shape: type object; fields: count (integer, required), data_stale (boolean, required), jobs (array, required), note (string, required), snapshot_age_hours (number|null), snapshot_fetched_at (string|null), snapshot_source (string|null)
@@ -1204,12 +1204,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/recheck (source: recorded; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/index/changes — $0.1
+### POST https://stall-row-production.up.railway.app/v1/index/changes — $0.03
 
 Verdict Index — the CDP Bazaar catalog changelog: the diff between our two newest full-catalog snapshots (price, asset, network, payTo, description, service name), with added and removed resources counted. Snapshots refresh about every 6 hours; until two exist this returns 502 and charges nothing. Filter by resource, payTo, service name, or network — every chain covered, Solana included; the summary breaks counts down by network. Use this when a router needs what changed since its last sync.
 
-Price: $0.1 (100000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 100000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.03 (30000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 30000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: index, x402, changelog, catalog, monitoring, agents, drift, catalogue-diff, catalogue
 Input shape: type object; fields: limit (integer), network (string), pay_to (string), resource_contains (string), service_name (string)
 Output shape: type object; fields: baseline_at (string, required), current_at (string, required), events (array, required), events_returned (integer), generated_at (string), summary (object, required)
@@ -1298,12 +1298,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/index-history (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/orchestrate — $0.75
+### POST https://stall-row-production.up.railway.app/v1/orchestrate — $0.1
 
 One combined fleet report for $0.75: Token Verdict's verdict on a token, RouteVerdict's delivery check and LockSmith's security audit summary on a service URL, and ListSmith's grade on a listing URL — four fleet services in one call. A failed leg is marked in the report, not hidden; only a total failure returns 502 and charges nothing. Use this when an agent is about to trust a token and a stall in the same workflow and wants one receipt instead of four payments.
 
-Price: $0.75 (750000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 750000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.1 (100000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 100000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: bundle, x402, verdict, audit, agents, fleet, fleet-audit, preflight, bundle-report
 Input shape: type object; fields: address (string, required), chain (string), listing_url (string, required), service_url (string, required)
 Output shape: type object; fields: legs (object, required), legs_failed (array, required), legs_ok (array, required), listing_url (string, required), service_url (string, required), token (object, required)
@@ -1349,12 +1349,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/orchestrate (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/recheck/pack — $1
+### POST https://stall-row-production.up.railway.app/v1/recheck/pack — $0.1
 
 Recheck watch pack — the default for monitoring loops: one $1.00 payment buys 250 change-checks for ONE endpoint ($0.004 per check instead of $0.005), good for 90 days. Returns an unguessable pack id — spend credits via POST /v1/recheck (body pack_id or X-Recheck-Pack header); read the balance free at POST /v1/recheck/pack-balance, and an exhausted pack returns 402 rather than charging per call. Use this when anything checks the same endpoint more than ~3 times a week.
 
-Price: $1 (1000000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 1000000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.1 (100000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 100000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: monitoring, x402, change-detection, prepaid, agents, drift, uptime
 Input shape: type object; fields: url (string, required)
 Output shape: type object; fields: created_at (string), credits_remaining (integer, required), credits_total (integer, required), expired (boolean), expires_at (string, required), expiry_days (integer), note (string), pack_id (string, required), price_units (integer), url (string, required)
@@ -1384,12 +1384,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/recheck-pack (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/fleet-check — $0.1
+### POST https://stall-row-production.up.railway.app/v1/fleet-check — $0.03
 
 Fleet Check — one health sweep of your whole x402 fleet: name resource URLs and/or origins (expanded from their own /.well-known/x402) and get a per-route table — alive, status, whether the 402 challenge decodes, each accept's network/asset/payTo/amount, an OK / DEGRADED / DOWN verdict naming the defect, and a grade per origin. Probes are unpaid only — this route never pays any route it checks. Use this when you run more than one x402 stall and want one honest answer about all of them.
 
-Price: $0.1 (100000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 100000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300 | scheme exact, network solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp, amount 100000 units, asset EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v, payTo FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ, maxTimeoutSeconds 300
+Price: $0.03 (30000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 30000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300 | scheme exact, network solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp, amount 30000 units, asset EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v, payTo FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ, maxTimeoutSeconds 300
 Tags: x402, monitoring, health-check, sellers, agents, fleet-health, uptime, endpoint-verification, drift
 Input shape: type object; fields: origins (array), resources (array)
 Output shape: type object; fields: checked_at (string, required), limits (string), origins (array, required), resources (array, required), summary (object, required)
@@ -1452,12 +1452,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/fleet-check (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/fleet-check/pack — $5
+### POST https://stall-row-production.up.railway.app/v1/fleet-check/pack — $0.1
 
 Fleet Check pack — the standing form of Fleet Check: one $5.00 payment buys 100 sweep credits for ONE fixed fleet definition (resources and/or origins), good for 90 days. Sweeps run on your interval or on demand via POST /v1/fleet-check/run — one credit per sweep, never per route — diff against the last sweep, and POST failures and recoveries to your webhook (heartbeats optional); the latest table is free at POST /v1/fleet-check/status. Use this when your stalls should be watched continuously.
 
-Price: $5 (5000000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 5000000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300 | scheme exact, network solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp, amount 5000000 units, asset EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v, payTo FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ, maxTimeoutSeconds 300
+Price: $0.1 (100000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 100000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300 | scheme exact, network solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp, amount 100000 units, asset EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v, payTo FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ, maxTimeoutSeconds 300
 Tags: x402, monitoring, prepaid, health-check, agents, fleet-health, uptime, endpoint-verification, drift
 Input shape: type object; fields: email (string|null), heartbeat (boolean), interval_s (integer), origins (array), resources (array), webhook_url (string|null)
 Output shape: type object; fields: created_at (string), credits_remaining (integer, required), credits_total (integer, required), definition (object, required), email (string|null), expired (boolean), expires_at (string, required), expiry_days (integer), heartbeat (boolean), interval_s (integer), last_run_at (string|null), note (string), pack_id (string, required), price_units (integer), webhook_url (string|null)
@@ -1703,12 +1703,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/guard (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/physical — $0.05
+### POST https://stall-row-production.up.railway.app/v1/physical — $0.03
 
 Inspector Physical — the full pre-pay workup for one x402 resource in ONE $0.05 call (the singles sum to $0.075): Sign Reader's challenge report, Score Book's track record, Guard's PROCEED/CAUTION/ABORT verdict as the headline, and a Recheck that probes and records the target (BASELINE/UNCHANGED/CHANGED, in the public feed). No RouteVerdict leg. Bad targets are delivered reports; only SSRF refusals are 422. Use this when your agent wants one endpoint's complete picture before paying it.
 
-Price: $0.05 (50000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 50000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.03 (30000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 30000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: x402, inspector, bundle, pre-pay, monitoring, preflight, endpoint-verification, delivery-verified, payto
 Input shape: type object; fields: url (string, required), watch_id (string|null)
 Output shape: type object; fields: book (object, required), guard (object, required), limits (string), recheck (object, required), sign (object, required), summary (object), url (string, required), verdict (string, required)
@@ -1795,12 +1795,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/payto-pin-verify (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/toolkit/pack — $1
+### POST https://stall-row-production.up.railway.app/v1/toolkit/pack — $0.1
 
 Toolkit Pack — one $1.00 payment buys 125 prepaid calls ($0.008 each instead of the $0.01 singles) spendable on Sign Reader, Score Book, Guard, Tube Search, Page to Markdown, or Video Details in any mix, good for 90 days. Spend via pack_id (body or X-Toolkit-Pack header) on those routes; read the balance free at POST /v1/toolkit/pack-balance. An exhausted pack returns 402 rather than charging per call. Use this when your agent runs these tools regularly.
 
-Price: $1 (1000000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 1000000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.1 (100000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 100000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: x402, inspector, prepaid, agents, toolkit, inspector-toolkit, preflight
 Input shape: type object
 Output shape: type object; fields: created_at (string), credits_remaining (integer, required), credits_total (integer, required), expired (boolean), expires_at (string, required), expiry_days (integer), family (string, required), note (string), pack_id (string, required), price_units (integer), routes (array)
@@ -1833,12 +1833,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/toolkit-pack (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/ledger-dataset — $0.1
+### POST https://stall-row-production.up.railway.app/v1/ledger-dataset — $0.03
 
 Ledger Dataset (summary) — per-origin rollup of the fleet's x402 observation ledger (Recheck history + held CDP snapshots + the committed patrol snapshot): routes, checks, change/recovery counts, patrol open defects and recoveries by class, last-seen times, provenance. Observation data only — no operator contacts. Use this when you want the town-wide state of the x402 catalogue before buying the full per-route pull.
 
-Price: $0.1 (100000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 100000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.03 (30000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 30000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: x402, inspector, dataset, catalogue, monitoring, observation-ledger
 Input shape: type object
 Output shape: type object; fields: origins (array, required), provenance (object, required), tier (string, required), totals (object, required)
@@ -1912,12 +1912,12 @@ Worked response example (fixture):
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/ledger-dataset (source: schema-example; labelled in-band sample=true, live=false).
 
-### POST https://stall-row-production.up.railway.app/v1/ledger-dataset/full — $1
+### POST https://stall-row-production.up.railway.app/v1/ledger-dataset/full — $0.1
 
 Ledger Dataset (full) — every route in the fleet's x402 observation ledger: observed/listed terms, latest status, check/change/recovery counts, derived defect class, catalogue listing + usage counters, and its patrol block (open defect by class, first/last seen; or recovery + receipt id), plus the per-origin rollup and provenance. Sources: Recheck history, held CDP + patrol snapshots; observation data only. Use this when you need route-level state for monitoring, grading, or dataset work.
 
-Price: $1 (1000000 USDC atomic units on Base).
-Accepts: scheme exact, network eip155:8453, amount 1000000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Price: $0.1 (100000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 100000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
 Tags: x402, inspector, dataset, catalogue, monitoring, observation-ledger
 Input shape: type object
 Output shape: type object; fields: origins (array, required), provenance (object, required), records (array, required), tier (string, required), totals (object, required)
@@ -2048,15 +2048,15 @@ Free sample of this route's response shape: https://stall-row-production.up.rail
 
 Packs and passes are prepaid balances that replace per-call payment on their routes. Each entry below is a priced route in the canonical registry; its stated price and mechanics are the registry's own record of that route.
 
-### POST https://stall-row-production.up.railway.app/v1/recheck/pack — $1
+### POST https://stall-row-production.up.railway.app/v1/recheck/pack — $0.1
 
 Recheck watch pack — the default for monitoring loops: one $1.00 payment buys 250 change-checks for ONE endpoint ($0.004 per check instead of $0.005), good for 90 days. Returns an unguessable pack id — spend credits via POST /v1/recheck (body pack_id or X-Recheck-Pack header); read the balance free at POST /v1/recheck/pack-balance, and an exhausted pack returns 402 rather than charging per call. Use this when anything checks the same endpoint more than ~3 times a week.
 
-### POST https://stall-row-production.up.railway.app/v1/toolkit/pack — $1
+### POST https://stall-row-production.up.railway.app/v1/toolkit/pack — $0.1
 
 Toolkit Pack — one $1.00 payment buys 125 prepaid calls ($0.008 each instead of the $0.01 singles) spendable on Sign Reader, Score Book, Guard, Tube Search, Page to Markdown, or Video Details in any mix, good for 90 days. Spend via pack_id (body or X-Toolkit-Pack header) on those routes; read the balance free at POST /v1/toolkit/pack-balance. An exhausted pack returns 402 rather than charging per call. Use this when your agent runs these tools regularly.
 
-### POST https://stall-row-production.up.railway.app/v1/fleet-check/pack — $5
+### POST https://stall-row-production.up.railway.app/v1/fleet-check/pack — $0.1
 
 Fleet Check pack — the standing form of Fleet Check: one $5.00 payment buys 100 sweep credits for ONE fixed fleet definition (resources and/or origins), good for 90 days. Sweeps run on your interval or on demand via POST /v1/fleet-check/run — one credit per sweep, never per route — diff against the last sweep, and POST failures and recoveries to your webhook (heartbeats optional); the latest table is free at POST /v1/fleet-check/status. Use this when your stalls should be watched continuously.
 

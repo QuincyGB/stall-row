@@ -186,11 +186,11 @@ async def test_pack_funding_is_single_resource_and_fractional(store):
     async with httpx.AsyncClient(transport=_transport(state)) as client:
         out = await heartbeat.run_reg(client, store, reg)
         assert out["debited_units"] == 1000
-    # 1000 units = a quarter credit: 249 whole credits + 3000-unit
-    # remainder, spendable exactly 999000 more units.
-    assert store.pack_spendable_units(pack["pack_id"]) == 1_000_000 - 1000
+    # 1000 units = two and a half credits: 247 whole credits +
+    # 200-unit remainder, spendable exactly 99000 more units.
+    assert store.pack_spendable_units(pack["pack_id"]) == 100_000 - 1000
     view = store.get_pack(pack["pack_id"])
-    assert view["credits_remaining"] == 249
+    assert view["credits_remaining"] == 247
 
 
 @pytest.mark.asyncio

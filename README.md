@@ -19,38 +19,38 @@ authentication** (x402 v2, exact scheme, USDC on Base).
 | `POST /v1/tx-decoder` | $0.002 | One Base tx → plain English: method, value, ERC-20 transfers, summary |
 | `POST /v1/gas-oracle` | $0.001 | Gas price + base-fee trend over the last ~20 blocks + cheap-window hint |
 | `POST /v1/wallet-verdict` | $0.02 | SAFE/CAUTION/AVOID: OFAC match, wallet age, activity, poisoning scan |
-| `POST /v1/tube-search` | $0.01 | YouTube search results as JSON (public page scrape, no API key) |
-| `POST /v1/page-to-markdown` | $0.01 | One page → clean Markdown (SSRF-guarded) |
+| `POST /v1/tube-search` | $0.005 | YouTube search results as JSON (public page scrape, no API key) |
+| `POST /v1/page-to-markdown` | $0.005 | One page → clean Markdown (SSRF-guarded) |
 | `POST /v1/repo-vitals` | $0.005 | GitHub repo vitals + health score |
-| `POST /v1/video-transcript` | $0.01 | One YouTube video's full caption text with timed segments (Toolkit Pack credit OK) |
+| `POST /v1/video-transcript` | $0.005 | One YouTube video's full caption text with timed segments (Toolkit Pack credit OK) |
 | `POST /v1/page-metadata` | $0.005 | One page's title / description / canonical / OpenGraph + heading outline |
 | `POST /v1/feed-digest` | $0.01 | One RSS/Atom feed's newest items normalized + a Markdown digest (Toolkit Pack credit OK) |
 | `POST /v1/url-unshorten` | $0.005 | A URL's full redirect chain, SSRF-checked hop by hop, + the final URL report |
 | `POST /v1/repo-readme` | $0.005 | One GitHub repo's README as Markdown |
-| `POST /v1/price-check` | $0.05 | Live CDP Bazaar comps + a recommended listing price |
-| `POST /v1/card-smith` | $0.10 | Generate/grade `agent-card.json` for A2A/AgentWorld registries |
-| `POST /v1/job-scout` | $0.05 | Digest of open agent jobs from our own marketplace sweeps |
+| `POST /v1/price-check` | $0.03 | Live CDP Bazaar comps + a recommended listing price |
+| `POST /v1/card-smith` | $0.03 | Generate/grade `agent-card.json` for A2A/AgentWorld registries |
+| `POST /v1/job-scout` | $0.03 | Digest of open agent jobs from our own marketplace sweeps |
 | `POST /v1/recheck` | $0.005 | Scheduled change detection: BASELINE / UNCHANGED / CHANGED diff for one x402 resource or web page, probed unpaid |
 | `POST /v1/index/history` | $0.01 | Verdict Index History: first-seen / delisted / relisted / price-payTo changes across ALL retained catalog snapshots (Next-20 #6) |
 | `GET /v1/drift/feed` | free first 100 events, then $0.005/event from a Fleet Pass | Drift Event Feed: payTo rotations, amount/terms + schema/description drift from Index diffs + patrol records, hash-chained cursor feed (Next-20 #8) |
 | `GET /v1/firehose/feed` | free first 100 events, then $0.005/event from a Fleet Pass | New-Stall Firehose: first-seen routes from Index diffs + new origins from the patrol snapshot (Next-20 #14) |
-| `POST /v1/recheck/pack` | $1.00 | Prepaid recheck pack: 250 change-checks on ONE endpoint URL, 90-day expiry — spend via `pack_id` on `/v1/recheck` ($0.004/check) |
-| `POST /v1/fleet-check` | $0.10 | One health sweep of YOUR whole fleet: per-route OK / DEGRADED / DOWN verdicts with the defect named, plus a grade per origin — unpaid probes only, never pays a route it checks |
-| `POST /v1/fleet-check/pack` | $5.00 | Prepaid Fleet Check pack: 100 sweeps of ONE fixed fleet definition, 90-day expiry — run via `POST /v1/fleet-check/run`, read via `POST /v1/fleet-check/status` ($0.05/sweep) |
+| `POST /v1/recheck/pack` | $0.10 | Prepaid recheck pack: 250 change-checks on ONE endpoint URL, 90-day expiry — spend via `pack_id` on `/v1/recheck` ($0.0004/check) |
+| `POST /v1/fleet-check` | $0.03 | One health sweep of YOUR whole fleet: per-route OK / DEGRADED / DOWN verdicts with the defect named, plus a grade per origin — unpaid probes only, never pays a route it checks |
+| `POST /v1/fleet-check/pack` | $0.10 | Prepaid Fleet Check pack: 100 sweeps of ONE fixed fleet definition, 90-day expiry — run via `POST /v1/fleet-check/run`, read via `POST /v1/fleet-check/status` ($0.001/sweep) |
 
 **Per-call or pack?** One-off check → pay $0.005 per call. Anything on
 a schedule — a monitoring loop, a buyer's drift check, a daily
-re-screen — → buy the $1 pack once (250 checks, one endpoint, 90
+re-screen — → buy the $0.10 pack once (250 checks, one endpoint, 90
 days) and spend credits. At 3+ checks a week the pack is cheaper
 *and* removes 249 settlements from your loop.
 
-**Fleet Check** is the whole-fleet form: one $0.10 sweep covers up
+**Fleet Check** is the whole-fleet form: one $0.03 sweep covers up
 to 40 of your resources (named directly, or expanded from your
 origins' `/.well-known/x402`), classifying each OK / DEGRADED /
 DOWN with the specific defect — unreachable, 5xx, no 402,
 undecodable challenge, or a live amount/payTo that disagrees with
 your own discovery doc — and grading each origin. The pack form
-($5.00 = 100 sweeps of one fixed fleet definition, 90 days) runs
+($0.10 = 100 sweeps of one fixed fleet definition, 90 days) runs
 on your interval, diffs against the previous sweep, and POSTs new
 failures and recoveries to your webhook (heartbeats optional). One
 credit buys a whole sweep, never one route. Every probe is unpaid:

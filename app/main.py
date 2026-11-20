@@ -65,7 +65,7 @@ Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt,
         POST /v1/stall-watch/{register,evaluate,pause,resume,
              cancel}, GET /v1/stall-watch/status (Stall Watch,
              Next-20 #12: claim-verified owner watch composing
-             claim + $1 pack + Standing Watch + signed recovery
+             claim + $0.10 pack + Standing Watch + signed recovery
              receipts — see services/stallwatch.py)
         POST /v1/watch/digest/flush, /v1/watch/digest/pending
              (Alert Digest Mode, Next-20 #20: registrations with
@@ -110,10 +110,10 @@ POST /v1/toolkit/pack — the pack binds to the toolkit route family,
 not to one target URL, because the tools take a different target
 per call. Same middleware bypass, same handler-side validation.
 (The utility routes joined the family 2026-11-05 — see
-services/recheck.py. The $0.05 batch routes are NOT family and
+services/recheck.py. The $0.03 batch routes are NOT family and
 refuse pack ids cleanly, like the Inspector Physical.)
 
-Inspector Physical: POST /v1/physical ($0.05) composes Sign
+Inspector Physical: POST /v1/physical ($0.03) composes Sign
 Reader + Score Book + Guard + Recheck on one target in one call
 (see services/physical.py). It is a separate bundle — toolkit and
 recheck pack credits do NOT fund it; a presented pack id is
@@ -688,8 +688,8 @@ async def x402_middleware(request: Request, call_next):
         if await _request_toolkit_pack_id(request):
             return await call_next(request)
     # Same clean-refusal bypass for the batch routes (buyer analysis
-    # 2026-11-05): pack credits never fund a batch — one $0.008 credit
-    # must not buy a ten-item $0.05 bundle — so a call presenting a
+    # 2026-11-05): pack credits never fund a batch — one $0.0008 credit
+    # must not buy a ten-item $0.03 bundle — so a call presenting a
     # pack id skips the paywall only so the handler can refuse it
     # cleanly (422, nothing delivered, nothing charged).
     if request.method == "POST" and request.url.path in BATCH_PATHS:
@@ -1349,7 +1349,7 @@ async def video_details(req: VideoDetailsRequest, request: Request):
 
 def _batch_pack_refusal(pack_id: str, route: str) -> JSONResponse:
     """Batch routes are not pack-funded (buyer analysis 2026-11-05):
-    one $0.008 credit must never buy a ten-item $0.05 batch. Refuse
+    one $0.0008 credit must never buy a ten-item $0.03 batch. Refuse
     cleanly like /v1/physical does — 422, nothing delivered, nothing
     charged, never a silent per-call fallback charge."""
     return JSONResponse(
@@ -1357,7 +1357,7 @@ def _batch_pack_refusal(pack_id: str, route: str) -> JSONResponse:
             "error": (
                 f"pack credits do not fund POST {route} — a batch is "
                 "a bundle, not one of the pack's single calls; pay "
-                "per call ($0.05) or with a Fleet Pass"
+                "per call ($0.03) or with a Fleet Pass"
             ),
             "code": "pack_not_accepted",
             "pack_id": pack_id,
@@ -1437,7 +1437,7 @@ async def url_unshorten(req: UrlUnshortenRequest):
 
 @app.post("/v1/tube-search/batch")
 async def tube_search_batch(req: TubeSearchBatchRequest, request: Request):
-    """Tube Search Batch: up to 10 searches in one $0.05 call (buyer
+    """Tube Search Batch: up to 10 searches in one $0.03 call (buyer
     analysis 2026-11-05 — the largest stranger event on record was 20
     single searches in ~30 seconds). Per-query failures ride in their
     own entries; the batch fails only when every query fails."""
@@ -1473,7 +1473,7 @@ async def tube_search_batch(req: TubeSearchBatchRequest, request: Request):
 @app.post("/v1/page-to-markdown/batch")
 async def page_to_markdown_batch(req: PageBatchRequest, request: Request):
     """Page to Markdown Batch: up to 10 page conversions in one
-    $0.05 call — the page-side twin of /v1/tube-search/batch. Each
+    $0.03 call — the page-side twin of /v1/tube-search/batch. Each
     URL runs the full single-route pipeline (reader-proxy fallback
     included); per-URL failures ride in their own entries and the
     batch fails only when every URL fails."""
@@ -2042,7 +2042,7 @@ class PhysicalRequest(BaseModel):
 @app.post("/v1/physical")
 async def physical(req: PhysicalRequest, request: Request):
     """Inspector Physical: Sign Reader + Score Book + Guard +
-    Recheck on ONE target in one $0.05 call. The headline verdict
+    Recheck on ONE target in one $0.03 call. The headline verdict
     is Guard's, verbatim; the recheck leg probes and records
     through the single route's own path (it lands in the feed).
     Sign/book/guard are computed over the records held when the
@@ -2050,7 +2050,7 @@ async def physical(req: PhysicalRequest, request: Request):
     retune them. Bad targets are delivered reports; only an SSRF
     refusal is a 422. Toolkit/recheck pack credits do NOT fund
     this bundle and are refused cleanly; a Fleet Pass debits the
-    listed $0.05 via the standard middleware path."""
+    listed $0.03 via the standard middleware path."""
     pack_id = _presented_toolkit_pack_id(req, request)
     if pack_id:
         return JSONResponse(
@@ -2058,7 +2058,7 @@ async def physical(req: PhysicalRequest, request: Request):
                 "error": (
                     "pack credits do not fund POST /v1/physical — the "
                     "physical is a separate bundle, not one of the "
-                    "toolkit tools; pay per call ($0.05) or with a "
+                    "toolkit tools; pay per call ($0.03) or with a "
                     "Fleet Pass"
                 ),
                 "code": "pack_not_accepted",
@@ -2396,7 +2396,7 @@ async def recheck_batch(req: RecheckBatchRequest, request: Request):
 @app.post("/v1/recheck/pack")
 async def recheck_pack_buy(req: RecheckPackBuyRequest, request: Request):
     """Mint a watch pack. Runs only after the x402 middleware has
-    verified the $1.00 payment; minting is idempotent on the payment's
+    verified the $0.10 payment; minting is idempotent on the payment's
     identity (see _payment_key), so a re-presented payment returns
     the pack it already bought instead of minting a second one. If
     settlement later fails, the middleware replaces this response
@@ -2446,7 +2446,7 @@ class ToolkitPackBalanceRequest(BaseModel):
 @app.post("/v1/toolkit/pack")
 async def toolkit_pack_buy(request: Request):
     """Mint a toolkit pack. Runs only after the x402 middleware has
-    verified the $1.00 payment; minting is idempotent on the payment's
+    verified the $0.10 payment; minting is idempotent on the payment's
     identity (see _payment_key), so a re-presented payment returns
     the pack it already bought instead of minting a second one. The
     pack binds to the toolkit route FAMILY (sign-read / score-book /
@@ -3134,7 +3134,7 @@ class WatchRegisterRequest(BaseModel):
     interval_s: int | None = Field(default=None, ge=300, le=86400, description="Seconds between automatic checks (300–86400)")
     pack_id: str | None = Field(default=None, description="Fund runs with this recheck pack (bound to the watched URL)")
     fleet_pass_id: str | None = Field(default=None, description="Fund runs with this Fleet Pass ($0.005 per recheck run)")
-    check_kind: str = Field(default="recheck", description="Which standing check to run: 'recheck' (default) or 'route_verdict' (RouteVerdict check of the watched URL; Fleet Pass only, $0.05 per run debited by RouteVerdict via X-Fleet-Pass)")
+    check_kind: str = Field(default="recheck", description="Which standing check to run: 'recheck' (default) or 'route_verdict' (RouteVerdict check of the watched URL; Fleet Pass only, $0.03 per run debited by RouteVerdict via X-Fleet-Pass)")
     watch_focus: str = Field(default="all", description="Change-detector focus (recheck leg): 'all' (default; any fingerprint field) or 'schema' — Contract Watch: alert only on output-schema fingerprint change, as SCHEMA_CHANGED, at the same $0.005 recheck run price funded from the pack/pass")
     delivery_mode: str | None = Field(default=None, description="Alert Digest Mode (Next-20 #20): 'instant' (default — push each event as today) or 'digest' (events accumulate and are delivered as ONE batched digest per digest_interval)")
     digest_interval: str | None = Field(default=None, description="Digest cadence when delivery_mode='digest': 'hourly' or 'daily' (default daily)")
@@ -3444,7 +3444,7 @@ async def watchlist_run(req: WatchlistIdRequest):
 # --- Index subscriptions ---------------------------------------------------------
 # The standing form of POST /v1/index/changes: free to register,
 # funded per delivered evaluation from a Fleet Pass at the paid
-# route's own $0.10 price, evaluated once per new catalog snapshot
+# route's own $0.03 price, evaluated once per new catalog snapshot
 # by the watch ticker above (and on demand via /run).
 
 class IndexSubRegisterRequest(BaseModel):
@@ -3455,7 +3455,7 @@ class IndexSubRegisterRequest(BaseModel):
     catalogue: str | None = Field(default=None, description="v2 per-catalogue slice: catalogue(s) this subscription cares about, comma-separated (the Index holds cdp_bazaar; omit for all)")
     webhook_url: str | None = Field(default=None, description="Public http(s) URL that receives diff pushes")
     email: str | None = Field(default=None, description="Optional contact email (stored; webhook is the live channel)")
-    fleet_pass_id: str = Field(description="Fleet Pass funding each evaluation ($0.10 per delivered diff)")
+    fleet_pass_id: str = Field(description="Fleet Pass funding each evaluation ($0.03 per delivered diff)")
     delivery_mode: str | None = Field(default=None, description="Alert Digest Mode (Next-20 #20): 'instant' (default) or 'digest' with digest_interval 'hourly'|'daily'")
     digest_interval: str | None = Field(default=None, description="Digest cadence when delivery_mode='digest' (default daily)")
     payer: str | None = Field(default=None, description="Item 5 rider: payer identity pre-bound by a deep link; recorded as payer_hint")
@@ -3468,7 +3468,7 @@ class IndexSubIdRequest(BaseModel):
 @app.post("/v1/index/subscribe")
 async def index_subscribe(req: IndexSubRegisterRequest, request: Request):
     """Register an Index subscription. Free to register; each
-    delivered evaluation spends $0.10 from the named Fleet Pass —
+    delivered evaluation spends $0.03 from the named Fleet Pass —
     the listed price of one POST /v1/index/changes call."""
     try:
         return await indexsub_svc.register(
@@ -3677,7 +3677,7 @@ async def fleet_check_free(req: FleetCheckFreeRequest, request: Request):
         body: dict = {"error": e.message, "code": e.code}
         if e.code == "free_call_used":
             body["paid_route"] = "POST /v1/fleet-check"
-            body["price"] = "$0.10 per sweep"
+            body["price"] = "$0.03 per sweep"
         return JSONResponse(body, status_code=e.http_status)
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=422)
@@ -3742,7 +3742,7 @@ async def fleet_check_pack_buy(
     req: FleetCheckPackBuyRequest, request: Request
 ):
     """Mint a Fleet Check pack. Runs only after the x402 middleware
-    has verified the $5.00 payment; minting is idempotent on the
+    has verified the $0.10 payment; minting is idempotent on the
     payment's identity, like every prepaid product on the row. The
     fleet definition is validated (SSRF included) BEFORE minting —
     a refused definition mints nothing."""
@@ -4514,18 +4514,18 @@ async def internal_sandbox_mutate(req: SandboxMutateRequest, request: Request):
 
 
 # --- Human payment rail (internal mint) -------------------------------------------
-# A buyer who cannot pay via x402 sends exactly $5.00 USDC on Base
+# A buyer who cannot pay via x402 sends exactly $0.10 USDC on Base
 # directly to the payTo wallet; the payment-rail watcher
 # (fleet-checker/payment_rail.py) detects the transfer and calls
 # this endpoint. Fleet-internal secret gate, mirroring
 # /v1/internal/nudges exactly: secret unset = 404, wrong = 403.
 # The endpoint verifies the payment ON-CHAIN (receipt + USDC
-# Transfer log: to payTo, from buyer_wallet, exactly $5.00) before
+# Transfer log: to payTo, from buyer_wallet, exactly $0.10) before
 # minting, and a tx hash may mint exactly once, ever — consumed
 # hashes persist in the WatchStore beside the packs.
 
 class HumanRailMintRequest(BaseModel):
-    buyer_wallet: str = Field(description="Wallet that sent the $5.00 USDC payment, 0x…")
+    buyer_wallet: str = Field(description="Wallet that sent the $0.10 USDC payment, 0x…")
     tx_hash: str = Field(description="Base transaction hash of the payment, 0x… (66 chars)")
     definition: dict | None = Field(
         default=None,
@@ -5034,7 +5034,7 @@ async def portfolio_cancel(req: RegIdRequest):
 
 class StallWatchRegisterRequest(BaseModel):
     origin: str = Field(description="The claimed stall origin (https://host) — must match the claim session")
-    pack_id: str = Field(description="Your $1 Recheck pack, bound to a URL on the claimed origin: funds the composed Standing Watch")
+    pack_id: str = Field(description="Your $0.10 Recheck pack, bound to a URL on the claimed origin: funds the composed Standing Watch")
     webhook_url: str | None = Field(default=None, description="Public http(s) URL that receives drift/defect/recovery alerts")
     email: str | None = Field(default=None, description="Optional contact email (stored; webhook is the live channel)")
     delivery_mode: str | None = Field(default=None, description="Alert Digest Mode (Next-20 #20): 'instant' (default) or 'digest' with digest_interval 'hourly'|'daily'")
@@ -5047,7 +5047,7 @@ async def stall_watch_register(req: StallWatchRegisterRequest, request: Request)
     """Register Stall Watch (Next-20 #12) for YOUR OWN stall:
     claim-verified (send the claim session as X-Claim-Session, the
     same credential as /v1/claims/status). One call composes the
-    existing pieces — the verified claim, your $1 Recheck pack,
+    existing pieces — the verified claim, your $0.10 Recheck pack,
     a Standing Watch on the pack's URL, and recovery-receipt
     attachment — into one registration that alerts on your stall's
     drift/defect/recovery events, with the patrol's signed

@@ -185,8 +185,8 @@ def test_pack_view_renewal_terms_derive_from_constants(store):
     )
     renewal = pack["renewal"]
     assert renewal["renewal_cycle_days"] == recheck.FLEET_CHECK_PACK_TTL_DAYS == 90
-    assert renewal["renewal_price_units"] == recheck.FLEET_CHECK_PACK_PRICE_UNITS == 5_000_000
-    assert renewal["renewal_price_usd"] == "$5.00"
+    assert renewal["renewal_price_units"] == recheck.FLEET_CHECK_PACK_PRICE_UNITS == 100_000
+    assert renewal["renewal_price_usd"] == "$0.10"
     assert renewal["credits_per_pack"] == recheck.FLEET_CHECK_PACK_CREDITS == 100
     assert renewal["days_remaining"] == 90
     assert renewal["expires_at"] == pack["expires_at"]
@@ -233,7 +233,7 @@ def test_buy_handler_payload_carries_renewal(monkeypatch, tmp_path):
     req = main.FleetCheckPackBuyRequest(origins=[ORIGIN], interval_s=3600)
     out = asyncio.run(main.fleet_check_pack_buy(req, _fake_request()))
     assert out["renewal"]["renewal_cycle_days"] == 90
-    assert out["renewal"]["renewal_price_units"] == 5_000_000
+    assert out["renewal"]["renewal_price_units"] == 100_000
     assert out["renewal"]["days_remaining"] == 90
 
 
@@ -263,7 +263,7 @@ def test_http_status_carries_framework_log_and_renewal(http_env):
     assert r.status_code == 200, r.text
     run_body = r.json()
     assert len(run_body["framework_log"]) == 2
-    assert run_body["renewal"]["renewal_price_units"] == 5_000_000
+    assert run_body["renewal"]["renewal_price_units"] == 100_000
 
     r = client.post("/v1/fleet-check/status", json={"pack_id": pack["pack_id"]})
     assert r.status_code == 200

@@ -167,7 +167,7 @@ def test_http_debit_balance_refund_routes(http_env):
         },
     )
     assert r.status_code == 200, r.text
-    assert r.json()["balance_units"] == 4_500_000
+    assert r.json()["balance_units"] == 4_900_000
     debit_id = r.json()["debit_id"]
 
     # The price comes from the table, never the body: an unknown
@@ -182,7 +182,7 @@ def test_http_debit_balance_refund_routes(http_env):
         "/v1/fleet-pass/balance", json={"pass_id": fleet_pass["pass_id"]}
     )
     assert r.status_code == 200
-    assert r.json()["balance_usd"] == 4.5 and r.json()["debits"] == 1
+    assert r.json()["balance_usd"] == 4.9 and r.json()["debits"] == 1
 
     r = client.post("/v1/fleet-pass/refund", json={"debit_id": debit_id})
     assert r.json()["refunded"] is True

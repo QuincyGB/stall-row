@@ -133,7 +133,7 @@ def test_second_per_call_delivery_is_personalised(monkeypatch, tmp_path):
 
     offer = rp["adaptive_offer"]
     assert offer["credits"] == recheck.PACK_CREDITS == 250
-    assert offer["price_usd"] == recheck.PACK_PRICE_UNITS / 1_000_000 == 1.0
+    assert offer["price_usd"] == recheck.PACK_PRICE_UNITS / 1_000_000 == 0.10
     assert "250" in offer["line"] and "2" in offer["line"]
     assert offer["deep_link"].endswith(f"/v1/recheck/pack?payer={WALLET}")
     assert offer["webhook_deep_link"].endswith(
@@ -357,5 +357,5 @@ def test_loop_offer_personalisation_matches_constants():
     assert rp["total_spent_usd"] == 0.02
     offer = rp["adaptive_offer"]
     assert offer["price_usd"] == recheck.PACK_PRICE_UNITS / 1_000_000
-    assert offer["per_check_usd"] == 1.0 / recheck.PACK_CREDITS
+    assert offer["per_check_usd"] == 0.10 / recheck.PACK_CREDITS
     assert offer["per_call_price_usd"] == PRICE_UNITS["/v1/recheck"] / 1_000_000

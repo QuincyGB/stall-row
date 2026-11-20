@@ -51,44 +51,44 @@ def test_forty_two_routes_priced_as_specified():
         "/v1/gas-oracle": 1000,
         "/v1/wallet-verdict": 20000,
         "/v1/pre-trade-guard": 5000,
-        "/v1/tube-search": 10000,
-        "/v1/page-to-markdown": 10000,
-        "/v1/video-details": 10000,
-        "/v1/video-transcript": 10000,
+        "/v1/tube-search": 5000,
+        "/v1/page-to-markdown": 5000,
+        "/v1/video-details": 5000,
+        "/v1/video-transcript": 5000,
         "/v1/page-metadata": 5000,
         "/v1/feed-digest": 10000,
         "/v1/url-unshorten": 5000,
         "/v1/repo-readme": 5000,
-        "/v1/tube-search/batch": 50000,
-        "/v1/page-to-markdown/batch": 50000,
+        "/v1/tube-search/batch": 30000,
+        "/v1/page-to-markdown/batch": 30000,
         "/v1/repo-vitals": 5000,
-        "/v1/price-check": 50000,
-        "/v1/card-smith": 100000,
-        "/v1/job-scout": 50000,
+        "/v1/price-check": 30000,
+        "/v1/card-smith": 30000,
+        "/v1/job-scout": 30000,
         "/v1/recheck": 5000,
-        "/v1/index/changes": 100000,
+        "/v1/index/changes": 30000,
         "/v1/index/history": 10000,
-        "/v1/orchestrate": 750000,
-        "/v1/counterparty-report": 1_000_000,
+        "/v1/orchestrate": 100000,
+        "/v1/counterparty-report": 100_000,
         "/v1/grade-my-stall": 5000,
         "/v1/receipt-verify": 2000,
         "/v1/flagged-paytos": 5000,
         "/v1/agent-card-verify": 5000,
-        "/v1/recheck/pack": 1_000_000,
-        "/v1/toolkit/pack": 1_000_000,
-        "/v1/fleet-check": 100_000,
-        "/v1/fleet-check/pack": 5_000_000,
+        "/v1/recheck/pack": 100_000,
+        "/v1/toolkit/pack": 100_000,
+        "/v1/fleet-check": 30_000,
+        "/v1/fleet-check/pack": 100_000,
         "/v1/fleet-pass": 5_000_000,
         "/v1/fleet-pass-20": 20_000_000,
         "/v1/sign-read": 10_000,
         "/v1/score-book": 10_000,
         "/v1/guard": 10_000,
-        "/v1/ledger-dataset": 100_000,
-        "/v1/ledger-dataset/full": 1_000_000,
-        "/v1/physical": 50_000,
+        "/v1/ledger-dataset": 30_000,
+        "/v1/ledger-dataset/full": 100_000,
+        "/v1/physical": 30_000,
         "/v1/payto-pin/verify": 10_000,
     }
-    assert sum(PRICE_UNITS.values()) == 35_580_000  # $35.58 to catalog the row
+    assert sum(PRICE_UNITS.values()) == 26_030_000  # $26.03 to catalog the row
     assert set(ROUTES) == set(PRICE_UNITS)
 
 
@@ -109,7 +109,7 @@ def test_defaults_are_stallrow_terms():
     assert s.pay_to == OWNER
     assert s.network == "eip155:8453"
     assert s.service_name == "stall-row"
-    assert s.prices["/v1/card-smith"] == "$0.1"
+    assert s.prices["/v1/card-smith"] == "$0.03"
     assert s.prices["/v1/gas-oracle"] == "$0.001"
 
 

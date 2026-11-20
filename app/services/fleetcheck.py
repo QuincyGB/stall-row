@@ -57,8 +57,8 @@ log = logging.getLogger("stall-row.fleetcheck")
 # Pricing lives with the pack constants in recheck.py (the store's
 # module) and in config.PRICE_UNITS; these aliases keep this module's
 # callers on one name.
-ONE_SHOT_PRICE_UNITS = 100_000  # $0.10 — mirrors config.PRICE_UNITS
-PACK_PRICE_UNITS = recheck_svc.FLEET_CHECK_PACK_PRICE_UNITS  # $5.00
+ONE_SHOT_PRICE_UNITS = 30_000  # $0.03 — mirrors config.PRICE_UNITS
+PACK_PRICE_UNITS = recheck_svc.FLEET_CHECK_PACK_PRICE_UNITS  # $0.10
 PACK_CREDITS = recheck_svc.FLEET_CHECK_PACK_CREDITS  # 100 sweeps
 PACK_TTL_DAYS = recheck_svc.FLEET_CHECK_PACK_TTL_DAYS  # 90
 

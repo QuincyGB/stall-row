@@ -1,7 +1,7 @@
 """Inspector Physical (Next-20 #9): the four-leg composition —
 service-level semantics (leg order, derived headline, failure
-discipline) plus the HTTP surface (unpaid 402 at exactly 50000,
-Fleet Pass debiting exactly 50000 once, pack credits refused
+discipline) plus the HTTP surface (unpaid 402 at exactly 30000,
+Fleet Pass debiting exactly 30000 once, pack credits refused
 cleanly). Fully offline: MockTransport plays the targets."""
 
 import asyncio
@@ -215,16 +215,16 @@ def http_env(monkeypatch, tmp_path):
     return fresh
 
 
-def test_unpaid_challenge_is_exactly_50000():
+def test_unpaid_challenge_is_exactly_30000():
     client = TestClient(main.app, raise_server_exceptions=False)
     r = client.post("/v1/physical", json={"url": URL})
     assert r.status_code == 402
     challenge = json.loads(base64.b64decode(r.headers["payment-required"]))
-    assert challenge["accepts"][0]["amount"] == "50000"
+    assert challenge["accepts"][0]["amount"] == "30000"
     assert challenge["accepts"][0]["payTo"] == OWNER
 
 
-def test_fleet_pass_debits_exactly_50000_once(http_env):
+def test_fleet_pass_debits_exactly_30000_once(http_env):
     fleet_pass, created = http_env.mint_pass(
         "pay-phys", fleetpass.PASS_PRICE_UNITS, fleetpass.PASS_TTL_DAYS
     )
@@ -240,7 +240,7 @@ def test_fleet_pass_debits_exactly_50000_once(http_env):
     assert body["verdict"] in ("PROCEED", "CAUTION", "ABORT")
     assert body["recheck"]["recorded"] is True
     assert http_env.get_pass(fleet_pass["pass_id"])["balance_units"] == (
-        5_000_000 - 50_000
+        5_000_000 - 30_000
     )
     assert http_env.pass_debit_count(fleet_pass["pass_id"]) == 1
 

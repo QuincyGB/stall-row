@@ -60,41 +60,41 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/gas-oracle": 1_000,           # $0.001
     "/v1/wallet-verdict": 20_000,      # $0.02
     "/v1/pre-trade-guard": 5_000,      # $0.005 — Pre-Trade Guard: screen a payTo before paying it
-    "/v1/tube-search": 10_000,         # $0.01
-    "/v1/page-to-markdown": 10_000,    # $0.01
-    "/v1/video-details": 10_000,       # $0.01 — Video Details: one video's full record (buyer analysis 2026-11-05)
-    "/v1/tube-search/batch": 50_000,   # $0.05 — up to 10 searches in one call (buyer analysis 2026-11-05)
-    "/v1/page-to-markdown/batch": 50_000,  # $0.05 — up to 10 page conversions in one call (buyer analysis 2026-11-05)
-    "/v1/video-transcript": 10_000,    # $0.01 — Video Transcript: one video's caption text + timed segments (Lane 3, 2026-11-07)
+    "/v1/tube-search": 5_000,          # $0.005
+    "/v1/page-to-markdown": 5_000,     # $0.005
+    "/v1/video-details": 5_000,        # $0.005 — Video Details: one video's full record (buyer analysis 2026-11-05)
+    "/v1/tube-search/batch": 30_000,   # $0.03 — up to 10 searches in one call (buyer analysis 2026-11-05)
+    "/v1/page-to-markdown/batch": 30_000,  # $0.03 — up to 10 page conversions in one call (buyer analysis 2026-11-05)
+    "/v1/video-transcript": 5_000,     # $0.005 — Video Transcript: one video's caption text + timed segments (Lane 3, 2026-11-07)
     "/v1/page-metadata": 5_000,        # $0.005 — Page Metadata: title/description/canonical/OpenGraph + heading outline (Lane 3, 2026-11-07)
     "/v1/feed-digest": 10_000,         # $0.01 — Feed Digest: RSS/Atom items normalized + a Markdown digest (Lane 3, 2026-11-07)
     "/v1/url-unshorten": 5_000,        # $0.005 — URL Unshorten: SSRF-checked redirect chain + final URL report (Lane 3, 2026-11-07)
     "/v1/repo-readme": 5_000,          # $0.005 — Repo README: one GitHub repo's README as Markdown (Lane 3, 2026-11-07)
     "/v1/repo-vitals": 5_000,          # $0.005
-    "/v1/price-check": 50_000,        # $0.05
-    "/v1/card-smith": 100_000,         # $0.10
-    "/v1/job-scout": 50_000,           # $0.05
+    "/v1/price-check": 30_000,        # $0.03
+    "/v1/card-smith": 30_000,          # $0.03
+    "/v1/job-scout": 30_000,           # $0.03
     "/v1/recheck": 5_000,              # $0.005
-    "/v1/index/changes": 100_000,      # $0.10 — Verdict Index catalog changelog diff
+    "/v1/index/changes": 30_000,       # $0.03 — Verdict Index catalog changelog diff
     "/v1/index/history": 10_000,       # $0.01 — Verdict Index History API: time series across all retained snapshots (Next-20 #6)
-    "/v1/orchestrate": 750_000,        # $0.75 — one combined fleet report (4 legs)
-    "/v1/counterparty-report": 1_000_000,  # $1.00 — one bundled report on one seller
+    "/v1/orchestrate": 100_000,        # $0.10 — one combined fleet report (4 legs)
+    "/v1/counterparty-report": 100_000,   # $0.10 — one bundled report on one seller
     "/v1/grade-my-stall": 5_000,       # $0.005 — one seller report card (probe tier)
     "/v1/receipt-verify": 2_000,       # $0.002 — one verified on-chain receipt (probe tier)
     "/v1/flagged-paytos": 5_000,       # $0.005 — the bad-payTo registry feed (probe tier)
     "/v1/agent-card-verify": 5_000,    # $0.005 — one ERC-8004 agent-card verification (probe tier)
-    "/v1/recheck/pack": 1_000_000,     # $1.00 — 250 prepaid rechecks on one endpoint
-    "/v1/toolkit/pack": 1_000_000,     # $1.00 — 125 prepaid toolkit checks (sign-read/score-book/guard + tube-search/page-to-markdown/video-details/video-transcript/feed-digest, any mix)
-    "/v1/fleet-check": 100_000,        # $0.10 — one whole-fleet health sweep (unpaid probes)
-    "/v1/fleet-check/pack": 5_000_000,  # $5.00 — 100 prepaid fleet sweeps of one fixed fleet definition
+    "/v1/recheck/pack": 100_000,      # $0.10 — 250 prepaid rechecks on one endpoint
+    "/v1/toolkit/pack": 100_000,      # $0.10 — 125 prepaid toolkit checks (sign-read/score-book/guard + tube-search/page-to-markdown/video-details/video-transcript/feed-digest, any mix)
+    "/v1/fleet-check": 30_000,         # $0.03 — one whole-fleet health sweep (unpaid probes)
+    "/v1/fleet-check/pack": 100_000,   # $0.10 — 100 prepaid fleet sweeps of one fixed fleet definition
     "/v1/fleet-pass": 5_000_000,       # $5.00 — prepaid USD balance for all fleet routes
     "/v1/fleet-pass-20": 20_000_000,   # $20.00 — Fleet Pass v2: framework working pass, same ledger/TTL
     "/v1/sign-read": 10_000,           # $0.01 — Sign Reader: parse + SDK-compat verdict for one 402 challenge (price card 2026-10-30)
     "/v1/score-book": 10_000,          # $0.01 — Score Book: one resource/origin/payTo track record from our stores + the committed patrol snapshot
     "/v1/guard": 10_000,               # $0.01 — Guard: one composed pay/caution/avoid verdict for one endpoint
-    "/v1/ledger-dataset": 100_000,     # $0.10 — Ledger Dataset (summary): per-origin rollup of the observation ledger
-    "/v1/ledger-dataset/full": 1_000_000,  # $1.00 — Ledger Dataset (full): per-route records (dataset band, price card 2026-10-30)
-    "/v1/physical": 50_000,            # $0.05 — Inspector Physical: sign + book + guard + recheck on one target, one call (singles sum $0.075)
+    "/v1/ledger-dataset": 30_000,      # $0.03 — Ledger Dataset (summary): per-origin rollup of the observation ledger
+    "/v1/ledger-dataset/full": 100_000,   # $0.10 — Ledger Dataset (full): per-route records (dataset band, price card 2026-10-30)
+    "/v1/physical": 30_000,            # $0.03 — Inspector Physical: sign + book + guard + recheck on one target, one call (singles sum $0.075)
     "/v1/payto-pin/verify": 10_000,    # $0.01 — PayTo Pin verify: live payTo set vs the pin's first-seen set (new-check-tool band)
 }
 

@@ -53,7 +53,7 @@
       "name": "/v1/pre-trade-guard"
     },
     {
-      "amount": "1000000",
+      "amount": "100000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/counterparty-report",
       "name": "/v1/counterparty-report"
     },
@@ -78,22 +78,22 @@
       "name": "/v1/agent-card-verify"
     },
     {
-      "amount": "10000",
+      "amount": "5000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/tube-search",
       "name": "/v1/tube-search"
     },
     {
-      "amount": "10000",
+      "amount": "5000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/page-to-markdown",
       "name": "/v1/page-to-markdown"
     },
     {
-      "amount": "10000",
+      "amount": "5000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/video-details",
       "name": "/v1/video-details"
     },
     {
-      "amount": "10000",
+      "amount": "5000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/video-transcript",
       "name": "/v1/video-transcript"
     },
@@ -113,12 +113,12 @@
       "name": "/v1/url-unshorten"
     },
     {
-      "amount": "50000",
+      "amount": "30000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/tube-search/batch",
       "name": "/v1/tube-search/batch"
     },
     {
-      "amount": "50000",
+      "amount": "30000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/page-to-markdown/batch",
       "name": "/v1/page-to-markdown/batch"
     },
@@ -133,17 +133,17 @@
       "name": "/v1/repo-readme"
     },
     {
-      "amount": "50000",
+      "amount": "30000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/price-check",
       "name": "/v1/price-check"
     },
     {
-      "amount": "100000",
+      "amount": "30000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/card-smith",
       "name": "/v1/card-smith"
     },
     {
-      "amount": "50000",
+      "amount": "30000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/job-scout",
       "name": "/v1/job-scout"
     },
@@ -153,7 +153,7 @@
       "name": "/v1/recheck"
     },
     {
-      "amount": "100000",
+      "amount": "30000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/index/changes",
       "name": "/v1/index/changes"
     },
@@ -163,22 +163,22 @@
       "name": "/v1/index/history"
     },
     {
-      "amount": "750000",
+      "amount": "100000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/orchestrate",
       "name": "/v1/orchestrate"
     },
     {
-      "amount": "1000000",
+      "amount": "100000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/recheck/pack",
       "name": "/v1/recheck/pack"
     },
     {
-      "amount": "100000",
+      "amount": "30000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/fleet-check",
       "name": "/v1/fleet-check"
     },
     {
-      "amount": "5000000",
+      "amount": "100000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/fleet-check/pack",
       "name": "/v1/fleet-check/pack"
     },
@@ -208,7 +208,7 @@
       "name": "/v1/guard"
     },
     {
-      "amount": "50000",
+      "amount": "30000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/physical",
       "name": "/v1/physical"
     },
@@ -218,17 +218,17 @@
       "name": "/v1/payto-pin/verify"
     },
     {
-      "amount": "1000000",
+      "amount": "100000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/toolkit/pack",
       "name": "/v1/toolkit/pack"
     },
     {
-      "amount": "100000",
+      "amount": "30000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/ledger-dataset",
       "name": "/v1/ledger-dataset"
     },
     {
-      "amount": "1000000",
+      "amount": "100000",
       "endpoint": "https://stall-row-production.up.railway.app/v1/ledger-dataset/full",
       "name": "/v1/ledger-dataset/full"
     }
@@ -444,14 +444,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "1000000",
+        "amount_units": "100000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$1",
+        "display": "$0.10",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "1"
+        "usd": "0.1"
       },
       "tags": [
         "x402",
@@ -609,14 +609,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "10000",
+        "amount_units": "5000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
         "display": "$0.01",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.01"
+        "usd": "0.005"
       },
       "tags": [
         "search",
@@ -641,14 +641,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "10000",
+        "amount_units": "5000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
         "display": "$0.01",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.01"
+        "usd": "0.005"
       },
       "tags": [
         "fetch",
@@ -673,14 +673,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "10000",
+        "amount_units": "5000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
         "display": "$0.01",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.01"
+        "usd": "0.005"
       },
       "tags": [
         "youtube",
@@ -705,14 +705,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "10000",
+        "amount_units": "5000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
         "display": "$0.01",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.01"
+        "usd": "0.005"
       },
       "tags": [
         "youtube",
@@ -835,14 +835,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "50000",
+        "amount_units": "30000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$0.05",
+        "display": "$0.03",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.05"
+        "usd": "0.03"
       },
       "tags": [
         "search",
@@ -867,14 +867,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "50000",
+        "amount_units": "30000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$0.05",
+        "display": "$0.03",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.05"
+        "usd": "0.03"
       },
       "tags": [
         "fetch",
@@ -962,14 +962,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "50000",
+        "amount_units": "30000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$0.05",
+        "display": "$0.03",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.05"
+        "usd": "0.03"
       },
       "tags": [
         "x402",
@@ -995,14 +995,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "100000",
+        "amount_units": "30000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$0.1",
+        "display": "$0.03",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.1"
+        "usd": "0.03"
       },
       "tags": [
         "agents",
@@ -1026,14 +1026,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "50000",
+        "amount_units": "30000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$0.05",
+        "display": "$0.03",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.05"
+        "usd": "0.03"
       },
       "tags": [
         "jobs",
@@ -1092,14 +1092,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "100000",
+        "amount_units": "30000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$0.1",
+        "display": "$0.03",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.1"
+        "usd": "0.03"
       },
       "tags": [
         "index",
@@ -1160,14 +1160,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "750000",
+        "amount_units": "100000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$0.75",
+        "display": "$0.10",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.75"
+        "usd": "0.1"
       },
       "tags": [
         "bundle",
@@ -1194,14 +1194,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "1000000",
+        "amount_units": "100000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$1",
+        "display": "$0.10",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "1"
+        "usd": "0.1"
       },
       "tags": [
         "monitoring",
@@ -1226,14 +1226,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "100000",
+        "amount_units": "30000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$0.1",
+        "display": "$0.03",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.1"
+        "usd": "0.03"
       },
       "tags": [
         "x402",
@@ -1260,14 +1260,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "5000000",
+        "amount_units": "100000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$5",
+        "display": "$0.10",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "5"
+        "usd": "0.1"
       },
       "tags": [
         "x402",
@@ -1460,14 +1460,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "50000",
+        "amount_units": "30000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$0.05",
+        "display": "$0.03",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.05"
+        "usd": "0.03"
       },
       "tags": [
         "x402",
@@ -1526,14 +1526,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "1000000",
+        "amount_units": "100000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$1",
+        "display": "$0.10",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "1"
+        "usd": "0.1"
       },
       "tags": [
         "x402",
@@ -1558,14 +1558,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "100000",
+        "amount_units": "30000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$0.1",
+        "display": "$0.03",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.1"
+        "usd": "0.03"
       },
       "tags": [
         "x402",
@@ -1589,14 +1589,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "1000000",
+        "amount_units": "100000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$1",
+        "display": "$0.10",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "1"
+        "usd": "0.1"
       },
       "tags": [
         "x402",

@@ -509,9 +509,9 @@ def test_batch_validation(monkeypatch, tmp_path):
 def test_new_routes_unpaid_challenges_carry_prices():
     client = TestClient(main.app, raise_server_exceptions=False)
     for path, payload, amount in (
-        ("/v1/video-details", {"video": "dQw4w9WgXcQ"}, "10000"),
-        ("/v1/tube-search/batch", {"queries": ["x402"]}, "50000"),
-        ("/v1/page-to-markdown/batch", {"urls": [PAGE_URL]}, "50000"),
+        ("/v1/video-details", {"video": "dQw4w9WgXcQ"}, "5000"),
+        ("/v1/tube-search/batch", {"queries": ["x402"]}, "30000"),
+        ("/v1/page-to-markdown/batch", {"urls": [PAGE_URL]}, "30000"),
     ):
         r = client.post(path, json=payload)
         assert r.status_code == 402, (path, r.text)
@@ -529,7 +529,7 @@ def test_loop_block_utility_offer_only_on_utility_routes():
     assert ids[0] == "recheck_pack"
     assert "toolkit_pack" in ids
     tk = next(o for o in utility["offers"] if o["id"] == "toolkit_pack")
-    assert tk["price_usd"] == 1.0
+    assert tk["price_usd"] == 0.10
     assert tk["terms"]["credits"] == 125
     assert "/v1/tube-search" in tk["terms"]["routes"]
     assert "/v1/page-to-markdown" in tk["terms"]["routes"]
@@ -554,7 +554,7 @@ def test_loop_block_returning_utility_payer_gets_utility_offer():
     block = loop_offer.loop_offer(payer=payer, route="/v1/tube-search")
     uo = block["returning_payer"]["utility_offer"]
     assert uo["offer_id"] == "toolkit_pack"
-    assert uo["price_usd"] == 1.0
+    assert uo["price_usd"] == 0.10
     assert "payer=0x1111" in uo["deep_link"]
 
     other = loop_offer.loop_offer(payer=payer, route="/v1/score-book")

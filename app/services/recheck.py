@@ -137,7 +137,7 @@ def usd_exact(units: int) -> str:
 # plainly rather than silently falling back to a per-call charge.
 
 PACK_CREDITS = 250
-PACK_PRICE_UNITS = 1_000_000  # $1.00 — mirrors config.PRICE_UNITS
+PACK_PRICE_UNITS = 100_000  # $0.10 — mirrors config.PRICE_UNITS
 PACK_TTL_DAYS = 90
 _PACK_ID_PREFIX = "pack_"
 
@@ -172,7 +172,7 @@ _PACK_ID_PREFIX = "pack_"
 # overcharge them.
 
 TOOLKIT_PACK_CREDITS = 125
-TOOLKIT_PACK_PRICE_UNITS = 1_000_000  # $1.00 — mirrors config.PRICE_UNITS
+TOOLKIT_PACK_PRICE_UNITS = 100_000  # $0.10 — mirrors config.PRICE_UNITS
 TOOLKIT_PACK_TTL_DAYS = 90
 TOOLKIT_PACK_ROUTES = (
     "/v1/sign-read",
@@ -224,7 +224,7 @@ def _chain_hash(prev_hash: str, record: dict) -> str:
 # store enforces them; fleetcheck.py aliases them for its callers.
 
 FLEET_CHECK_PACK_CREDITS = 100
-FLEET_CHECK_PACK_PRICE_UNITS = 5_000_000  # $5.00 — mirrors config.PRICE_UNITS
+FLEET_CHECK_PACK_PRICE_UNITS = 100_000  # $0.10 — mirrors config.PRICE_UNITS
 FLEET_CHECK_PACK_TTL_DAYS = 90
 _FC_PACK_ID_PREFIX = "fcpack_"
 
@@ -3657,7 +3657,7 @@ class WatchStore:
     # --- generic prepaid unit balances (watch cluster, Next-20 #9/#10) ---
     # Heartbeat knocks ($0.001) and defect-class events ($0.005) are
     # priced in UNITS, but a Recheck pack's balance is CREDITS (one
-    # credit = PACK_PRICE_UNITS / PACK_CREDITS = 4000 units of prepaid
+    # credit = PACK_PRICE_UNITS / PACK_CREDITS = 400 units of prepaid
     # value). Debiting whole credits per knock would overcharge
     # against the spec rates, so a pack presented to a unit-priced
     # watch product funds it through fractional-credit accounting:

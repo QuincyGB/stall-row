@@ -35,10 +35,10 @@ def test_block_terms_match_the_enforcing_constants():
     pack = offers["recheck_pack"]
     assert pack["route"] == "/v1/recheck/pack"
     assert pack["method"] == "POST"
-    assert pack["price_usd"] == recheck.PACK_PRICE_UNITS / 1_000_000 == 1.0
+    assert pack["price_usd"] == recheck.PACK_PRICE_UNITS / 1_000_000 == 0.10
     assert pack["terms"]["credits"] == recheck.PACK_CREDITS == 250
     assert pack["terms"]["ttl_days"] == recheck.PACK_TTL_DAYS == 90
-    assert pack["terms"]["per_check_usd"] == 1.0 / 250
+    assert pack["terms"]["per_check_usd"] == 0.10 / 250
     assert pack["terms"]["per_call_price_usd"] == 0.005
 
     hook = offers["recheck_change_webhook"]
@@ -95,7 +95,7 @@ def test_pack_funded_delivery_carries_the_block(monkeypatch, tmp_path):
     assert body["status"] == "BASELINE"
     assert body["pack_credits_remaining"] == 249
     block = body["verdict_row_loop"]
-    assert _offers_by_id(block)["recheck_pack"]["price_usd"] == 1.0
+    assert _offers_by_id(block)["recheck_pack"]["price_usd"] == 0.10
     assert block["discovery"].endswith("/.well-known/verdict-row.json")
 
 

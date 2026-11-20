@@ -5,7 +5,7 @@ Funding: the cluster's products are priced in UNITS ($0.001 knock,
 $0.005 event) and funded from a prepaid credential — a Fleet Pass
 (its balance IS units: store.debit_pass) or a Recheck pack (its
 balance is credits: store.debit_pack_units, fractional-credit
-accounting at exactly PACK_PRICE_UNITS / PACK_CREDITS = 4000 units
+accounting at exactly PACK_PRICE_UNITS / PACK_CREDITS = 400 units
 per credit, so a $0.001 knock never overcharges). Exactly one
 credential funds a registration; validation happens BEFORE anything
 is stored, mirroring watch.register. A debit that cannot be covered

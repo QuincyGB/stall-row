@@ -288,8 +288,8 @@ def test_http_surface_charges_dataset_prices():
 
     with TestClient(main.app) as client:
         for path, units in (
-            ("/v1/ledger-dataset", "100000"),
-            ("/v1/ledger-dataset/full", "1000000"),
+            ("/v1/ledger-dataset", "30000"),
+            ("/v1/ledger-dataset/full", "100000"),
         ):
             resp = client.post(path, json={})
             assert resp.status_code == 402, path
@@ -298,5 +298,5 @@ def test_http_surface_charges_dataset_prices():
             assert amounts == [units], path
         manifest = client.get("/.well-known/x402").json()
         listed = {r["resource"]: r for r in manifest["resources"]}
-        assert listed["https://testserver/v1/ledger-dataset"]["price"] == "$0.1"
-        assert listed["https://testserver/v1/ledger-dataset/full"]["price"] == "$1"
+        assert listed["https://testserver/v1/ledger-dataset"]["price"] == "$0.03"
+        assert listed["https://testserver/v1/ledger-dataset/full"]["price"] == "$0.1"

@@ -110,7 +110,7 @@ def _fleet_client(amount_units: int) -> httpx.AsyncClient:
 
 @pytest.mark.asyncio
 async def test_fleet_price_match_lists_candidates():
-    async with _fleet_client(1_000_000) as client:
+    async with _fleet_client(100_000) as client:
         rpc = Rpc(client, S.rpc_url)
         out = await receipts.verify_receipt(
             client, rpc, tx_hash=TX_HASH, fleet_pay_to=ADDR
@@ -118,14 +118,14 @@ async def test_fleet_price_match_lists_candidates():
     routes = {(c["service"], c["route"]) for c in out["fleet_route_candidates"]}
     assert ("stall-row", "/v1/counterparty-report") in routes
     assert ("stall-row", "/v1/recheck/pack") in routes
-    # Every candidate is a $1.00 route — the match is by price alone.
+    # Every candidate is a $0.10 route — the match is by price alone.
     from app.config import PRICE_UNITS
     from app.services.fleetpass import FLEET_ROUTES
 
     universe = dict(FLEET_ROUTES)
     for route, price in PRICE_UNITS.items():
         universe.setdefault(("stall-row", route), price)
-    assert all(universe[(s, r)] == 1_000_000 for s, r in routes)
+    assert all(universe[(s, r)] == 100_000 for s, r in routes)
 
 
 @pytest.mark.asyncio
