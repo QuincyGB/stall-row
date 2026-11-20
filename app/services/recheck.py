@@ -400,6 +400,32 @@ class WatchStore:
             )
             self._conn.execute(
                 """
+                CREATE TABLE IF NOT EXISTS entitlements (
+                    jti TEXT PRIMARY KEY,
+                    kind TEXT NOT NULL,
+                    credits_total INTEGER NOT NULL,
+                    credits_remaining INTEGER NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    expires_epoch REAL NOT NULL,
+                    payment_key TEXT NOT NULL UNIQUE,
+                    revoked INTEGER NOT NULL DEFAULT 0,
+                    payer_hint TEXT
+                )
+                """
+            )
+            self._conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS entitlement_debits (
+                    debit_id TEXT PRIMARY KEY,
+                    jti TEXT NOT NULL,
+                    route TEXT NOT NULL,
+                    created_epoch REAL NOT NULL,
+                    refunded INTEGER NOT NULL DEFAULT 0
+                )
+                """
+            )
+            self._conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS watch_regs (
                     watch_reg_id TEXT PRIMARY KEY,
                     url TEXT NOT NULL,
@@ -3653,6 +3679,206 @@ class WatchStore:
             )
             self._conn.commit()
             return True
+
+    # --- prepaid entitlements (W3 Build 1, services/entitlement.py) ---
+    # The ledger half of the signed-token entitlement: the token a
+    # buyer presents is self-verifying (Ed25519), but THIS row is the
+    # source of truth for credits remaining, expiry, and revocation.
+    # Spends are atomic under the store lock and reserve-then-run,
+    # exactly like pass debits: a spend lands before the handler
+    # runs and is refunded by debit_id when our side fails.
+
+    _ENT_COLS = (
+        "jti, kind, credits_total, credits_remaining, created_epoch, "
+        "expires_epoch, payment_key, revoked, payer_hint"
+    )
+
+    def _ent_row(self, where: str, params: tuple) -> dict | None:
+        row = self._conn.execute(
+            f"SELECT {self._ENT_COLS} FROM entitlements WHERE {where}", params
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "jti": row[0],
+            "kind": row[1],
+            "credits_total": row[2],
+            "credits_remaining": row[3],
+            "created_epoch": row[4],
+            "expires_epoch": row[5],
+            "payment_key": row[6],
+            "revoked": bool(row[7]),
+            "payer_hint": row[8],
+        }
+
+    @staticmethod
+    def _ent_view(row: dict, now_epoch: float | None = None) -> dict:
+        now = time.time() if now_epoch is None else now_epoch
+        return {
+            "jti": row["jti"],
+            "kind": row["kind"],
+            "credits_total": row["credits_total"],
+            "credits_remaining": row["credits_remaining"],
+            "created_at": _iso_of(row["created_epoch"]),
+            "expires_at": _iso_of(row["expires_epoch"]),
+            "expired": now >= row["expires_epoch"],
+            "revoked": row["revoked"],
+            "payer_hint": row.get("payer_hint"),
+        }
+
+    def mint_entitlement(
+        self,
+        payment_key: str,
+        kind: str,
+        credits: int,
+        ttl_days: int,
+        now_epoch: float | None = None,
+        payer_hint: str | None = None,
+    ) -> tuple[dict, bool]:
+        """Create one entitlement row for one settled payment.
+        Idempotent on payment_key, exactly like mint_pass: a replayed
+        payment returns its existing row (created=False) and the
+        caller re-signs the SAME jti, so a retry yields the same
+        token, never a second entitlement."""
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            for _attempt in range(3):
+                jti = "ent_" + secrets.token_hex(16)
+                cur = self._conn.execute(
+                    "INSERT OR IGNORE INTO entitlements "
+                    "(jti, kind, credits_total, credits_remaining, "
+                    "created_epoch, expires_epoch, payment_key, revoked, "
+                    "payer_hint) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)",
+                    (
+                        jti,
+                        kind,
+                        credits,
+                        credits,
+                        now,
+                        now + ttl_days * 86_400,
+                        payment_key,
+                        payer_hint,
+                    ),
+                )
+                self._conn.commit()
+                if cur.rowcount == 1:
+                    row = self._ent_row("jti = ?", (jti,))
+                    assert row is not None
+                    return self._ent_view(row, now), True
+                existing = self._ent_row("payment_key = ?", (payment_key,))
+                if existing is not None:
+                    return self._ent_view(existing, now), False
+            raise RuntimeError("could not mint a unique entitlement id")
+
+    def get_entitlement(self, jti: str) -> dict | None:
+        with self._lock:
+            row = self._ent_row("jti = ?", (jti,))
+        return self._ent_view(row) if row is not None else None
+
+    def spend_entitlement_credit(
+        self,
+        jti: str,
+        route: str,
+        now_epoch: float | None = None,
+    ) -> dict:
+        """Atomically spend ONE credit for a call about to run.
+        Raises PackError (unknown 404 / revoked 403 / expired 410 /
+        exhausted 402) without decrementing anything. Returns the
+        entitlement view plus the debit_id a refund must cite."""
+        now = time.time() if now_epoch is None else now_epoch
+        with self._lock:
+            row = self._ent_row("jti = ?", (jti,))
+            if row is None:
+                raise PackError("unknown_entitlement", "unknown entitlement", 404)
+            if row["revoked"]:
+                raise PackError(
+                    "entitlement_revoked", "this entitlement has been revoked", 403
+                )
+            if now >= row["expires_epoch"]:
+                raise PackError(
+                    "entitlement_expired",
+                    "this entitlement has expired; buy a new one or pay per call",
+                    410,
+                )
+            if row["credits_remaining"] < 1:
+                raise PackError(
+                    "entitlement_exhausted",
+                    "this entitlement has no credits remaining; "
+                    "buy a new one or pay per call",
+                    402,
+                )
+            debit_id = "entd_" + secrets.token_hex(12)
+            cur = self._conn.execute(
+                "UPDATE entitlements SET credits_remaining = "
+                "credits_remaining - 1 WHERE jti = ? AND "
+                "credits_remaining >= 1 AND revoked = 0",
+                (jti,),
+            )
+            if cur.rowcount != 1:  # lost a race under the lock: fail closed
+                raise PackError(
+                    "entitlement_exhausted",
+                    "this entitlement has no credits remaining",
+                    402,
+                )
+            self._conn.execute(
+                "INSERT INTO entitlement_debits "
+                "(debit_id, jti, route, created_epoch, refunded) "
+                "VALUES (?, ?, ?, ?, 0)",
+                (debit_id, jti, route, now),
+            )
+            self._conn.commit()
+            row = self._ent_row("jti = ?", (jti,))
+            assert row is not None
+            view = self._ent_view(row, now)
+            view["debit_id"] = debit_id
+            return view
+
+    def refund_entitlement_credit(self, debit_id: str) -> bool:
+        """Re-credit one entitlement spend after our side failed to
+        deliver. Idempotent per debit_id, exactly like refund_debit.
+        A refund never resurrects a revoked entitlement's spendability
+        (the spend path re-checks revoked) and never exceeds the
+        entitlement's original credit total."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT jti, refunded FROM entitlement_debits "
+                "WHERE debit_id = ?",
+                (debit_id,),
+            ).fetchone()
+            if row is None or row[1]:
+                return False
+            self._conn.execute(
+                "UPDATE entitlements SET credits_remaining = "
+                "MIN(credits_remaining + 1, credits_total) WHERE jti = ?",
+                (row[0],),
+            )
+            self._conn.execute(
+                "UPDATE entitlement_debits SET refunded = 1 WHERE debit_id = ?",
+                (debit_id,),
+            )
+            self._conn.commit()
+            return True
+
+    def revoke_entitlement(self, jti: str) -> bool:
+        """Revoke one entitlement (the revocation list is the revoked
+        flag on the ledger row — checked on every spend, so revocation
+        is immediate). Returns True when this call revoked it, False
+        when unknown or already revoked."""
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE entitlements SET revoked = 1 WHERE jti = ? AND revoked = 0",
+                (jti,),
+            )
+            self._conn.commit()
+            return cur.rowcount == 1
+
+    def entitlement_spend_count(self, jti: str) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM entitlement_debits WHERE jti = ?",
+                (jti,),
+            ).fetchone()
+        return int(row[0]) if row else 0
 
     # --- generic prepaid unit balances (watch cluster, Next-20 #9/#10) ---
     # Heartbeat knocks ($0.001) and defect-class events ($0.005) are

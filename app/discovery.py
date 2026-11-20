@@ -2034,6 +2034,94 @@ ROUTES: dict[str, dict] = {
             "note": "Spend with the X-Fleet-Pass header on any fleet route; each call debits that route's listed price. Read the balance free at POST /v1/fleet-pass/balance.",
         },
     },
+    "/v1/entitlement-pass": {
+        "description": (
+            "Prepaid Entitlement (30 days) — one $9.00 payment buys a "
+            "signed Ed25519 entitlement token with 1,800 call credits, "
+            "valid 30 days: present it as the X-Entitlement header on "
+            "any StallRow paid route instead of paying per call; each "
+            "call spends one credit, verified against the signature, "
+            "expiry, and the server ledger. No auto-renewal. Use this "
+            "when a loop calls the row steadily for a month and wants "
+            "one payment, not eighteen hundred."
+        ),
+        "tags": ["prepaid", "x402", "entitlement", "credits", "agents", "subscription", "ed25519"],
+        "input_schema": _obj({}, []),
+        "input_example": {},
+        "output_schema": _obj(
+            {
+                "token": _S,
+                "jti": _S,
+                "kind": _S,
+                "credits_total": _I,
+                "credits_remaining": _I,
+                "created_at": _S,
+                "expires_at": _S,
+                "expired": _B,
+                "revoked": _B,
+                "price_units": _I,
+                "note": _S,
+            },
+            ["token", "jti", "credits_remaining", "expires_at"],
+        ),
+        "output_example": {
+            "token": "ent1.eyJleHAiOjE3NjQwMDAwMDAsImp0aSI6ImVudF8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCJ9.signature",
+            "jti": "ent_00000000000000000000000000000000",
+            "kind": "pass",
+            "credits_total": 1800,
+            "credits_remaining": 1800,
+            "created_at": "2026-11-19T20:00:00Z",
+            "expires_at": "2026-12-19T20:00:00Z",
+            "expired": False,
+            "revoked": False,
+            "price_units": 9000000,
+            "note": "Spend with the X-Entitlement header on any StallRow paid route; each call spends one credit. Read the balance free at POST /v1/entitlement/balance.",
+        },
+    },
+    "/v1/entitlement-pack": {
+        "description": (
+            "Prepaid Entitlement (credit pack) — one $5.00 payment "
+            "buys a signed Ed25519 entitlement token with 1,000 call "
+            "credits, valid 90 days: present it as the X-Entitlement "
+            "header on any StallRow paid route instead of paying per "
+            "call; each call spends one credit, verified against the "
+            "signature, expiry, and the server ledger. No "
+            "auto-renewal. Use this when a loop wants a bulk credit "
+            "bundle without a time-boxed pass."
+        ),
+        "tags": ["prepaid", "x402", "entitlement", "credits", "agents", "credit-pack", "ed25519"],
+        "input_schema": _obj({}, []),
+        "input_example": {},
+        "output_schema": _obj(
+            {
+                "token": _S,
+                "jti": _S,
+                "kind": _S,
+                "credits_total": _I,
+                "credits_remaining": _I,
+                "created_at": _S,
+                "expires_at": _S,
+                "expired": _B,
+                "revoked": _B,
+                "price_units": _I,
+                "note": _S,
+            },
+            ["token", "jti", "credits_remaining", "expires_at"],
+        ),
+        "output_example": {
+            "token": "ent1.eyJleHAiOjE3NzIwMDAwMDAsImp0aSI6ImVudF8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCJ9.signature",
+            "jti": "ent_00000000000000000000000000000000",
+            "kind": "pack",
+            "credits_total": 1000,
+            "credits_remaining": 1000,
+            "created_at": "2026-11-19T20:00:00Z",
+            "expires_at": "2027-02-17T20:00:00Z",
+            "expired": False,
+            "revoked": False,
+            "price_units": 5000000,
+            "note": "Spend with the X-Entitlement header on any StallRow paid route; each call spends one credit. Read the balance free at POST /v1/entitlement/balance.",
+        },
+    },
     "/v1/sign-read": {
         "description": (
             "Sign Reader — read one x402 endpoint's 402 challenge: both "

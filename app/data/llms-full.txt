@@ -9,7 +9,7 @@ Payment terms (fleet-wide): x402, exact scheme, USDC. Fleet payTo: 0x097f9685D1e
 
 Worked examples in this file are FIXTURE values (the same worked examples this stall's OpenAPI document and free /sample payloads publish): real shapes, not live data. Buy the route for live results.
 
-## Priced routes on this stall (42)
+## Priced routes on this stall (44)
 
 ### POST https://stall-row-production.up.railway.app/v1/wallet-snapshot — $0.005
 
@@ -1567,6 +1567,74 @@ Worked response example (fixture):
 ```
 
 Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/fleet-pass-20 (source: schema-example; labelled in-band sample=true, live=false).
+
+### POST https://stall-row-production.up.railway.app/v1/entitlement-pass — $9
+
+Prepaid Entitlement (30 days) — one $9.00 payment buys a signed Ed25519 entitlement token with 1,800 call credits, valid 30 days: present it as the X-Entitlement header on any StallRow paid route instead of paying per call; each call spends one credit, verified against the signature, expiry, and the server ledger. No auto-renewal. Use this when a loop calls the row steadily for a month and wants one payment, not eighteen hundred.
+
+Price: $9 (9000000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 9000000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Tags: prepaid, x402, entitlement, credits, agents, subscription, ed25519
+Input shape: type object
+Output shape: type object; fields: created_at (string), credits_remaining (integer, required), credits_total (integer), expired (boolean), expires_at (string, required), jti (string, required), kind (string), note (string), price_units (integer), revoked (boolean), token (string, required)
+
+Worked request example (fixture):
+```json
+{}
+```
+
+Worked response example (fixture):
+```json
+{
+  "token": "ent1.eyJleHAiOjE3NjQwMDAwMDAsImp0aSI6ImVudF8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCJ9.signature",
+  "jti": "ent_00000000000000000000000000000000",
+  "kind": "pass",
+  "credits_total": 1800,
+  "credits_remaining": 1800,
+  "created_at": "2026-11-19T20:00:00Z",
+  "expires_at": "2026-12-19T20:00:00Z",
+  "expired": false,
+  "revoked": false,
+  "price_units": 9000000,
+  "note": "Spend with the X-Entitlement header on any StallRow paid route; each call spends one credit. Read the balance free at POST /v1/entitlement/balance."
+}
+```
+
+Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/entitlement-pass (source: schema-example; labelled in-band sample=true, live=false).
+
+### POST https://stall-row-production.up.railway.app/v1/entitlement-pack — $5
+
+Prepaid Entitlement (credit pack) — one $5.00 payment buys a signed Ed25519 entitlement token with 1,000 call credits, valid 90 days: present it as the X-Entitlement header on any StallRow paid route instead of paying per call; each call spends one credit, verified against the signature, expiry, and the server ledger. No auto-renewal. Use this when a loop wants a bulk credit bundle without a time-boxed pass.
+
+Price: $5 (5000000 USDC atomic units on Base).
+Accepts: scheme exact, network eip155:8453, amount 5000000 units, asset 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913, payTo 0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F, maxTimeoutSeconds 300
+Tags: prepaid, x402, entitlement, credits, agents, credit-pack, ed25519
+Input shape: type object
+Output shape: type object; fields: created_at (string), credits_remaining (integer, required), credits_total (integer), expired (boolean), expires_at (string, required), jti (string, required), kind (string), note (string), price_units (integer), revoked (boolean), token (string, required)
+
+Worked request example (fixture):
+```json
+{}
+```
+
+Worked response example (fixture):
+```json
+{
+  "token": "ent1.eyJleHAiOjE3NzIwMDAwMDAsImp0aSI6ImVudF8wMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCJ9.signature",
+  "jti": "ent_00000000000000000000000000000000",
+  "kind": "pack",
+  "credits_total": 1000,
+  "credits_remaining": 1000,
+  "created_at": "2026-11-19T20:00:00Z",
+  "expires_at": "2027-02-17T20:00:00Z",
+  "expired": false,
+  "revoked": false,
+  "price_units": 5000000,
+  "note": "Spend with the X-Entitlement header on any StallRow paid route; each call spends one credit. Read the balance free at POST /v1/entitlement/balance."
+}
+```
+
+Free sample of this route's response shape: https://stall-row-production.up.railway.app/sample/entitlement-pack (source: schema-example; labelled in-band sample=true, live=false).
 
 ### POST https://stall-row-production.up.railway.app/v1/sign-read — $0.01
 

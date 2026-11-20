@@ -51,6 +51,8 @@ BODIES = {
     "/v1/toolkit/pack": {},
     "/v1/fleet-pass": {},
     "/v1/fleet-pass-20": {},
+    "/v1/entitlement-pass": {},
+    "/v1/entitlement-pack": {},
     "/v1/sign-read": {"url": "https://www.x402.org/"},
     "/v1/score-book": {"url": "https://www.x402.org/"},
     "/v1/guard": {"url": "https://www.x402.org/"},

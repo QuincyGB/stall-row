@@ -39,6 +39,22 @@
       "pulled_from": "app/discovery.py output example for this route (schema-validated)"
     },
     {
+      "route": "/v1/entitlement-pack",
+      "slug": "entitlement-pack",
+      "source": "schema-example",
+      "target": "POST /v1/entitlement-pack on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/entitlement-pass",
+      "slug": "entitlement-pass",
+      "source": "schema-example",
+      "target": "POST /v1/entitlement-pass on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
       "route": "/v1/feed-digest",
       "slug": "feed-digest",
       "source": "schema-example",
