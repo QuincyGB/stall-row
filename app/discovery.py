@@ -50,11 +50,7 @@ def _obj(props: dict, required: list[str]) -> dict:
 ROUTES: dict[str, dict] = {
     "/v1/wallet-snapshot": {
         "description": (
-            "Snapshot one Base wallet in a single call: ETH balance, top token "
-            "holdings, first and last activity, and outgoing transaction count. "
-            "Use this when an agent needs a wallet's shape before deciding to "
-            "pay, trust, or transact with it. Explorer fields that cannot be "
-            "supplied come back marked unknown, never invented."
+            "Snapshot one Base wallet in a single call: ETH balance, top token holdings, first and last activity, and outgoing transaction count. Use this when an agent needs a wallet's shape before deciding to pay, trust, or transact with it. Explorer fields that cannot be supplied come back marked unknown rather than invented values."
         ),
         "tags": ["base", "wallet", "balances", "data", "agents", "onchain-data", "address-lookup"],
         "input_schema": _obj({"address": _S}, ["address"]),
@@ -265,12 +261,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/wallet-verdict": {
         "description": (
-            "A trust verdict for one Base wallet: OFAC SDN exact-match against "
-            "a dated snapshot, wallet age, activity level, and an "
-            "address-poisoning scan of its recent token transfers, combined "
-            "into SAFE, CAUTION, or AVOID with a 0-100 score and itemized "
-            "reasons. Use this when an agent must decide whether a wallet is "
-            "safe to pay or take instructions from."
+            'A trust verdict for one Base wallet: OFAC SDN exact-match against a dated snapshot, wallet age, activity level, and an address-poisoning scan of its recent token transfers, combined into SAFE, CAUTION, or AVOID with a 0-100 score and itemized reasons. Use this when an agent is deciding whether a wallet is safe to pay or to accept directions from.'
         ),
         "tags": ["base", "security", "sanctions", "verdict", "agents", "wallet-risk", "trust-verdict"],
         "input_schema": _obj({"address": _S}, ["address"]),
@@ -308,13 +299,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/pre-trade-guard": {
         "description": (
-            "Pre-Trade Guard — before you pay an x402 listing, screen the "
-            "payTo you are about to pay: its Verdict Index catalog history "
-            "(first seen, payTo rotations, listings added or removed across "
-            "the snapshots held), an OFAC SDN exact-match check, and the "
-            "wallet's Base age and activity, combined into PROCEED, CAUTION, "
-            "or ABORT with itemized reasons. Use this when an agent is about "
-            "to pay a payTo it has never paid before."
+            "Pre-Trade Guard — before you pay an x402 listing, screen the payTo you are about to pay: its Verdict Index catalog history (first seen, payTo rotations, listings added or removed across the snapshots held), an OFAC SDN exact-match check, and the wallet's Base age and activity, combined into PROCEED, CAUTION, or ABORT with itemized reasons. Use this when an agent is about to pay a payTo with no prior payment history."
         ),
         "tags": ["x402", "security", "sanctions", "verdict", "payments", "agents", "pre-trade-guard", "payto", "preflight", "counterparty"],
         "input_schema": _obj(
@@ -374,14 +359,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/counterparty-report": {
         "description": (
-            "Counterparty Report — one bundled report on one seller: the "
-            "payTo's wallet snapshot, an OFAC SDN exact-match screen, and "
-            "its Verdict Index listing history, plus a Token Verdict when "
-            "you name a token, a LockSmith audit when you name a service "
-            "URL, and a ListSmith grade when you name a listing URL. Legs "
-            "that are not requested or cannot run are marked, never "
-            "padded. Use this when an agent is about to rely on a seller "
-            "it has never dealt with."
+            "Counterparty Report — one bundled report on one seller: the payTo's wallet snapshot, an OFAC SDN exact-match screen, and its Verdict Index listing history, plus a Token Verdict when you name a token, a LockSmith audit when you name a service URL, and a ListSmith grade when you name a listing URL. Legs that are not requested or cannot run are marked as such, with no padding. Use this when an agent is about to rely on a seller with no prior dealings."
         ),
         "tags": ["x402", "security", "verdict", "sellers", "agents", "counterparty", "payto", "due-diligence", "preflight"],
         "input_schema": _obj(
@@ -432,15 +410,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/grade-my-stall": {
         "description": (
-            "Grade My Stall — a seller-side report card for one x402 "
-            "resource: a live unpaid probe (does it answer 402 with a "
-            "parseable challenge?), the description measured against "
-            "the 500-character limit, CDP listing presence in the "
-            "newest catalog snapshot, Settled's record, the origin's "
-            "x402scan ownership declaration, and payTo consistency "
-            "across sources. Checks that cannot be performed report "
-            "unverified, never a guess. Use this when you run a stall "
-            "and want to know how buyers' tools see it."
+            "Grade My Stall — a seller-side report card for one x402 resource: a live unpaid probe (does it answer 402 with a parseable challenge?), the description measured against the 500-character limit, CDP listing presence in the newest catalog snapshot, Settled's record, x402scan ownership, and payTo consistency across sources. Checks that cannot be performed report unverified rather than a guessed value. Use this when you run a stall and want to know how buyers' tools see it."
         ),
         "tags": ["x402", "sellers", "listings", "verification", "listing-grade", "preflight", "discovery", "endpoint-verification"],
         "input_schema": _obj(
@@ -476,16 +446,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/receipt-verify": {
         "description": (
-            "Receipt Verifier — a Base transaction hash in, a "
-            "normalized verified receipt out: payer, payTo and "
-            "amount from the USDC Transfer log, asset and network, "
-            "settled status and confirmations. When the payTo is "
-            "this fleet's own and the amount matches a priced route, "
-            "routes at that price are listed as candidates — an "
-            "amount alone never proves which route was called. "
-            "Unknown transactions error honestly, unsettled. Use "
-            "this when someone claims they paid and you want the "
-            "chain's version. Base only."
+            "Receipt Verifier — a Base transaction hash in, a verified receipt out: payer, payTo and amount from the USDC Transfer log, asset and network, settled status and confirmations. When the payTo is this fleet's own and the amount matches a priced route, routes at that price are listed as candidates — an amount alone is not proof of which route was called. Unknown transactions error honestly, unsettled. Use this when someone claims they paid and you want the chain's version. Base only."
         ),
         "tags": ["x402", "payments", "verification", "receipts", "settlement-proof", "tx-verification", "delivery-verified"],
         "input_schema": _obj({"tx_hash": _S}, ["tx_hash"]),
@@ -544,16 +505,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/flagged-paytos": {
         "description": (
-            "Bad-payTo Registry Feed — the currently flagged payTos, "
-            "each with its evidence: every address in the bundled "
-            "OFAC SDN snapshot, payTos the newest catalog snapshot "
-            "pair shows rotated away from live listings, and payTos "
-            "of listings that vanished between snapshots. Built "
-            "from the same two sources the Pre-Trade Guard screens "
-            "against. No entry without evidence; entry and evidence "
-            "caps are stated, never silent. Use this when a router "
-            "or guard wants the fleet's current avoid-list in one "
-            "cheap call."
+            "Bad-payTo Registry Feed — the currently flagged payTos, each with its evidence: every address in the bundled OFAC SDN snapshot, payTos the newest catalog snapshot pair shows rotated away from live listings, and payTos of listings that vanished between snapshots. Built from the same two sources the Pre-Trade Guard screens against. No entry without evidence; entry and evidence caps are stated openly. Use this when a router or guard wants the fleet's current avoid-list in one cheap call."
         ),
         "tags": ["x402", "security", "sanctions", "registry", "agents", "payto", "blocklist", "risk-feed"],
         "input_schema": _obj({}, []),
@@ -606,16 +558,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/agent-card-verify": {
         "description": (
-            "Agent-Card Verifier — an ERC-8004 agent id (resolved on "
-            "Base via the registry) or an agent.json URL in; "
-            "the card is fetched and checked against live reality: "
-            "declared endpoints probed unpaid (402 is correct for a "
-            "paid service), challenge payTos compared with the "
-            "card's declared wallets, declared prices with live "
-            "challenge amounts. Undeclared fields report not_checked, "
-            "never a guess; an unreachable card errors honestly, "
-            "unsettled. Use this when an agent's card claims more "
-            "than its endpoints do."
+            "Agent-Card Verifier — an ERC-8004 agent id or an agent.json URL in; the card is fetched and checked against live reality: declared endpoints probed unpaid (402 is correct for a paid service), challenge payTos compared with the card's declared wallets, declared prices with live challenge amounts. Undeclared fields report not_checked rather than a guessed value; an unreachable card errors honestly, unsettled. Use this when an agent's card claims more than its endpoints do."
         ),
         "tags": ["x402", "agents", "erc-8004", "verification", "identity", "agent-card", "manifest", "preflight"],
         "input_schema": _obj(
@@ -1030,13 +973,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/tube-search/batch": {
         "description": (
-            "Up to 10 YouTube searches in one call, each with its own "
-            "result list in the /v1/tube-search shape, filters included; "
-            "a query that fails is reported in its own entry instead of "
-            "failing the batch, and the batch only fails when every "
-            "query does. Pack credits do not fund batch routes. Use "
-            "this when an agent sweeps many searches at once instead "
-            "of paying settlement overhead on every single search."
+            'Up to 10 YouTube searches in one call, each with its own result list in the /v1/tube-search shape, filters included; a query that fails is reported in its own entry instead of failing the batch, and the batch only fails when every query does. Pack credits are not accepted on batch routes. Use this when an agent sweeps many searches at once instead of paying settlement overhead on every single search.'
         ),
         "tags": ["search", "youtube", "video", "batch", "agents", "youtube-search", "bulk"],
         "input_schema": _obj(
@@ -1115,13 +1052,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/page-to-markdown/batch": {
         "description": (
-            "Up to 10 page conversions in one call, each fetched and "
-            "converted exactly as /v1/page-to-markdown (reader-proxy "
-            "fallback included); a URL that fails is reported in its "
-            "own entry instead of failing the batch, and the batch "
-            "only fails when every URL does. Pack credits do not fund "
-            "batch routes. Use this when an agent reads pages in bulk "
-            "instead of paying settlement overhead on every fetch."
+            'Up to 10 page conversions in one call, each fetched and converted exactly as /v1/page-to-markdown (reader-proxy fallback included); a URL that fails is reported in its own entry instead of failing the batch, and the batch only fails when every URL does. Pack credits are not accepted on batch routes. Use this when an agent reads pages in bulk instead of paying settlement overhead on every fetch.'
         ),
         "tags": ["fetch", "markdown", "web", "batch", "agents", "web-fetch", "bulk"],
         "input_schema": _obj(
@@ -1413,15 +1344,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/recheck": {
         "description": (
-            "Probe one x402 resource or page WITHOUT paying it: BASELINE / "
-            "UNCHANGED / CHANGED with a diff (price, asset, payTo, schema, "
-            "body) vs the last check. Use this when a scheduled agent must "
-            "know what changed first. Watch and pack state persist across "
-            "redeploys on the service volume. Checking the same endpoint "
-            "on a schedule? Buy the pack instead — POST /v1/recheck/pack "
-             "is $0.10 for 250 checks and this route spends pack "
-            "credits when you send pack_id, so a loop makes one payment, "
-            "not hundreds."
+            'Probe one x402 resource or page WITHOUT paying it: BASELINE / UNCHANGED / CHANGED with a diff (price, asset, payTo, schema, body) vs the last check. Use this when a scheduled agent needs to know what changed first. Watch and pack state persist across redeploys on the service volume. Checking the same endpoint on a schedule? A pack option exists — POST /v1/recheck/pack is $0.10 for 250 checks and this route spends pack credits when you send pack_id, so a loop makes one payment, not hundreds.'
         ),
         "tags": ["monitoring", "x402", "change-detection", "diff", "agents", "drift", "uptime", "endpoint-verification", "payto"],
         "input_schema": _obj({"url": _S, "watch_id": _S, "pack_id": _S}, ["url"]),
@@ -1549,15 +1472,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/index/history": {
         "description": (
-            "Verdict Index History — the CDP Bazaar catalog as a time "
-            "series across ALL retained snapshots, not just the newest "
-            "two: first-seen, delisted, relisted, and price/payTo/contract "
-            "changes per route, filterable by resource, origin, payTo, "
-            "service name, network, or catalogue. The payload states the "
-            "earliest snapshot actually held — depth is never invented. "
-            "Standing queries fund from a Fleet Pass at this same $0.01. "
-            "Use this when an inspector needs a route's history, not just "
-            "its latest diff."
+            "Verdict Index History — the CDP Bazaar catalog as a time series across ALL retained snapshots: first-seen, delisted, relisted, and price/payTo/contract changes per route, filterable by resource, origin, payTo, service name, network, or catalogue. The payload states the earliest snapshot actually held, and reports depth only as held. Standing queries fund from a Fleet Pass at this same $0.01. Use this when an inspector needs a route's history, not just its latest diff."
         ),
         "tags": ["index", "x402", "history", "catalog", "monitoring", "agents", "drift", "time-series", "catalogue"],
         "input_schema": _obj(
@@ -1729,15 +1644,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/fleet-check": {
         "description": (
-            "Fleet Check — one health sweep of your whole x402 fleet: "
-            "name resource URLs and/or origins (expanded from their "
-            "own /.well-known/x402) and get a per-route table — alive, "
-            "status, whether the 402 challenge decodes, each accept's "
-            "network/asset/payTo/amount, an OK / DEGRADED / DOWN "
-            "verdict naming the defect, and a grade per origin. "
-            "Probes are unpaid only — this route never pays any route "
-            "it checks. Use this when you run more than one x402 "
-            "stall and want one honest answer about all of them."
+            "Fleet Check — one health sweep of your whole x402 fleet: name resource URLs and/or origins (expanded from /.well-known/x402) and get a per-route table — alive, status, whether the 402 challenge decodes, each accept's network/asset/payTo/amount, an OK / DEGRADED / DOWN verdict naming the defect, and a grade per origin. Probes are unpaid only — this route sends no payment to any route it checks. Use this when you run more than one x402 stall and want one honest answer about all of them."
         ),
         "tags": ["x402", "monitoring", "health-check", "sellers", "agents", "fleet-health", "uptime", "endpoint-verification", "drift"],
         "input_schema": _obj(
@@ -1866,16 +1773,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/fleet-check/pack": {
         "description": (
-            "Fleet Check pack — the standing form of Fleet Check: one "
-            "$0.10 payment buys 100 sweep credits for ONE fixed fleet "
-            "definition (resources and/or origins), good for 90 days. "
-            "Sweeps run on your interval or on demand via POST "
-            "/v1/fleet-check/run — one credit per sweep, never per "
-            "route — diff against the last sweep, and POST failures "
-            "and recoveries to your webhook (heartbeats optional); "
-            "the latest table is free at POST /v1/fleet-check/status. "
-            "Use this when your stalls should be watched continuously."
-        ),
+            'Fleet Check pack — the standing form of Fleet Check: one $0.10 payment buys 100 sweep credits for ONE fixed fleet definition, good for 90 days. Sweeps run on your interval or on demand via POST /v1/fleet-check/run — one credit per sweep, with no per-route charge — diff against the last sweep, and POST failures and recoveries to your webhook (heartbeats optional); the latest table is free at POST /v1/fleet-check/status. Use this when your stalls should be watched continuously.'   ),
         "tags": ["x402", "monitoring", "prepaid", "health-check", "agents", "fleet-health", "uptime", "endpoint-verification", "drift"],
         "input_schema": _obj(
             {
@@ -2105,15 +2003,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/score-book": {
         "description": (
-            "Score Book — an x402 target's track record from our "
-            "records: check history, prices/payTos carried, catalogue "
-            "presence, and — for url/origin — patrol facts from the "
-            "patrol snapshot (open defects by class, first/last seen; "
-            "recoveries with receipt ids; snapshot provenance). "
-            "Patrol is periodic — facts are as of the snapshot, never "
-            "live; it holds no payTo data, so payTo patrol sections "
-            "are empty. Unknown: found=false. Use this when judging "
-            "a stall needs its history, not just its current sign."
+            "Score Book — an x402 target's track record: check history, prices/payTos carried, catalogue presence, and — for url/origin — patrol facts from the patrol snapshot (open defects by class, first/last seen; recoveries with receipt ids; snapshot provenance). Patrol is periodic — facts are as of the snapshot, not live data; it holds no payTo data, so payTo patrol sections are empty. Unknown: found=false. Use this when judging a stall needs its history, not just its current sign."
         ),
         "tags": ["x402", "inspector", "history", "reputation", "monitoring", "track-record", "drift", "catalogue-presence"],
         "input_schema": _obj(
@@ -2235,14 +2125,7 @@ ROUTES: dict[str, dict] = {
     },
     "/v1/payto-pin/verify": {
         "description": (
-            "PayTo Pin Verify — check one pinned x402 route against its "
-            "first-seen payTo set: a fresh unpaid probe compares the "
-            "live payTo set with the pin's hash-committed baseline, "
-            "answering MATCH, MOVED with before/after sets, or "
-            "ROUTE_GONE as a delivered report. A swap fires one signed "
-            "PAYTO_MOVED webhook per distinct new set. Pins are "
-            "created free at POST /v1/payto-pin. Use this when a payTo "
-            "swap must be caught before you pay the route again."
+            "PayTo Pin Verify — check one pinned x402 route against its first-seen payTo set: a fresh unpaid probe compares the live payTo set with the pin's hash-committed baseline, answering MATCH, MOVED with before/after sets, or ROUTE_GONE as a delivered report. A swap fires one signed PAYTO_MOVED webhook per distinct new set. Pins are created free at POST /v1/payto-pin. Use this when catching a payTo swap before paying the route again matters."
         ),
         "tags": ["x402", "inspector", "payto", "monitoring", "verification", "drift", "pin-verify"],
         "input_schema": _obj(
