@@ -1,8 +1,8 @@
 {
-  "checker_last_run": "2026-11-22T13:56:19.187124+00:00",
-  "checker_summary": "51/52 routes OK, 5/5 services OK, 1 failing",
+  "checker_last_run": "2026-11-22T14:26:14.312532+00:00",
+  "checker_summary": "54/54 routes OK, 5/5 services OK",
   "contact": "patrol@verdictrow.com",
-  "generated_at": "2026-11-22T14:00:54Z",
+  "generated_at": "2026-11-22T14:28:36Z",
   "generated_by": "Ren, Verdict Row Patrol \u2014 patrol@verdictrow.com",
   "host": {
     "html": "https://stall-row-production.up.railway.app/status",
@@ -11,14 +11,14 @@
   },
   "incidents": {
     "log_started_at": "2026-10-29T03:26:22.605425+00:00",
-    "open": 1,
+    "open": 0,
     "source": "status-incidents.json, the append-only incident log kept beside the standing checker by status_snapshot.py",
     "total_recorded": 11
   },
   "kind": "verdict-row-fleet-status/v1",
   "near_workers": [
     {
-      "checked_at": "2026-11-22T14:00:54Z",
+      "checked_at": "2026-11-22T14:28:36Z",
       "detail": "curl: (7) Failed to connect to localhost port 8080 after 0 ms: Couldn't connect to server",
       "health_url": "http://localhost:8080/health",
       "http_status": 0,
@@ -27,7 +27,7 @@
       "worker": "verdict-row"
     },
     {
-      "checked_at": "2026-11-22T14:00:54Z",
+      "checked_at": "2026-11-22T14:28:36Z",
       "detail": "curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server",
       "health_url": "http://localhost:8081/health",
       "http_status": 0,
@@ -36,7 +36,7 @@
       "worker": "route-auditor"
     },
     {
-      "checked_at": "2026-11-22T14:00:54Z",
+      "checked_at": "2026-11-22T14:28:36Z",
       "detail": "curl: (7) Failed to connect to localhost port 8082 after 0 ms: Couldn't connect to server",
       "health_url": "http://localhost:8082/health",
       "http_status": 0,
@@ -51,7 +51,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (100000 units to payTo) + Solana accept OK",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.10",
       "resource": "https://token-verdict-production.up.railway.app/v1/batch-verdict",
@@ -62,22 +62,22 @@
       "status_since": "2026-11-09T17:31:01.232547+00:00"
     },
     {
-      "checker_class": "NEW-FAILURE",
-      "detail": "transport failure: curl exit 52: curl: (52) Empty reply from server",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
-      "ok_share": 0.0,
+      "checker_class": "OK",
+      "detail": "402, Base accept OK (30000 units to payTo) + Solana accept OK",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
+      "ok_share": 1.0,
       "price": "$0.03",
       "resource": "https://token-verdict-production.up.railway.app/v1/pre-trade",
       "route": "/v1/pre-trade",
       "runs_considered": 1,
       "stall": "token-verdict",
-      "status": "failing",
-      "status_since": "2026-11-22T14:00:05.833131+00:00"
+      "status": "ok",
+      "status_since": "2026-11-22T14:13:52.816054+00:00"
     },
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (30000 units to payTo) + Solana accept OK",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.03",
       "resource": "https://token-verdict-production.up.railway.app/v1/second-opinion",
@@ -90,7 +90,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (20000 units to payTo) + Solana accept OK",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.02",
       "resource": "https://token-verdict-production.up.railway.app/v1/verdict",
@@ -103,7 +103,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (30000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.03",
       "resource": "https://route-verdict-production.up.railway.app/v1/check",
@@ -116,7 +116,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (100000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.10",
       "resource": "https://list-smith-production.up.railway.app/v1/fix",
@@ -129,7 +129,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (30000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.03",
       "resource": "https://list-smith-production.up.railway.app/v1/grade",
@@ -142,7 +142,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/agent-card-verify",
@@ -155,7 +155,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/allowance-audit",
@@ -168,7 +168,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (30000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.03",
       "resource": "https://stall-row-production.up.railway.app/v1/card-smith",
@@ -181,7 +181,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (100000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.1",
       "resource": "https://stall-row-production.up.railway.app/v1/counterparty-report",
@@ -194,7 +194,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$5",
       "resource": "https://stall-row-production.up.railway.app/v1/entitlement-pack",
@@ -207,7 +207,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (9000000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$9",
       "resource": "https://stall-row-production.up.railway.app/v1/entitlement-pass",
@@ -220,7 +220,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (10000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.01",
       "resource": "https://stall-row-production.up.railway.app/v1/feed-digest",
@@ -233,7 +233,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/flagged-paytos",
@@ -246,7 +246,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (30000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.03",
       "resource": "https://stall-row-production.up.railway.app/v1/fleet-check",
@@ -259,7 +259,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (100000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.1",
       "resource": "https://stall-row-production.up.railway.app/v1/fleet-check/pack",
@@ -272,7 +272,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$5",
       "resource": "https://stall-row-production.up.railway.app/v1/fleet-pass",
@@ -285,7 +285,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (20000000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$20",
       "resource": "https://stall-row-production.up.railway.app/v1/fleet-pass-20",
@@ -298,7 +298,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (1000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.001",
       "resource": "https://stall-row-production.up.railway.app/v1/gas-oracle",
@@ -311,7 +311,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/grade-my-stall",
@@ -324,7 +324,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (10000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.01",
       "resource": "https://stall-row-production.up.railway.app/v1/guard",
@@ -337,7 +337,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (30000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.03",
       "resource": "https://stall-row-production.up.railway.app/v1/index/changes",
@@ -350,7 +350,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (10000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.01",
       "resource": "https://stall-row-production.up.railway.app/v1/index/history",
@@ -363,7 +363,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (30000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.03",
       "resource": "https://stall-row-production.up.railway.app/v1/job-scout",
@@ -376,7 +376,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (30000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.03",
       "resource": "https://stall-row-production.up.railway.app/v1/ledger-dataset",
@@ -389,7 +389,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (100000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.1",
       "resource": "https://stall-row-production.up.railway.app/v1/ledger-dataset/full",
@@ -402,7 +402,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (100000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.1",
       "resource": "https://stall-row-production.up.railway.app/v1/orchestrate",
@@ -415,7 +415,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/page-metadata",
@@ -428,7 +428,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/page-to-markdown",
@@ -441,7 +441,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (30000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.03",
       "resource": "https://stall-row-production.up.railway.app/v1/page-to-markdown/batch",
@@ -454,7 +454,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (10000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.01",
       "resource": "https://stall-row-production.up.railway.app/v1/payto-pin/verify",
@@ -467,7 +467,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (30000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.03",
       "resource": "https://stall-row-production.up.railway.app/v1/physical",
@@ -480,7 +480,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/pre-trade-guard",
@@ -493,7 +493,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (30000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.03",
       "resource": "https://stall-row-production.up.railway.app/v1/price-check",
@@ -506,7 +506,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (2000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.002",
       "resource": "https://stall-row-production.up.railway.app/v1/receipt-verify",
@@ -519,7 +519,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/recheck",
@@ -532,7 +532,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (100000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.1",
       "resource": "https://stall-row-production.up.railway.app/v1/recheck/pack",
@@ -545,7 +545,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/repo-readme",
@@ -558,7 +558,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/repo-vitals",
@@ -571,7 +571,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (10000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.01",
       "resource": "https://stall-row-production.up.railway.app/v1/score-book",
@@ -584,7 +584,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (10000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.01",
       "resource": "https://stall-row-production.up.railway.app/v1/sign-read",
@@ -597,7 +597,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (100000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.1",
       "resource": "https://stall-row-production.up.railway.app/v1/toolkit/pack",
@@ -610,7 +610,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/tube-search",
@@ -623,7 +623,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (30000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.03",
       "resource": "https://stall-row-production.up.railway.app/v1/tube-search/batch",
@@ -636,7 +636,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (2000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.002",
       "resource": "https://stall-row-production.up.railway.app/v1/tx-decoder",
@@ -649,7 +649,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/url-unshorten",
@@ -662,7 +662,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/video-details",
@@ -675,7 +675,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/video-transcript",
@@ -688,7 +688,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (5000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.005",
       "resource": "https://stall-row-production.up.railway.app/v1/wallet-snapshot",
@@ -701,7 +701,7 @@
     {
       "checker_class": "OK",
       "detail": "402, Base accept OK (20000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.02",
       "resource": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
@@ -713,8 +713,21 @@
     },
     {
       "checker_class": "OK",
+      "detail": "402, Base accept OK (30000 units to payTo)",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
+      "ok_share": 1.0,
+      "price": "$0.03",
+      "resource": "https://lock-smith-production.up.railway.app/v1/approval-check",
+      "route": "/v1/approval-check",
+      "runs_considered": 1,
+      "stall": "lock-smith",
+      "status": "ok",
+      "status_since": "2026-11-22T14:13:52.815741+00:00"
+    },
+    {
+      "checker_class": "OK",
       "detail": "402, Base accept OK (100000 units to payTo)",
-      "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
       "ok_share": 1.0,
       "price": "$0.10",
       "resource": "https://lock-smith-production.up.railway.app/v1/audit",
@@ -723,6 +736,19 @@
       "stall": "lock-smith",
       "status": "ok",
       "status_since": "2026-11-09T15:27:00.930457+00:00"
+    },
+    {
+      "checker_class": "OK",
+      "detail": "402, Base accept OK (100000 units to payTo)",
+      "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
+      "ok_share": 1.0,
+      "price": "$0.10",
+      "resource": "https://lock-smith-production.up.railway.app/v1/contract-check",
+      "route": "/v1/contract-check",
+      "runs_considered": 1,
+      "stall": "lock-smith",
+      "status": "ok",
+      "status_since": "2026-11-22T14:13:52.815755+00:00"
     }
   ],
   "stalls": [
@@ -734,7 +760,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (100000 units to payTo) + Solana accept OK",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.10",
           "resource": "https://token-verdict-production.up.railway.app/v1/batch-verdict",
@@ -745,22 +771,22 @@
           "status_since": "2026-11-09T17:31:01.232547+00:00"
         },
         {
-          "checker_class": "NEW-FAILURE",
-          "detail": "transport failure: curl exit 52: curl: (52) Empty reply from server",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
-          "ok_share": 0.0,
+          "checker_class": "OK",
+          "detail": "402, Base accept OK (30000 units to payTo) + Solana accept OK",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
+          "ok_share": 1.0,
           "price": "$0.03",
           "resource": "https://token-verdict-production.up.railway.app/v1/pre-trade",
           "route": "/v1/pre-trade",
           "runs_considered": 1,
           "stall": "token-verdict",
-          "status": "failing",
-          "status_since": "2026-11-22T14:00:05.833131+00:00"
+          "status": "ok",
+          "status_since": "2026-11-22T14:13:52.816054+00:00"
         },
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (30000 units to payTo) + Solana accept OK",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.03",
           "resource": "https://token-verdict-production.up.railway.app/v1/second-opinion",
@@ -773,7 +799,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (20000 units to payTo) + Solana accept OK",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.02",
           "resource": "https://token-verdict-production.up.railway.app/v1/verdict",
@@ -784,7 +810,7 @@
           "status_since": "2026-11-09T17:31:01.232567+00:00"
         }
       ],
-      "routes_ok": 3,
+      "routes_ok": 4,
       "routes_total": 4,
       "service_detail": "health/openapi/discovery OK",
       "service_ok": true,
@@ -799,7 +825,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (30000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.03",
           "resource": "https://route-verdict-production.up.railway.app/v1/check",
@@ -825,7 +851,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (100000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.10",
           "resource": "https://list-smith-production.up.railway.app/v1/fix",
@@ -838,7 +864,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (30000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.03",
           "resource": "https://list-smith-production.up.railway.app/v1/grade",
@@ -864,7 +890,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/agent-card-verify",
@@ -877,7 +903,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/allowance-audit",
@@ -890,7 +916,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (30000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.03",
           "resource": "https://stall-row-production.up.railway.app/v1/card-smith",
@@ -903,7 +929,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (100000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.1",
           "resource": "https://stall-row-production.up.railway.app/v1/counterparty-report",
@@ -916,7 +942,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$5",
           "resource": "https://stall-row-production.up.railway.app/v1/entitlement-pack",
@@ -929,7 +955,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (9000000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$9",
           "resource": "https://stall-row-production.up.railway.app/v1/entitlement-pass",
@@ -942,7 +968,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (10000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.01",
           "resource": "https://stall-row-production.up.railway.app/v1/feed-digest",
@@ -955,7 +981,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/flagged-paytos",
@@ -968,7 +994,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (30000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.03",
           "resource": "https://stall-row-production.up.railway.app/v1/fleet-check",
@@ -981,7 +1007,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (100000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.1",
           "resource": "https://stall-row-production.up.railway.app/v1/fleet-check/pack",
@@ -994,7 +1020,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$5",
           "resource": "https://stall-row-production.up.railway.app/v1/fleet-pass",
@@ -1007,7 +1033,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (20000000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$20",
           "resource": "https://stall-row-production.up.railway.app/v1/fleet-pass-20",
@@ -1020,7 +1046,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (1000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.001",
           "resource": "https://stall-row-production.up.railway.app/v1/gas-oracle",
@@ -1033,7 +1059,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/grade-my-stall",
@@ -1046,7 +1072,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (10000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.01",
           "resource": "https://stall-row-production.up.railway.app/v1/guard",
@@ -1059,7 +1085,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (30000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.03",
           "resource": "https://stall-row-production.up.railway.app/v1/index/changes",
@@ -1072,7 +1098,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (10000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.01",
           "resource": "https://stall-row-production.up.railway.app/v1/index/history",
@@ -1085,7 +1111,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (30000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.03",
           "resource": "https://stall-row-production.up.railway.app/v1/job-scout",
@@ -1098,7 +1124,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (30000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.03",
           "resource": "https://stall-row-production.up.railway.app/v1/ledger-dataset",
@@ -1111,7 +1137,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (100000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.1",
           "resource": "https://stall-row-production.up.railway.app/v1/ledger-dataset/full",
@@ -1124,7 +1150,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (100000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.1",
           "resource": "https://stall-row-production.up.railway.app/v1/orchestrate",
@@ -1137,7 +1163,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/page-metadata",
@@ -1150,7 +1176,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/page-to-markdown",
@@ -1163,7 +1189,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (30000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.03",
           "resource": "https://stall-row-production.up.railway.app/v1/page-to-markdown/batch",
@@ -1176,7 +1202,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (10000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.01",
           "resource": "https://stall-row-production.up.railway.app/v1/payto-pin/verify",
@@ -1189,7 +1215,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (30000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.03",
           "resource": "https://stall-row-production.up.railway.app/v1/physical",
@@ -1202,7 +1228,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/pre-trade-guard",
@@ -1215,7 +1241,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (30000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.03",
           "resource": "https://stall-row-production.up.railway.app/v1/price-check",
@@ -1228,7 +1254,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (2000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.002",
           "resource": "https://stall-row-production.up.railway.app/v1/receipt-verify",
@@ -1241,7 +1267,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/recheck",
@@ -1254,7 +1280,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (100000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.1",
           "resource": "https://stall-row-production.up.railway.app/v1/recheck/pack",
@@ -1267,7 +1293,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/repo-readme",
@@ -1280,7 +1306,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/repo-vitals",
@@ -1293,7 +1319,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (10000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.01",
           "resource": "https://stall-row-production.up.railway.app/v1/score-book",
@@ -1306,7 +1332,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (10000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.01",
           "resource": "https://stall-row-production.up.railway.app/v1/sign-read",
@@ -1319,7 +1345,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (100000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.1",
           "resource": "https://stall-row-production.up.railway.app/v1/toolkit/pack",
@@ -1332,7 +1358,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/tube-search",
@@ -1345,7 +1371,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (30000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.03",
           "resource": "https://stall-row-production.up.railway.app/v1/tube-search/batch",
@@ -1358,7 +1384,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (2000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.002",
           "resource": "https://stall-row-production.up.railway.app/v1/tx-decoder",
@@ -1371,7 +1397,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/url-unshorten",
@@ -1384,7 +1410,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/video-details",
@@ -1397,7 +1423,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/video-transcript",
@@ -1410,7 +1436,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (5000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.005",
           "resource": "https://stall-row-production.up.railway.app/v1/wallet-snapshot",
@@ -1423,7 +1449,7 @@
         {
           "checker_class": "OK",
           "detail": "402, Base accept OK (20000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.02",
           "resource": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
@@ -1448,8 +1474,21 @@
       "routes": [
         {
           "checker_class": "OK",
+          "detail": "402, Base accept OK (30000 units to payTo)",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
+          "ok_share": 1.0,
+          "price": "$0.03",
+          "resource": "https://lock-smith-production.up.railway.app/v1/approval-check",
+          "route": "/v1/approval-check",
+          "runs_considered": 1,
+          "stall": "lock-smith",
+          "status": "ok",
+          "status_since": "2026-11-22T14:13:52.815741+00:00"
+        },
+        {
+          "checker_class": "OK",
           "detail": "402, Base accept OK (100000 units to payTo)",
-          "last_checked_at": "2026-11-22T13:56:19.187124+00:00",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
           "ok_share": 1.0,
           "price": "$0.10",
           "resource": "https://lock-smith-production.up.railway.app/v1/audit",
@@ -1458,10 +1497,23 @@
           "stall": "lock-smith",
           "status": "ok",
           "status_since": "2026-11-09T15:27:00.930457+00:00"
+        },
+        {
+          "checker_class": "OK",
+          "detail": "402, Base accept OK (100000 units to payTo)",
+          "last_checked_at": "2026-11-22T14:26:14.312532+00:00",
+          "ok_share": 1.0,
+          "price": "$0.10",
+          "resource": "https://lock-smith-production.up.railway.app/v1/contract-check",
+          "route": "/v1/contract-check",
+          "runs_considered": 1,
+          "stall": "lock-smith",
+          "status": "ok",
+          "status_since": "2026-11-22T14:13:52.815755+00:00"
         }
       ],
-      "routes_ok": 1,
-      "routes_total": 1,
+      "routes_ok": 3,
+      "routes_total": 3,
       "service_detail": "health/openapi/discovery OK",
       "service_ok": true,
       "service_status": "ok",
@@ -1470,14 +1522,14 @@
   ],
   "title": "Verdict Row \u2014 Fleet Status",
   "totals": {
-    "routes_ok": 51,
-    "routes_total": 52,
+    "routes_ok": 54,
+    "routes_total": 54,
     "services_ok": 5,
     "services_total": 5
   },
   "window": {
     "basis": "The standing checker (check.py) retains only its latest run \u2014 state.json is overwritten on every run and no multi-run checker history exists \u2014 so ok_share is computed over the 1 run actually recorded: 1.0 when the route was ok on that run, 0.0 when it was failing. It is a last-check share, not a long-window uptime SLO.",
-    "checker_last_run": "2026-11-22T13:56:19.187124+00:00",
+    "checker_last_run": "2026-11-22T14:26:14.312532+00:00",
     "runs_considered": 1
   }
 }
