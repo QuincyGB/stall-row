@@ -169,13 +169,17 @@ from .config import PRICE_UNITS, SOLANA_ACCEPT_PATHS, load_settings
 from .solana_rail import SvmReplayGuard, make_after_settle_hook, make_before_verify_hook
 from .discovery import OWNERSHIP_PROOFS, ROUTES, agent_card, llms_txt, route_extension, skill_md, x402_manifest
 from . import samples as samples_svc
-from .openapi_examples import add_worked_examples
+from .openapi_examples import add_payment_info, add_worked_examples
 from .rpc import Rpc, UpstreamError, is_address, is_tx_hash
 from .services import agentcard as agentcard_svc
 from .services import claims as claims_svc
 from .services import hosted_inbox as hosted_svc
 from .services import hosted_mcp as hosted_mcp_svc
 from .services import counterparty as counterparty_svc
+from .services import counterparty_deep as counterparty_deep_svc
+from .services import counterparty_watch as counterparty_watch_svc
+from .services import response_upgrades as response_upgrades_svc
+from .services import verdict as verdict_svc
 from .services import deliveryledger as deliveryledger_svc
 from .services import fetch as fetch_svc
 from .services import fleetcheck as fleetcheck_svc
@@ -356,6 +360,46 @@ def _openapi_with_ownership_proofs():
         return app.openapi_schema
     schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
     add_worked_examples(schema)
+    # AgentCash canonical discovery (W8 spec 3b): paid operations carry
+    # x-payment-info + a declared 402 response, derived from settings --
+    # the same prices / network / payTo the route configs above charge.
+    _protocols = [
+        {"x402": {"scheme": "exact", "network": settings.network, "payTo": settings.pay_to}}
+    ]
+    add_payment_info(
+        schema,
+        {
+            path: {
+                "amount": settings.price_for(path).strip().lstrip("$"),
+                "protocols": (
+                    _protocols
+                    + [
+                        {
+                            "x402": {
+                                "scheme": "exact",
+                                "network": settings.solana_network,
+                                "payTo": settings.solana_pay_to,
+                            }
+                        }
+                    ]
+                    if path in SOLANA_ACCEPT_PATHS
+                    else _protocols
+                ),
+            }
+            for path in PRICE_UNITS
+        },
+        guidance=(
+            f"{settings.service_name} sells pay-per-call x402 micro-services "
+            f"over the x402 protocol (v2, exact scheme, USDC on "
+            f"{settings.network}, payTo {settings.pay_to}). Paid operations "
+            "are marked with x-payment-info; call one without payment to "
+            "receive the HTTP 402 challenge, pay it with any x402 v2 "
+            "client, and retry with the payment proof -- no account or "
+            "API key. Prices in x-payment-info are decimal USD and match "
+            "the live 402 challenge. Free discovery: GET /.well-known/x402, "
+            "/quote and /health. Contact: patrol@verdictrow.com."
+        ),
+    )
     schema["x-discovery"] = {"ownershipProofs": OWNERSHIP_PROOFS}
     schema["x-agentcash-provenance"] = {"ownershipProofs": OWNERSHIP_PROOFS}
     app.openapi_schema = schema
@@ -679,6 +723,19 @@ async def _attach_loop_offer(
         return _rebuild_response(body, response, content_type)
     payer = _record_loop_delivery(request, credential)
     loop_offer_svc.attach_loop_offer(data, payer=payer, route=request.url.path)
+    # Response upgrades (W2): next_check + evidence on every paid
+    # delivery, attached HERE — the central paid-delivery path every
+    # funding route passes through — in the response BODY only,
+    # never in the discovery output schemas (header budget; see
+    # services/response_upgrades.py). The settlement tx is knowable
+    # only here, from the settlement receipt header when present.
+    _receipt = deliveryledger_svc.extract_receipt(response)
+    response_upgrades_svc.attach_upgrades(
+        data,
+        request.url.path,
+        getattr(request.state, "paid_input", None) or {},
+        settlement_tx=(_receipt or {}).get("transaction"),
+    )
     return _rebuild_response(
         json.dumps(data).encode(), response, "application/json"
     )
@@ -686,6 +743,18 @@ async def _attach_loop_offer(
 
 @app.middleware("http")
 async def x402_middleware(request: Request, call_next):
+    # Capture the parsed request body of a priced call for the
+    # evidence block's input_hash (attached centrally in
+    # _attach_loop_offer). Starlette caches the body, so downstream
+    # handlers still read it normally.
+    if request.method == "POST" and request.url.path in PRICE_UNITS:
+        try:
+            _paid_body = await request.body()
+            request.state.paid_input = (
+                json.loads(_paid_body) if _paid_body else {}
+            )
+        except Exception:  # noqa: BLE001 — evidence is additive only
+            request.state.paid_input = {}
     # A recheck call presenting a pack id is paid from the pack, not
     # per call: skip the paywall and let the handler validate the
     # pack against the store (unknown/wrong/expired/exhausted packs
@@ -1884,6 +1953,112 @@ async def counterparty_report(req: CounterpartyReportRequest):
                 listing_url=(req.listing_url or "").strip() or None,
                 resource=(req.resource or "").strip() or None,
             )
+
+    return await _run(go)
+
+
+# --- W2 counterparty family: deep / watch / sanctions / ping --------
+_watch_stores: dict[str, counterparty_watch_svc.CounterpartyWatchStore] = {}
+
+
+def _watch_store() -> counterparty_watch_svc.CounterpartyWatchStore:
+    """Counterparty Watch store: same sqlite file as the recheck
+    store (one file, one durability story — see
+    services/counterparty_watch.py)."""
+    path = _recheck_store._path
+    store = _watch_stores.get(path)
+    if store is None:
+        store = counterparty_watch_svc.CounterpartyWatchStore(path)
+        _watch_stores[path] = store
+    return store
+
+
+@app.post("/v1/counterparty-report/deep")
+async def counterparty_report_deep(req: CounterpartyReportRequest):
+    """Counterparty Report, full tier ($0.25): everything the
+    standard report has, plus wallet age, funding sources,
+    OFAC-flagged counterparty links, and rug-history signals —
+    all derived from the legs actually read, with coverage
+    stated in the response."""
+    if not is_address(req.pay_to):
+        return JSONResponse({"error": "pay_to must be a 0x EVM address"}, status_code=422)
+    if req.token_address is not None and not is_address(req.token_address):
+        return JSONResponse(
+            {"error": "token_address must be a 0x EVM address"}, status_code=422
+        )
+
+    async def go():
+        client, rpc, scout = _clients()
+        async with client:
+            return await counterparty_deep_svc.run_counterparty_deep(
+                client,
+                rpc,
+                scout,
+                _index_store,
+                pay_to=req.pay_to.strip(),
+                token_address=(req.token_address or "").strip() or None,
+                chain=(req.chain or "base").strip(),
+                service_url=(req.service_url or "").strip() or None,
+                listing_url=(req.listing_url or "").strip() or None,
+                resource=(req.resource or "").strip() or None,
+            )
+
+    return await _run(go)
+
+
+@app.post("/v1/counterparty-watch")
+async def counterparty_watch(req: AddressRequest):
+    """Counterparty Watch ($0.03): store this wallet's counterparty
+    profile snapshot and return the delta vs the previous stored
+    snapshot; the first call establishes the baseline."""
+    if not is_address(req.address):
+        return JSONResponse({"error": "address must be a 0x EVM address"}, status_code=422)
+
+    async def go():
+        client, rpc, scout = _clients()
+        async with client:
+            return await counterparty_watch_svc.run_watch(
+                client, rpc, scout, _index_store, _watch_store(), req.address.strip()
+            )
+
+    return await _run(go)
+
+
+@app.post("/v1/sanctions-check")
+async def sanctions_check(req: AddressRequest):
+    """Sanctions Check ($0.03): exact-match screen against the OFAC
+    SDN digital currency address list — the bundled snapshot of the
+    official Treasury SDN data (same vendored list the wallet
+    verdict screens against), labelled with its as-of date."""
+    if not is_address(req.address):
+        return JSONResponse({"error": "address must be a 0x EVM address"}, status_code=422)
+
+    async def go():
+        result = verdict_svc.sanctions_check(req.address.strip())
+        return {
+            "address": req.address.strip(),
+            **result,
+            "screen": (
+                "exact-match screen against the OFAC SDN digital "
+                "currency address list as of "
+                f"{result.get('snapshot_date') or 'unknown'}"
+            ),
+        }
+
+    return await _run(go)
+
+
+@app.post("/v1/wallet-ping")
+async def wallet_ping(req: AddressRequest):
+    """Wallet Ping ($0.001): is this wallet real/active — existence
+    (nonce/balance/code), last activity, tx-count band."""
+    if not is_address(req.address):
+        return JSONResponse({"error": "address must be a 0x EVM address"}, status_code=422)
+
+    async def go():
+        client, rpc, scout = _clients()
+        async with client:
+            return await reads_svc.wallet_ping(rpc, scout, req.address.strip())
 
     return await _run(go)
 

@@ -483,3 +483,67 @@ async def gas_oracle(rpc: Rpc) -> dict:
         "as_of_epoch": int(time.time()),
         "note": "Trend and hint describe the last ~20 blocks only — observed data, not a forecast.",
     }
+
+
+def _tx_count_band(nonce: int | None) -> str:
+    if nonce is None:
+        return "unknown"
+    if nonce == 0:
+        return "0"
+    if nonce <= 10:
+        return "1-10"
+    if nonce <= 100:
+        return "11-100"
+    if nonce <= 1000:
+        return "101-1000"
+    return "1000+"
+
+
+async def wallet_ping(rpc: Rpc, scout: Blockscout, address: str) -> dict:
+    """Wallet Ping ($0.001): is this wallet real/active — existence
+    (balance / nonce / contract code), last activity, tx-count band.
+    Chain reads only via app/rpc.py + the explorer's last-activity
+    timestamp; anything unreadable comes back unknown, never
+    invented."""
+    balance = await rpc.eth_balance(address)
+    nonce = await rpc.eth_tx_count(address)
+    block_number = await rpc.eth_block_number()
+    code = await rpc.call("eth_getCode", [address, "latest"])
+    is_contract = isinstance(code, str) and code not in ("0x", "0x0", "")
+    exists = balance > 0 or nonce > 0 or is_contract
+
+    last_activity = None
+    last_block_time = None
+    txs = await scout.transactions(address, sort="desc", limit=1)
+    if txs:
+        last_activity = _ts(txs[0])
+    try:
+        block = await rpc.eth_block(block_number)
+        ts = block.get("timestamp")
+        if isinstance(ts, str):
+            last_block_time = datetime.fromtimestamp(
+                int(ts, 16), tz=timezone.utc
+            ).isoformat()
+    except (UpstreamError, ValueError, TypeError):
+        last_block_time = None
+
+    return {
+        "address": address,
+        "exists": exists,
+        "is_contract": is_contract,
+        "eth_balance_wei": str(balance),
+        "outgoing_tx_count_nonce": nonce,
+        "tx_count_band": _tx_count_band(nonce),
+        "last_activity": last_activity if last_activity is not None else "unknown",
+        "latest_block": block_number,
+        "latest_block_time": last_block_time,
+        "active": bool(exists and last_activity is not None),
+        "note": (
+            "Existence = nonzero balance, nonzero nonce, or contract "
+            "code on Base at read time. Last activity is the newest "
+            "transaction timestamp Blockscout returns (unknown when "
+            "the explorer cannot supply it); latest_block_time is "
+            "the chain head's timestamp, an upper bound on activity "
+            "time, not the wallet's last-activity time."
+        ),
+    }

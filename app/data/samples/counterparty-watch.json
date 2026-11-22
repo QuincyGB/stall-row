@@ -1,0 +1,18 @@
+{
+  "address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "delta": null,
+  "live": false,
+  "note": "First watch call for this wallet: the current profile was stored as the baseline.",
+  "profile": {
+    "address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+    "counterparties": {},
+    "flags": []
+  },
+  "recorded_at": null,
+  "route": "/v1/counterparty-watch",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "status": "baseline_established",
+  "target": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+}

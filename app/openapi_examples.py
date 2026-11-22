@@ -82,3 +82,43 @@ def add_worked_examples(schema: dict) -> dict:
             }
         }
     return schema
+
+
+# --- AgentCash canonical discovery (x-payment-info) ---------------------------
+# AgentCash / x402scan read /openapi.json as the canonical discovery
+# document: every paid operation must carry x-payment-info (protocols +
+# a fixed decimal-USD price) and declare responses.402, and the info
+# block must carry x-guidance and a contact email (W8 spec section 3b,
+# 2026-11-20). The amounts, network and payTo are passed in by main.py
+# from the service's own settings -- the same values the x402 route
+# configs charge and the live 402 challenge carries -- never restated
+# here, so this metadata cannot drift from the runtime price.
+
+PAYMENT_CONTACT = {"name": "Verdict Row", "email": "patrol@verdictrow.com"}
+
+
+def add_payment_info(schema: dict, payment_ops: dict, guidance: str) -> dict:
+    """Add info.x-guidance / info.contact and, for each paid operation
+    in `payment_ops` (path -> {"amount": decimal-USD string,
+    "protocols": [{"x402": {...}}, ...]}), its x-payment-info block and
+    402 response declaration, in place."""
+    info = schema.setdefault("info", {})
+    info["x-guidance"] = guidance
+    info["contact"] = dict(PAYMENT_CONTACT)
+    paths = schema.get("paths") or {}
+    for path, terms in payment_ops.items():
+        op = (paths.get(path) or {}).get("post")
+        if op is None:
+            continue
+        op["x-payment-info"] = {
+            "protocols": copy.deepcopy(terms["protocols"]),
+            "price": {
+                "mode": "fixed",
+                "currency": "USD",
+                "amount": terms["amount"],
+            },
+        }
+        op.setdefault("responses", {})["402"] = {
+            "description": "Payment Required"
+        }
+    return schema

@@ -408,6 +408,162 @@ ROUTES: dict[str, dict] = {
             "limits": "Legs marked not_requested were not asked for and were not run.",
         },
     },
+    "/v1/counterparty-report/deep": {
+        "description": (
+            "Counterparty Report, full tier — everything the standard report has (wallet snapshot, OFAC SDN exact-match screen, Verdict Index history, plus named fleet legs), plus wallet age and funding sources, links to OFAC-flagged counterparty wallets in the sampled transfers, and rug-history signals derived only from the legs read. Coverage windows are stated in the response. Use this when an agent needs the deepest one-call read on a seller before a large commitment."
+        ),
+        "tags": ["x402", "security", "verdict", "sellers", "agents", "counterparty", "payto", "due-diligence", "deep"],
+        "input_schema": _obj(
+            {
+                "pay_to": _S,
+                "token_address": _N,
+                "chain": _S,
+                "service_url": _N,
+                "listing_url": _N,
+                "resource": _N,
+            },
+            ["pay_to"],
+        ),
+        "input_example": {
+            "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+            "service_url": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+        },
+        "output_schema": _obj(
+            {
+                "pay_to": _S,
+                "token_address": _N,
+                "service_url": _N,
+                "listing_url": _N,
+                "generated_at": _S,
+                "tier": _S,
+                "legs_ok": {"type": "array", "items": _S},
+                "legs_failed": {"type": "array", "items": _S},
+                "legs_unavailable": {"type": "array", "items": _S},
+                "legs_not_requested": {"type": "array", "items": _S},
+                "legs": {"type": "object"},
+                "deep": {"type": "object"},
+                "profile": {"type": "object"},
+                "limits": _S,
+            },
+            ["pay_to", "generated_at", "tier", "legs_ok", "legs", "deep"],
+        ),
+        "output_example": {
+            "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+            "token_address": None,
+            "service_url": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+            "listing_url": None,
+            "generated_at": "2026-11-22T12:00:00Z",
+            "tier": "deep",
+            "legs_ok": ["wallet", "index"],
+            "legs_failed": [],
+            "legs_unavailable": [],
+            "legs_not_requested": ["token_verdict", "listsmith"],
+            "legs": {"wallet": {"status": "ok"}},
+            "deep": {
+                "wallet_age": {"first_activity": "2025-11-02T14:03:11.000000Z", "wallet_age_days": 385},
+                "funding_sources": [],
+                "flagged_counterparty_links": [],
+                "counterparties": [],
+                "rug_history_signals": [],
+                "coverage": {"token_transfers_sampled": 3, "sanctions_snapshot_date": "2026-10-21"},
+            },
+            "profile": {"address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F", "flags": []},
+            "limits": "Deep legs cover only the sampled transfers stated in deep.coverage.",
+        },
+    },
+    "/v1/counterparty-watch": {
+        "description": (
+            "Counterparty Watch — one wallet in, its counterparty profile snapshot stored, and the delta against the previous stored snapshot back: new counterparties, changed per-token volumes, and new flags. The first call for a wallet establishes the baseline and says so. Use this when an agent re-checks the same counterparty over time and only wants what changed."
+        ),
+        "tags": ["x402", "security", "agents", "counterparty", "watch", "delta", "payto"],
+        "input_schema": _obj({"address": _S}, ["address"]),
+        "input_example": {"address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"},
+        "output_schema": _obj(
+            {
+                "address": _S,
+                "status": {"type": "string", "enum": ["baseline_established", "delta"]},
+                "delta": {"type": ["object", "null"]},
+                "profile": {"type": "object"},
+                "note": _S,
+            },
+            ["address", "status", "delta", "profile", "note"],
+        ),
+        "output_example": {
+            "address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+            "status": "baseline_established",
+            "delta": None,
+            "profile": {"address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F", "flags": [], "counterparties": {}},
+            "note": "First watch call for this wallet: the current profile was stored as the baseline.",
+        },
+    },
+    "/v1/sanctions-check": {
+        "description": (
+            "Sanctions Check — an exact-match screen of one wallet or contract address against the OFAC SDN digital currency address list (bundled snapshot of the official Treasury SDN data, dated in every response). No fuzzy matching. Use this when an agent needs a standalone sanctions answer before paying or interacting with an address."
+        ),
+        "tags": ["x402", "security", "sanctions", "ofac", "agents", "compliance", "preflight"],
+        "input_schema": _obj({"address": _S}, ["address"]),
+        "input_example": {"address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"},
+        "output_schema": _obj(
+            {
+                "address": _S,
+                "status": {"type": "string", "enum": ["matched", "no_match", "unknown"]},
+                "matched": {"type": ["boolean", "null"]},
+                "detail": _S,
+                "screen": _S,
+                "snapshot_date": _N,
+                "snapshot_source": _N,
+                "snapshot_entries": _IN,
+            },
+            ["address", "status", "matched", "screen"],
+        ),
+        "output_example": {
+            "address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+            "status": "no_match",
+            "matched": False,
+            "detail": "Address does not appear in the bundled OFAC SDN digital-currency snapshot.",
+            "screen": "exact-match screen against the OFAC SDN digital currency address list as of 2026-10-21",
+            "snapshot_date": "2026-10-21",
+            "snapshot_source": "https://www.treasury.gov/ofac/downloads/sdn.csv",
+            "snapshot_entries": 91,
+        },
+    },
+    "/v1/wallet-ping": {
+        "description": (
+            "Wallet Ping — the cheapest liveness read on the row: does this Base wallet exist and is it active? Existence from balance, nonce, and contract code; last activity from the explorer; outgoing count in a band. Use this when an agent wants a one-millidollar yes/no before spending on a full snapshot or verdict."
+        ),
+        "tags": ["base", "wallet", "liveness", "agents", "address-lookup", "cheap"],
+        "input_schema": _obj({"address": _S}, ["address"]),
+        "input_example": {"address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"},
+        "output_schema": _obj(
+            {
+                "address": _S,
+                "exists": _B,
+                "is_contract": _B,
+                "eth_balance_wei": _S,
+                "outgoing_tx_count_nonce": _IN,
+                "tx_count_band": _S,
+                "last_activity": _S,
+                "latest_block": _I,
+                "latest_block_time": _N,
+                "active": _B,
+                "note": _S,
+            },
+            ["address", "exists", "is_contract", "eth_balance_wei", "tx_count_band", "last_activity", "active"],
+        ),
+        "output_example": {
+            "address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+            "exists": True,
+            "is_contract": False,
+            "eth_balance_wei": "4200000000000000",
+            "outgoing_tx_count_nonce": 137,
+            "tx_count_band": "101-1000",
+            "last_activity": "2026-10-20T09:41:52.000000Z",
+            "latest_block": 22104511,
+            "latest_block_time": "2026-11-22T12:00:00+00:00",
+            "active": True,
+            "note": "Existence = nonzero balance, nonzero nonce, or contract code on Base at read time.",
+        },
+    },
     "/v1/grade-my-stall": {
         "description": (
             "Grade My Stall — a seller-side report card for one x402 resource: a live unpaid probe (does it answer 402 with a parseable challenge?), the description measured against the 500-character limit, CDP listing presence in the newest catalog snapshot, Settled's record, x402scan ownership, and payTo consistency across sources. Checks that cannot be performed report unverified rather than a guessed value. Use this when you run a stall and want to know how buyers' tools see it."

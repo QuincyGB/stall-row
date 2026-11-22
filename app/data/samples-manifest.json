@@ -39,6 +39,22 @@
       "pulled_from": "app/discovery.py output example for this route (schema-validated)"
     },
     {
+      "route": "/v1/counterparty-report/deep",
+      "slug": "counterparty-report-deep",
+      "source": "schema-example",
+      "target": "POST /v1/counterparty-report/deep on this stall (fleet's own service as subject)",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/counterparty-watch",
+      "slug": "counterparty-watch",
+      "source": "schema-example",
+      "target": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
       "route": "/v1/entitlement-pack",
       "slug": "entitlement-pack",
       "source": "schema-example",
@@ -271,6 +287,14 @@
       "pulled_from": "app/discovery.py output example for this route (schema-validated)"
     },
     {
+      "route": "/v1/sanctions-check",
+      "slug": "sanctions-check",
+      "source": "schema-example",
+      "target": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
       "route": "/v1/score-book",
       "slug": "score-book",
       "source": "schema-example",
@@ -343,6 +367,14 @@
       "slug": "video-transcript",
       "source": "schema-example",
       "target": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "recorded_at": null,
+      "pulled_from": "app/discovery.py output example for this route (schema-validated)"
+    },
+    {
+      "route": "/v1/wallet-ping",
+      "slug": "wallet-ping",
+      "source": "schema-example",
+      "target": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
       "recorded_at": null,
       "pulled_from": "app/discovery.py output example for this route (schema-validated)"
     },

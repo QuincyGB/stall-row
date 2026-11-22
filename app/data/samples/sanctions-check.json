@@ -1,0 +1,17 @@
+{
+  "address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "detail": "Address does not appear in the bundled OFAC SDN digital-currency snapshot.",
+  "live": false,
+  "matched": false,
+  "recorded_at": null,
+  "route": "/v1/sanctions-check",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "screen": "exact-match screen against the OFAC SDN digital currency address list as of 2026-10-21",
+  "snapshot_date": "2026-10-21",
+  "snapshot_entries": 91,
+  "snapshot_source": "https://www.treasury.gov/ofac/downloads/sdn.csv",
+  "source": "schema-example",
+  "status": "no_match",
+  "target": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+}

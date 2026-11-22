@@ -1,0 +1,49 @@
+{
+  "deep": {
+    "counterparties": [],
+    "coverage": {
+      "sanctions_snapshot_date": "2026-10-21",
+      "token_transfers_sampled": 3
+    },
+    "flagged_counterparty_links": [],
+    "funding_sources": [],
+    "rug_history_signals": [],
+    "wallet_age": {
+      "first_activity": "2025-11-02T14:03:11.000000Z",
+      "wallet_age_days": 385
+    }
+  },
+  "generated_at": "2026-11-22T12:00:00Z",
+  "legs": {
+    "wallet": {
+      "status": "ok"
+    }
+  },
+  "legs_failed": [],
+  "legs_not_requested": [
+    "token_verdict",
+    "listsmith"
+  ],
+  "legs_ok": [
+    "wallet",
+    "index"
+  ],
+  "legs_unavailable": [],
+  "limits": "Deep legs cover only the sampled transfers stated in deep.coverage.",
+  "listing_url": null,
+  "live": false,
+  "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "profile": {
+    "address": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+    "flags": []
+  },
+  "recorded_at": null,
+  "route": "/v1/counterparty-report/deep",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "service_url": "https://stall-row-production.up.railway.app/v1/wallet-verdict",
+  "source": "schema-example",
+  "target": "POST /v1/counterparty-report/deep on this stall (fleet's own service as subject)",
+  "tier": "deep",
+  "token_address": null
+}

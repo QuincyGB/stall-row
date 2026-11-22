@@ -79,6 +79,10 @@ PRICE_UNITS: dict[str, int] = {
     "/v1/index/history": 10_000,       # $0.01 — Verdict Index History API: time series across all retained snapshots (Next-20 #6)
     "/v1/orchestrate": 100_000,        # $0.10 — one combined fleet report (4 legs)
     "/v1/counterparty-report": 100_000,   # $0.10 — one bundled report on one seller
+    "/v1/counterparty-report/deep": 250_000,  # $0.25 — Counterparty Report, full tier (W2)
+    "/v1/counterparty-watch": 30_000,     # $0.03 — stored-baseline delta watch (W2)
+    "/v1/sanctions-check": 30_000,        # $0.03 — OFAC SDN exact-match screen (W2)
+    "/v1/wallet-ping": 1_000,             # $0.001 — wallet existence/activity ping (W2)
     "/v1/grade-my-stall": 5_000,       # $0.005 — one seller report card (probe tier)
     "/v1/receipt-verify": 2_000,       # $0.002 — one verified on-chain receipt (probe tier)
     "/v1/flagged-paytos": 5_000,       # $0.005 — the bad-payTo registry feed (probe tier)
