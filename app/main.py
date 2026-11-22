@@ -178,6 +178,8 @@ from .services import hosted_mcp as hosted_mcp_svc
 from .services import counterparty as counterparty_svc
 from .services import counterparty_deep as counterparty_deep_svc
 from .services import counterparty_watch as counterparty_watch_svc
+from .services import liquidity as liquidity_svc
+from .services import packs as packs_svc
 from .services import response_upgrades as response_upgrades_svc
 from .services import verdict as verdict_svc
 from .services import deliveryledger as deliveryledger_svc
@@ -2059,6 +2061,89 @@ async def wallet_ping(req: AddressRequest):
         client, rpc, scout = _clients()
         async with client:
             return await reads_svc.wallet_ping(rpc, scout, req.address.strip())
+
+    return await _run(go)
+
+
+class LiquidityCheckRequest(BaseModel):
+    token_address: str = Field(description="Token contract address, 0x…")
+    trade_size_usd: float | None = Field(
+        default=None, description="Optional planned trade size in USD for the slippage estimate"
+    )
+
+
+@app.post("/v1/liquidity-check")
+async def liquidity_check(req: LiquidityCheckRequest):
+    """Liquidity Check ($0.03): DEX depth for one token from
+    DexScreener's pair index — best pair, liquidity, price, and a
+    slippage estimate for the requested size from the pair data
+    actually read. No Base pair is a delivered answer."""
+    if not is_address(req.token_address):
+        return JSONResponse({"error": "token_address must be a 0x EVM address"}, status_code=422)
+    if req.trade_size_usd is not None and req.trade_size_usd <= 0:
+        return JSONResponse({"error": "trade_size_usd must be positive"}, status_code=422)
+
+    async def go():
+        client, _rpc, _scout = _clients()
+        async with client:
+            return await liquidity_svc.liquidity_check(
+                client, req.token_address.strip(), req.trade_size_usd
+            )
+
+    return await _run(go)
+
+
+class PreTradePackRequest(BaseModel):
+    token: str = Field(description="Token contract address for the planned trade, 0x…")
+    counterparty: str = Field(description="Counterparty wallet address, 0x…")
+
+
+@app.post("/v1/pre-trade-pack")
+async def pre_trade_pack(req: PreTradePackRequest):
+    """Pre-Trade Pack ($0.10): token verdict + counterparty report +
+    approval check for one planned trade, composed in-process, with
+    one combined go / caution / no-go line by a stated rule."""
+    if not is_address(req.token):
+        return JSONResponse({"error": "token must be a 0x EVM address"}, status_code=422)
+    if not is_address(req.counterparty):
+        return JSONResponse({"error": "counterparty must be a 0x EVM address"}, status_code=422)
+
+    async def go():
+        client, rpc, scout = _clients()
+        async with client:
+            return await packs_svc.run_pre_trade_pack(
+                client, rpc, scout, _index_store,
+                token=req.token.strip(), counterparty=req.counterparty.strip(),
+            )
+
+    return await _run(go)
+
+
+class DueDiligencePackRequest(BaseModel):
+    wallet: str = Field(description="Wallet address to diligence, 0x…")
+    token: str | None = Field(default=None, description="Optional token contract to scope token-specific legs")
+
+
+@app.post("/v1/due-diligence-pack")
+async def due_diligence_pack(req: DueDiligencePackRequest):
+    """Due Diligence Pack ($0.10): five checks on one wallet —
+    counterparty report, sanctions, allowance audit, flagged-paytos
+    screen, and a read-only profile summary (never overwrites a
+    watch baseline) — plus a combined risk line by a stated rule."""
+    if not is_address(req.wallet):
+        return JSONResponse({"error": "wallet must be a 0x EVM address"}, status_code=422)
+    if req.token is not None and not is_address(req.token):
+        return JSONResponse({"error": "token must be a 0x EVM address"}, status_code=422)
+
+    async def go():
+        client, rpc, scout = _clients()
+        async with client:
+            return await packs_svc.run_due_diligence_pack(
+                client, rpc, scout, _index_store,
+                wallet=req.wallet.strip(),
+                token=(req.token or "").strip() or None,
+                watch_store=_watch_store(),
+            )
 
     return await _run(go)
 

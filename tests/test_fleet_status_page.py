@@ -39,7 +39,7 @@ def test_fleet_status_json_shape_and_totals():
     assert ds["generated_at"] and ds["checker_last_run"]
     assert ds["window"]["runs_considered"] == 1
     routes = ds["routes"]
-    assert ds["totals"]["routes_total"] == len(routes) == 49
+    assert ds["totals"]["routes_total"] == len(routes) == 58
     assert ds["totals"]["routes_ok"] == sum(1 for r in routes if r["status"] == "ok")
     assert ds["totals"]["services_total"] == 5
     assert {s["stall"] for s in ds["stalls"]} == set(STALLS)
@@ -83,4 +83,4 @@ def test_fleet_status_linked_from_skill_llms_and_tools():
 def test_fleet_status_does_not_move_health_route_count():
     with TestClient(main.app) as client:
         health = client.get("/health").json()
-        assert health["routes"] == 48
+        assert health["routes"] == 51

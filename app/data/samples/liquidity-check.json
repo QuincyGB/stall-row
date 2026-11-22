@@ -1,0 +1,34 @@
+{
+  "best_pair": {
+    "dex_id": "uniswap",
+    "liquidity_usd": 500000.0,
+    "pair": "USDC/WETH",
+    "pair_address": "0x1111111111111111111111111111111111111111",
+    "price_usd": 1.0
+  },
+  "chain": "base",
+  "estimated_slippage_pct": 0.3984,
+  "limits": "Pairs are DexScreener's index at read time.",
+  "liquidity_usd": 500000.0,
+  "live": false,
+  "pairs": [
+    {
+      "dex_id": "uniswap",
+      "liquidity_usd": 500000.0,
+      "pair": "USDC/WETH",
+      "pair_address": "0x1111111111111111111111111111111111111111",
+      "price_usd": 1.0
+    }
+  ],
+  "pairs_found": 1,
+  "price_usd": 1.0,
+  "recorded_at": null,
+  "route": "/v1/liquidity-check",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "source": "schema-example",
+  "status": "ok",
+  "target": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "token_address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "trade_size_usd": 1000
+}

@@ -564,6 +564,69 @@ ROUTES: dict[str, dict] = {
             "note": "Existence = nonzero balance, nonzero nonce, or contract code on Base at read time.",
         },
     },
+    "/v1/liquidity-check": {
+        "description": (
+            "Liquidity Check — a real DEX depth picture for one token contract on Base: the best DexScreener pair, its reported liquidity and price, the top pairs, and an estimated slippage for your trade size computed from the pair data actually read with the model stated in the response. No Base pair is a plain delivered answer, never invented depth. Use this when an agent needs to know whether a token can absorb a trade before placing it."
+        ),
+        "tags": ["base", "dex", "liquidity", "slippage", "agents", "token", "preflight"],
+        "input_schema": _obj({"token_address": _S, "trade_size_usd": {"type": ["number", "null"]}}, ["token_address"]),
+        "input_example": {"token_address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "trade_size_usd": 1000},
+        "output_schema": _obj(
+            {"token_address": _S, "chain": _S, "status": _S, "source": _S, "pairs_found": _I, "best_pair": {"type": ["object", "null"]}, "pairs": {"type": "array", "items": {"type": "object"}}, "price_usd": {"type": ["number", "null"]}, "liquidity_usd": {"type": ["number", "null"]}, "trade_size_usd": {"type": "number"}, "estimated_slippage_pct": {"type": ["number", "null"]}, "limits": _S},
+            ["token_address", "status", "source", "best_pair", "pairs"],
+        ),
+        "output_example": {
+            "token_address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "chain": "base", "status": "ok",
+            "source": "DexScreener public pair index (api.dexscreener.com/latest/dex/tokens)",
+            "pairs_found": 1,
+            "best_pair": {"pair_address": "0x1111111111111111111111111111111111111111", "dex_id": "uniswap", "pair": "USDC/WETH", "price_usd": 1.0, "liquidity_usd": 500000.0},
+            "pairs": [{"pair_address": "0x1111111111111111111111111111111111111111", "dex_id": "uniswap", "pair": "USDC/WETH", "price_usd": 1.0, "liquidity_usd": 500000.0}],
+            "price_usd": 1.0, "liquidity_usd": 500000.0, "trade_size_usd": 1000,
+            "estimated_slippage_pct": 0.3984, "limits": "Pairs are DexScreener's index at read time.",
+        },
+    },
+    "/v1/pre-trade-pack": {
+        "description": (
+            "Pre-Trade Pack — one call for one planned trade: a token verdict from this service's own verdict engine, a counterparty report on the other wallet, and an approval check of that wallet's approvals relevant to the token, plus one combined go, caution, or no-go line computed by a stated rule from the sections' own risk outputs. Use this when an agent wants the whole pre-trade screen in a single payment instead of three calls."
+        ),
+        "tags": ["base", "security", "verdict", "counterparty", "approvals", "agents", "preflight", "pack"],
+        "input_schema": _obj({"token": _S, "counterparty": _S}, ["token", "counterparty"]),
+        "input_example": {"token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "counterparty": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"},
+        "output_schema": _obj(
+            {"token": _S, "counterparty": _S, "generated_at": _S, "sections": {"type": "object"}, "combined_verdict": {"type": "string", "enum": ["go", "caution", "no-go"]}, "combined_rule": _S, "reasons": {"type": "array", "items": _S}, "limits": _S},
+            ["token", "counterparty", "sections", "combined_verdict", "combined_rule"],
+        ),
+        "output_example": {
+            "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "counterparty": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+            "generated_at": "2026-11-22T12:00:00Z",
+            "sections": {"token_verdict": {"status": "ok"}, "counterparty_report": {"status": "ok"}, "approval_check": {"status": "ok"}},
+            "combined_verdict": "go", "combined_rule": "no-go if the token verdict is AVOID or any sanctions screen matched; caution otherwise on stated flags; go otherwise.",
+            "reasons": ["no leg raised a flag under the stated rule"], "limits": "Legs marked failed or unavailable delivered nothing.",
+        },
+    },
+    "/v1/due-diligence-pack": {
+        "description": (
+            "Due Diligence Pack — one payment, five checks on one wallet: counterparty report, sanctions check, allowance audit, flagged-paytos screen, and a read-only counterparty profile summary that never overwrites a watch baseline, plus one combined go, caution, or no-go line with a risk level computed by a stated rule. Use this when an agent needs the full diligence file on a wallet in a single call."
+        ),
+        "tags": ["base", "security", "sanctions", "counterparty", "approvals", "agents", "due-diligence", "pack"],
+        "input_schema": _obj({"wallet": _S, "token": _N}, ["wallet"]),
+        "input_example": {"wallet": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F", "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"},
+        "output_schema": _obj(
+            {"wallet": _S, "token": _N, "generated_at": _S, "sections": {"type": "object"}, "sections_ok": _I, "combined_verdict": {"type": "string", "enum": ["go", "caution", "no-go"]}, "risk_level": {"type": "string", "enum": ["low", "medium", "high"]}, "combined_rule": _S, "reasons": {"type": "array", "items": _S}, "limits": _S},
+            ["wallet", "sections", "combined_verdict", "risk_level", "combined_rule"],
+        ),
+        "output_example": {
+            "wallet": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+            "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "generated_at": "2026-11-22T12:00:00Z",
+            "sections": {"counterparty_report": {"status": "ok"}, "sanctions_check": {"status": "ok"}, "allowance_audit": {"status": "ok"}, "flagged_paytos": {"status": "ok"}, "profile_summary": {"status": "ok"}},
+            "sections_ok": 5, "combined_verdict": "go", "risk_level": "low",
+            "combined_rule": "no-go if sanctions matched or OFAC-flagged; caution on other flags; go otherwise.",
+            "reasons": ["no section raised a flag under the stated rule"], "limits": "The profile leg is read-only.",
+        },
+    },
     "/v1/grade-my-stall": {
         "description": (
             "Grade My Stall — a seller-side report card for one x402 resource: a live unpaid probe (does it answer 402 with a parseable challenge?), the description measured against the 500-character limit, CDP listing presence in the newest catalog snapshot, Settled's record, x402scan ownership, and payTo consistency across sources. Checks that cannot be performed report unverified rather than a guessed value. Use this when you run a stall and want to know how buyers' tools see it."

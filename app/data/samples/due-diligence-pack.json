@@ -1,0 +1,37 @@
+{
+  "combined_rule": "no-go if sanctions matched or OFAC-flagged; caution on other flags; go otherwise.",
+  "combined_verdict": "go",
+  "generated_at": "2026-11-22T12:00:00Z",
+  "limits": "The profile leg is read-only.",
+  "live": false,
+  "reasons": [
+    "no section raised a flag under the stated rule"
+  ],
+  "recorded_at": null,
+  "risk_level": "low",
+  "route": "/v1/due-diligence-pack",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "sections": {
+    "allowance_audit": {
+      "status": "ok"
+    },
+    "counterparty_report": {
+      "status": "ok"
+    },
+    "flagged_paytos": {
+      "status": "ok"
+    },
+    "profile_summary": {
+      "status": "ok"
+    },
+    "sanctions_check": {
+      "status": "ok"
+    }
+  },
+  "sections_ok": 5,
+  "source": "schema-example",
+  "target": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "wallet": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+}

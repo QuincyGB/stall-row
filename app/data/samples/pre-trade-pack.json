@@ -1,0 +1,29 @@
+{
+  "combined_rule": "no-go if the token verdict is AVOID or any sanctions screen matched; caution otherwise on stated flags; go otherwise.",
+  "combined_verdict": "go",
+  "counterparty": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "generated_at": "2026-11-22T12:00:00Z",
+  "limits": "Legs marked failed or unavailable delivered nothing.",
+  "live": false,
+  "reasons": [
+    "no leg raised a flag under the stated rule"
+  ],
+  "recorded_at": null,
+  "route": "/v1/pre-trade-pack",
+  "sample": true,
+  "sample_note": "Shape example built from this route's documented output example (validated against its outputSchema) with real fleet subjects \u2014 not a recorded result. Buy the route for live data.",
+  "sections": {
+    "approval_check": {
+      "status": "ok"
+    },
+    "counterparty_report": {
+      "status": "ok"
+    },
+    "token_verdict": {
+      "status": "ok"
+    }
+  },
+  "source": "schema-example",
+  "target": "POST /v1/pre-trade-pack on this stall (fleet's own service as subject)",
+  "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+}

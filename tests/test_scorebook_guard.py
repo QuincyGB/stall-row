@@ -356,7 +356,7 @@ def test_score_book_real_committed_snapshot(store, index_store):
     assert book["found"] is True
     assert book["live_checks"]["checks"] == 0
     assert book["patrol"]["receipt_ids"] == ["rr-1e12dde0c299cb395d37"]
-    assert book["patrol"]["provenance"]["generated_at"] == "2026-10-31T12:42:27Z"
+    assert book["patrol"]["provenance"]["generated_at"] == "2026-11-09T15:37:31Z"
     open_book = scorebook.score_book(
         store, index_store, url="https://1gateway.dev/v1/ai/llm-prices"
     )
