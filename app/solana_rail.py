@@ -2,9 +2,9 @@
 
 Mirrored from Token Verdict's app/solana_rail.py (the fleet's existing
 dual-accept implementation), adapted only in scope: on StallRow the
-second rail exists for the two Fleet Check routes (see
-config.SOLANA_ACCEPT_PATHS) — every other route on the row stays
-Base-only, exactly as before.
+second rail exists for the routes in config.SOLANA_ACCEPT_PATHS (the
+Fleet Check pair and the Counterparty Report pair) — every other
+route on the row stays Base-only, exactly as before.
 
 Design mirrors the Base rail exactly:
 

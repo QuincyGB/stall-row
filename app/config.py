@@ -25,9 +25,21 @@ SOLANA_OWNER_WALLET = "FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ"
 SOLANA_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 
 # The only routes on the row that also accept Solana USDC: the two
-# Fleet Check routes. They gain a second accept, not a sibling route —
-# the priced route count does not move.
-SOLANA_ACCEPT_PATHS = frozenset({"/v1/fleet-check", "/v1/fleet-check/pack"})
+# Fleet Check routes and the two Counterparty Report routes. They gain
+# a second accept, not a sibling route — the priced route count does
+# not move. Per-route Solana pricing needs no separate table: the
+# accepts builder prices every Solana accept from settings.prices[path]
+# (derived from PRICE_UNITS below), so each route's Solana accept
+# carries that route's own price — $0.10 for /v1/counterparty-report,
+# $0.25 for /v1/counterparty-report/deep.
+SOLANA_ACCEPT_PATHS = frozenset(
+    {
+        "/v1/fleet-check",
+        "/v1/fleet-check/pack",
+        "/v1/counterparty-report",
+        "/v1/counterparty-report/deep",
+    }
+)
 
 # ultravioletadao public x402 facilitator (no keys). Verified via /supported:
 # serves eip155:8453 (Base) with the exact scheme.
@@ -190,8 +202,8 @@ class Settings:
     # MEASURED durability of the resolved path, reported in /health.
     recheck_db_path: str = "recheck.db"
     recheck_db_persistent: bool = False
-    # Solana rail (second x402 payment network for the Fleet Check
-    # routes in SOLANA_ACCEPT_PATHS; see app/solana_rail.py). Unlike
+    # Solana rail (second x402 payment network for the routes in
+    # SOLANA_ACCEPT_PATHS; see app/solana_rail.py). Unlike
     # Token Verdict's fleet-wide rail this one is NOT env-gated off:
     # the Fleet Check dual-accept ships live, with the payTo / network
     # / mint still env-overridable exactly as on Token Verdict.

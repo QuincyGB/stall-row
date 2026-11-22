@@ -2875,8 +2875,8 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
                 "maxTimeoutSeconds": 300,
             }
         ]
-        # The Fleet Check routes also accept Solana USDC (same USD
-        # price, 6-decimal smallest units) — the manifest mirrors the
+        # The SOLANA_ACCEPT_PATHS routes also accept Solana USDC (same
+        # per-route USD price, 6-decimal smallest units) — the manifest mirrors the
         # live 402 challenges exactly, so the second accept is here
         # too. An accept, not a resource: the count does not move.
         if path in SOLANA_ACCEPT_PATHS:

@@ -273,12 +273,12 @@ if _UPTO_ENABLED:
 else:
     log.info("upto scheme disabled (STALLROW_UPTO_ENABLED != 1)")
 
-# --- Solana rail (Fleet Check routes only; mirrors Token Verdict) ------------
+# --- Solana rail (SOLANA_ACCEPT_PATHS routes only; mirrors Token Verdict) ----
 # Same facilitator: the configured facilitator supports x402 v2 exact on
 # solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp alongside eip155:8453, so the one
 # facilitator client verifies and settles both networks. The SVM scheme is
 # registered on the shared resource server (exactly as Token Verdict does),
-# but only the Fleet Check routes in SOLANA_ACCEPT_PATHS carry a Solana
+# but only the routes in SOLANA_ACCEPT_PATHS carry a Solana
 # PaymentOption below — every other route's challenge is unchanged. The
 # local pre-verify + replay hooks are network-scoped inside
 # app/solana_rail.py: Base payloads pass through untouched, and a Solana
@@ -311,8 +311,9 @@ log.info(
 
 def _accepts_for(path: str) -> list[PaymentOption]:
     """Payment rails for one route: Base always (the original accept,
-    built exactly as before); Solana too for the Fleet Check routes —
-    same USD price, paid in Solana USDC to the Phantom payTo."""
+    built exactly as before); Solana too for the SOLANA_ACCEPT_PATHS
+    routes — same per-route USD price (settings.prices[path]), paid in
+    Solana USDC to the Phantom payTo."""
     options = [
         PaymentOption(
             scheme="exact",

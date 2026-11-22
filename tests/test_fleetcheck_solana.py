@@ -1,5 +1,6 @@
-"""Fleet Check on the Solana rail: the two Fleet Check routes accept
-USDC on Solana mainnet as a second x402 accept, mirroring Token
+"""Fleet Check on the Solana rail: the Fleet Check routes (and, since
+the Counterparty Report lane, the two Counterparty Report routes)
+accept USDC on Solana mainnet as a second x402 accept, mirroring Token
 Verdict's dual-accept implementation (app/solana_rail.py there and
 here: same facilitator verify → settle flow, plus the local
 pre-verify + replay hooks).
@@ -91,6 +92,26 @@ BLOCKHASH = "11111111111111111111111111111111"
 
 FLEET_CHECK_AMOUNTS = {"/v1/fleet-check": "30000", "/v1/fleet-check/pack": "100000"}
 
+# Every route carrying the Solana second accept, with its own price in
+# USDC smallest units. The Counterparty Report pair joined the rail
+# after the Fleet Check pair: each Solana accept is priced from the
+# route's own PRICE_UNITS entry via settings.prices[path] (the same
+# config the accepts builder reads), so deep carries 250000 ($0.25),
+# not the standard report's 100000 ($0.10).
+SOLANA_AMOUNTS = {
+    **FLEET_CHECK_AMOUNTS,
+    "/v1/counterparty-report": "100000",
+    "/v1/counterparty-report/deep": "250000",
+}
+
+# A valid unpaid-challenge request body per Solana-accept route.
+CHALLENGE_PAYLOADS = {
+    "/v1/fleet-check": {"origins": [ORIGIN]},
+    "/v1/fleet-check/pack": {"origins": [ORIGIN]},
+    "/v1/counterparty-report": {"pay_to": OWNER},
+    "/v1/counterparty-report/deep": {"pay_to": OWNER},
+}
+
 
 # --- builders -----------------------------------------------------------------
 
@@ -161,8 +182,9 @@ def test_config_solana_values_and_scope():
     assert s.solana_network == NETWORK
     assert s.solana_usdc_mint == MINT
     assert solana_rail.is_valid_solana_address(s.solana_pay_to)
-    # Exactly the two Fleet Check routes gain the accept — no others.
-    assert SOLANA_ACCEPT_PATHS == frozenset(FLEET_CHECK_AMOUNTS)
+    # Exactly the Fleet Check pair + the Counterparty Report pair gain
+    # the accept — no others.
+    assert SOLANA_ACCEPT_PATHS == frozenset(SOLANA_AMOUNTS)
     # The SVM scheme is registered on the shared resource server.
     assert main.resource_server.has_registered_scheme(NETWORK, "exact")
     assert main.resource_server.has_registered_scheme(BASE_NETWORK, "exact")
@@ -170,7 +192,7 @@ def test_config_solana_values_and_scope():
 
 def test_routes_carry_dual_accepts_and_others_stay_base_only():
     assert len(main.routes) == len(PRICE_UNITS) == 51
-    for path, amount in FLEET_CHECK_AMOUNTS.items():
+    for path, amount in SOLANA_AMOUNTS.items():
         accepts = main.routes[f"POST {path}"].accepts
         assert len(accepts) == 2, path
         base, sol = accepts
@@ -185,7 +207,7 @@ def test_routes_carry_dual_accepts_and_others_stay_base_only():
         parsed = ExactSvmServerScheme().parse_price(sol.price, NETWORK)
         assert parsed.amount == amount and parsed.asset == MINT
     for key, route in main.routes.items():
-        if key in {f"POST {p}" for p in FLEET_CHECK_AMOUNTS}:
+        if key in {f"POST {p}" for p in SOLANA_AMOUNTS}:
             continue
         assert [str(a.network) for a in route.accepts] == [BASE_NETWORK], key
 
@@ -199,10 +221,10 @@ def _challenge(response) -> dict:
     return json.loads(base64.b64decode(raw))
 
 
-@pytest.mark.parametrize("path,amount", sorted(FLEET_CHECK_AMOUNTS.items()))
+@pytest.mark.parametrize("path,amount", sorted(SOLANA_AMOUNTS.items()))
 def test_unpaid_challenge_has_exactly_two_accepts(path, amount):
     client = TestClient(main.app, raise_server_exceptions=False)
-    r = client.post(path, json={"origins": [ORIGIN]})
+    r = client.post(path, json=CHALLENGE_PAYLOADS[path])
     assert r.status_code == 402
     accepts = _challenge(r)["accepts"]
     assert len(accepts) == 2
@@ -378,7 +400,7 @@ def test_manifest_mirrors_dual_accepts_and_count_unchanged():
         r["resource"].removeprefix("https://stall-row.example.com"): r
         for r in manifest["resources"]
     }
-    for path, amount in FLEET_CHECK_AMOUNTS.items():
+    for path, amount in SOLANA_AMOUNTS.items():
         accepts = by_path[path]["accepts"]
         assert len(accepts) == 2, path
         assert accepts[0]["network"] == BASE_NETWORK

@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main
-from app.config import PRICE_UNITS
+from app.config import PRICE_UNITS, SOLANA_ACCEPT_PATHS
 
 USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 OWNER = "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
@@ -84,9 +84,11 @@ def _challenge(response):
 SOLANA_NETWORK = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
 SOLANA_USDC = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 SOLANA_PAY_TO = "FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ"
-# The two Fleet Check routes carry a second, Solana accept (same USD
-# price) — every other route stays single-accept Base, exactly as before.
-DUAL_ACCEPT_PATHS = {"/v1/fleet-check", "/v1/fleet-check/pack"}
+# The routes in config.SOLANA_ACCEPT_PATHS carry a second, Solana
+# accept (same per-route USD price) — every other route stays
+# single-accept Base, exactly as before. Derived from the config so
+# this contract can never drift from the accepts builder's own scope.
+DUAL_ACCEPT_PATHS = set(SOLANA_ACCEPT_PATHS)
 
 
 @pytest.mark.parametrize("path", sorted(PRICE_UNITS))
