@@ -41,22 +41,35 @@ import httpx
 from ..config import CDP_DISCOVERY_RESOURCES_URL
 from ..rpc import UpstreamError
 
-PAGE_LIMIT = 1000
-MAX_PAGES = 200
-# Retention (Next-20 #6): the History API sells the Index as a time
-# series, so snapshots are no longer pruned to the newest few — the
-# store keeps every snapshot the ticker stores (the cap below is a
-# safety bound orders of magnitude past any realistic horizon, not
-# a rotation policy). History depth is whatever is actually held:
-# the history payload states the earliest snapshot it holds and
-# never claims depth it does not have.
-KEEP_SNAPSHOTS = 10_000
+PAGE_LIMIT = 100
+MAX_PAGES = 5000
+# Page-fetch resilience (2026-11-22): a full pull is hundreds of
+# paginated requests, so one transient failure (429 / 5xx / network
+# blip) must not discard the whole pull — each page is retried a
+# few times with backoff before the pull fails honestly. The page
+# size mirrors the /v1/price-check pull (limit=100), the request
+# shape proven to succeed against this catalog from production;
+# the earlier limit=1000 shape (3+ MB pages) is the one the
+# production ticker stopped landing snapshots with on 2026-11-05.
+PAGE_ATTEMPTS = 3
+PAGE_BACKOFF_S = (1.0, 4.0)
+# Retention (Next-20 #6, bounded 2026-11-22): the History API sells
+# the Index as a time series, so snapshots are kept well past the
+# newest pair — but each snapshot is ~23 MB of entries, so the
+# unbounded cap (10_000) let the store file grow until snapshot
+# saves could no longer fit the volume, which is how refreshes
+# died on 2026-11-05 while every small write kept working. The
+# cap below is ~6 days at the 6h refresh cadence: a real series,
+# at a size the store can hold forever. History depth is whatever
+# is actually held: the history payload states the earliest
+# snapshot it holds and never claims depth it does not have.
+KEEP_SNAPSHOTS = 24
 DEFAULT_EVENT_LIMIT = 100
 MAX_EVENT_LIMIT = 500
 # The catalog pull identifies itself and takes a per-request timeout
-# sized for ~3 MB pages; the proven one-off baseline pull used the
+# sized for catalog pages; the proven one-off baseline pull used the
 # same shape. The shared fetch client's defaults (generic UA, the
-# page-fetch timeout) are sized for single pages, not an 80-page walk.
+# page-fetch timeout) are sized for single pages, not a long walk.
 INDEX_USER_AGENT = "verdict-row-index/1.0"
 PAGE_TIMEOUT_S = 60.0
 DEFAULT_BOOTSTRAP_INTERVAL_S = 900.0
@@ -124,13 +137,18 @@ def normalize_item(item: dict) -> dict | None:
     }
 
 
-async def fetch_catalogue(client: httpx.AsyncClient) -> list[dict]:
-    """Full public catalog pull, normalized. Any failure is an
-    UpstreamError — a partial snapshot is never stored as truth."""
-    rows: list[dict] = []
-    offset = 0
-    pages = 0
-    while pages < MAX_PAGES:
+async def _fetch_page(client: httpx.AsyncClient, offset: int) -> httpx.Response:
+    """One catalog page, retried on transient failure (429 / 5xx /
+    network error) with backoff — a full pull is hundreds of pages
+    and a single blip must not discard all of them. A non-transient
+    non-200 raises immediately; exhausting the retries raises the
+    last failure as an UpstreamError, so a pull that cannot
+    complete still stores nothing."""
+    last_error: Exception | None = None
+    for attempt in range(PAGE_ATTEMPTS):
+        if attempt:
+            delay = PAGE_BACKOFF_S[min(attempt - 1, len(PAGE_BACKOFF_S) - 1)]
+            await asyncio.sleep(delay)
         try:
             resp = await client.get(
                 CDP_DISCOVERY_RESOURCES_URL,
@@ -139,9 +157,28 @@ async def fetch_catalogue(client: httpx.AsyncClient) -> list[dict]:
                 timeout=PAGE_TIMEOUT_S,
             )
         except httpx.HTTPError as e:
-            raise UpstreamError(f"CDP catalog fetch failed: {e}") from e
-        if resp.status_code != 200:
-            raise UpstreamError(f"CDP catalog returned HTTP {resp.status_code}")
+            last_error = UpstreamError(f"CDP catalog fetch failed: {e}")
+            continue
+        if resp.status_code == 200:
+            return resp
+        if resp.status_code == 429 or resp.status_code >= 500:
+            last_error = UpstreamError(
+                f"CDP catalog returned HTTP {resp.status_code}"
+            )
+            continue
+        raise UpstreamError(f"CDP catalog returned HTTP {resp.status_code}")
+    assert last_error is not None
+    raise last_error
+
+
+async def fetch_catalogue(client: httpx.AsyncClient) -> list[dict]:
+    """Full public catalog pull, normalized. Any failure is an
+    UpstreamError — a partial snapshot is never stored as truth."""
+    rows: list[dict] = []
+    offset = 0
+    pages = 0
+    while pages < MAX_PAGES:
+        resp = await _fetch_page(client, offset)
         try:
             body = resp.json()
         except ValueError as e:
@@ -205,8 +242,33 @@ class IndexStore:
         )
         self._conn.commit()
 
-    def save_snapshot(self, rows: list[dict], epoch: float | None = None) -> int:
-        epoch = epoch or time.time()
+    def _prune_to(self, keep: int) -> None:
+        """Delete every snapshot older than the newest `keep`."""
+        old = [
+            row["id"]
+            for row in self._conn.execute(
+                "SELECT id FROM index_snapshots ORDER BY id DESC LIMIT -1 OFFSET ?",
+                (keep,),
+            )
+        ]
+        for oid in old:
+            self._conn.execute("DELETE FROM index_entries WHERE snapshot_id = ?", (oid,))
+            self._conn.execute("DELETE FROM index_snapshots WHERE id = ?", (oid,))
+
+    def _drop_oldest(self) -> bool:
+        """Delete the single oldest snapshot. Returns False when
+        only the newest pair remains — the pair is the product and
+        is never sacrificed to make room."""
+        snaps = self.snapshots()
+        if len(snaps) <= 2:
+            return False
+        oid = snaps[0]["id"]
+        self._conn.execute("DELETE FROM index_entries WHERE snapshot_id = ?", (oid,))
+        self._conn.execute("DELETE FROM index_snapshots WHERE id = ?", (oid,))
+        self._conn.commit()
+        return True
+
+    def _insert_snapshot(self, rows: list[dict], epoch: float) -> int:
         cur = self._conn.execute(
             "INSERT INTO index_snapshots (captured_at, captured_epoch, resource_count)"
             " VALUES (?, ?, ?)",
@@ -236,18 +298,33 @@ class IndexStore:
             ],
         )
         # Prune to the newest KEEP_SNAPSHOTS snapshots.
-        old = [
-            row["id"]
-            for row in self._conn.execute(
-                "SELECT id FROM index_snapshots ORDER BY id DESC LIMIT -1 OFFSET ?",
-                (KEEP_SNAPSHOTS,),
-            )
-        ]
-        for oid in old:
-            self._conn.execute("DELETE FROM index_entries WHERE snapshot_id = ?", (oid,))
-            self._conn.execute("DELETE FROM index_snapshots WHERE id = ?", (oid,))
+        self._prune_to(KEEP_SNAPSHOTS)
         self._conn.commit()
         return sid
+
+    def save_snapshot(self, rows: list[dict], epoch: float | None = None) -> int:
+        epoch = epoch or time.time()
+        # Prune BEFORE inserting (to one under the cap): freed pages
+        # are reusable by the insert that follows, so a save landing
+        # on a nearly-full volume recovers space first instead of
+        # failing on the insert and never reaching the prune — the
+        # insert-then-prune order is what made the 2026-11-05 stall
+        # permanent once the store outgrew the volume.
+        self._prune_to(KEEP_SNAPSHOTS - 1)
+        self._conn.commit()
+        for _attempt in range(4):
+            try:
+                return self._insert_snapshot(rows, epoch)
+            except sqlite3.OperationalError as e:
+                self._conn.rollback()
+                if "full" not in str(e).lower():
+                    raise
+                # Disk full: free one old snapshot (~23 MB of pages)
+                # and retry. Never drop below the newest pair; if
+                # even that cannot make room, fail honestly.
+                if not self._drop_oldest():
+                    raise
+        raise sqlite3.OperationalError("database or disk is full")
 
     def snapshots(self) -> list[dict]:
         return [

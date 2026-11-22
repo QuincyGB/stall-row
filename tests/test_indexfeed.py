@@ -77,10 +77,10 @@ def test_store_roundtrip_prune_and_changes_gate(tmp_path):
     out = indexfeed.changes(store, now_epoch=2_000_000)
     assert out["summary"]["field_changes"] == 1
     assert out["baseline_at"] < out["current_at"]
-    # Retention (Next-20 #6): snapshots are kept, not pruned to the
-    # newest few — the History API sells the series, so all seven
-    # snapshots saved here are still held (KEEP_SNAPSHOTS is now a
-    # far-future safety bound, not a rotation policy).
+    # Retention (Next-20 #6, bounded 2026-11-22): snapshots are kept
+    # well past the newest few — the History API sells the series —
+    # so all seven snapshots saved here are still held, under a
+    # KEEP_SNAPSHOTS cap sized so the store file plateaus.
     for i in range(5):
         store.save_snapshot(_rows(_item("https://x/v1/a")), epoch=3_000_000 + i)
     assert len(store.snapshots()) == 7
@@ -112,6 +112,37 @@ async def test_fetch_catalogue_rejects_bad_upstream():
     with pytest.raises(UpstreamError):
         await indexfeed.fetch_catalogue(client)
     await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_fetch_catalogue_retries_a_transient_page_failure():
+    """2026-11-22: a full pull is hundreds of pages — one transient
+    503 must be retried, not discard the whole pull (the production
+    ticker stored no snapshot after 2026-11-05)."""
+    import httpx
+
+    calls = {"n": 0}
+
+    def handler(request):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            return httpx.Response(503, text="down")
+        return httpx.Response(200, json={"items": [], "pagination": {"total": 0}})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    rows = await indexfeed.fetch_catalogue(client)
+    await client.aclose()
+    assert rows == []
+    assert calls["n"] == 3
+
+
+def test_store_retention_is_bounded(tmp_path):
+    """Snapshots are ~23 MB each at catalog scale: retention must
+    plateau (prune-before-insert), never grow without bound."""
+    store = indexfeed.IndexStore(str(tmp_path / "idx.db"))
+    for i in range(indexfeed.KEEP_SNAPSHOTS + 3):
+        store.save_snapshot(_rows(_item("https://x/v1/a")), epoch=1_000_000 + i)
+    assert len(store.snapshots()) == indexfeed.KEEP_SNAPSHOTS
 
 
 @pytest.mark.asyncio
