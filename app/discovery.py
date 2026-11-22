@@ -2936,7 +2936,7 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
         # nudges (app/services/nudge.py; spec in x402-loop-kits).
         # A top-level extension, NOT a resource — inbound mail is
         # free and the priced route count does not move.
-        "extensions": {"nudge": nudge_extension(base_url), "mcp": {**MCP_SERVER, "hosted": hosted_mcp_extension(base_url)}, "quickstart": dict(QUICKSTART), "gradeability": gradeability_extension(base_url), "verdict_row": verdict_row_extension(base_url)},
+        "extensions": {"nudge": nudge_extension(base_url), "mcp": {**MCP_SERVER, "hosted": hosted_mcp_extension(base_url)}, "quickstart": dict(QUICKSTART), "gradeability": gradeability_extension(base_url), "verdict_row": verdict_row_extension(base_url), "fleet_card": fleet_card_extension(base_url)},
         "resources": resources,
     }
 
@@ -3028,6 +3028,32 @@ def verdict_row_extension(base_url: str) -> dict:
     }
 
 
+# The Fleet Card: one FREE call (GET /v1/fleet-card, StallRow only —
+# it is the fleet hub) returning every priced route in the fleet with
+# service, method, path, price, a short description and a worked
+# input example where StallRow carries one. Composed at request time
+# from the committed Tools Index + Fleet Discovery Bundle + this
+# stall's discovery registry (app/services/fleetcard.py) — never a
+# second hand-maintained route list. Linked from the manifest
+# extensions, the agent card, skill.md and llms.txt as an extension /
+# free-surface link, NOT a manifest resource: it is not a priced
+# route and the priced route count does not move.
+FLEET_CARD_PATH = "/v1/fleet-card"
+
+
+def fleet_card_extension(base_url: str) -> dict:
+    return {
+        "title": "Fleet Card — the whole fleet in one free call",
+        "card": f"{base_url}{FLEET_CARD_PATH}",
+        "note": (
+            "Free (no payment): every priced route in the fleet — "
+            "service, method, path, price_usd, short description and "
+            "a worked input example where carried — in one "
+            "machine-readable JSON document."
+        ),
+    }
+
+
 
 def _skill_name(path: str) -> str:
     return path.rstrip("/").rsplit("/", 1)[-1].replace("-", " ").title()
@@ -3096,6 +3122,7 @@ def agent_card(settings: Settings, base_url: str) -> dict:
         "gradeability": gradeability_extension(base_url),
 
         "verdict_row": verdict_row_extension(base_url),
+        "fleet_card": fleet_card_extension(base_url),
     }
 
 
@@ -3287,6 +3314,7 @@ def skill_md(settings: Settings, base_url: str) -> str:
         f"- `GET {base_url}/.well-known/stability-manifest.json` — signed pinned-route stability manifest (prices + schema fingerprints, pinned under an agent-wallet signature)",
         f"- `GET {base_url}/.well-known/gradeability-report.json` — Gradeability Self-Test Report (latest self-test: listed price vs live 402 per priced route, challenge parse, spec checks, standing-checker result; signed, free)",
         f"- `GET {base_url}/.well-known/verdict-row.json` — Verdict Row Fleet Discovery Bundle (signed index of all five stalls: discovery docs, stability manifests, agent cards, gradeability reports, MCP server.json, fleet tools/status and feeds; one fetch walks the whole row, free)",
+        f"- `GET {base_url}/v1/fleet-card` — Fleet Card: the whole fleet in one free call — every priced route (all five stalls) with service, method, path, price, short description and a worked input example where carried, as machine-readable JSON",
         f"- `GET {base_url}/.well-known/a2a-agent-card.json` — A2A agent card (registry-generated dialect twin of /.well-known/agent-card.json: skills mirror the priced routes at their registry prices, free)",
         f"- `GET {base_url}/llms-full.txt` — llms-full.txt, the long-form companion to llms.txt (full route docs with worked request/response examples, pack mechanics, Recheck feed + hash-chain spec, watch/corrections policy; generated from the fleet route registry, free)",
         f"- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp — manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json — tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",
@@ -3373,6 +3401,7 @@ def llms_txt(settings: Settings, base_url: str) -> str:
         f"- GET {base_url}/.well-known/stability-manifest.json — signed pinned-route stability manifest (prices + schema fingerprints)",
         f"- GET {base_url}/.well-known/gradeability-report.json — Gradeability Self-Test Report (latest self-test: listed vs live 402 per priced route; signed, free)",
         f"- GET {base_url}/.well-known/verdict-row.json — Verdict Row Fleet Discovery Bundle (signed index of all five stalls: discovery docs, stability manifests, agent cards, gradeability reports, MCP server.json, fleet tools/status and feeds; one fetch walks the whole row, free)",
+        f"- GET {base_url}/v1/fleet-card — Fleet Card: the whole fleet in one free call (every priced route on all five stalls: service, method, path, price, short description, worked input example where carried; machine-readable JSON, free)",
         f"- GET {base_url}/.well-known/a2a-agent-card.json — A2A agent card (registry-generated dialect twin of /.well-known/agent-card.json: skills mirror the priced routes at their registry prices, free)",
         f"- GET {base_url}/llms-full.txt — llms-full.txt, the long-form companion to llms.txt (full route docs with worked request/response examples, pack mechanics, Recheck feed + hash-chain spec, watch/corrections policy; generated from the fleet route registry, free)",
         f"- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/stall-row-mcp — manifest (server.json): https://github.com/QuincyGB/stall-row-mcp/blob/main/server.json — tools wrap the priced routes (sign-read / score-book / guard included) plus the free Recheck feed read",

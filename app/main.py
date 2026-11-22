@@ -7,6 +7,9 @@ route independently priced, listed, and settled.
 Paid:   POST /v1/* routes (see app/discovery.py ROUTES)
 Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt,
              /.well-known/agent-card.json
+        GET  /v1/fleet-card (the whole fleet in one free call: every
+             priced route with price + worked input example where
+             carried — see services/fleetcard.py)
         POST /v1/recheck/pack-balance (pack id is the credential)
         POST /v1/toolkit/pack-balance (pack id is the credential)
         GET  /v1/recheck/feed (public JSONL feed of recent recheck
@@ -226,6 +229,7 @@ from .services import scout as scout_svc
 from .services import seller as seller_svc
 from .services import verdict as verdict_svc
 from .services import verdictread as verdictread_svc
+from .services import fleetcard as fleetcard_svc
 
 log = logging.getLogger("stall-row")
 logging.basicConfig(level=logging.INFO)
@@ -5770,6 +5774,20 @@ async def quote():
         "payTo": settings.pay_to,
         "protocol": "x402 v2 (exact scheme)",
     }
+
+
+@app.get("/v1/fleet-card")
+async def fleet_card():
+    """Free: the Fleet Card — every priced route in the fleet (all
+    five stalls) with service, method, path, price, a short
+    description and a worked input example where StallRow carries
+    one, composed at request time from the committed fleet data
+    (Tools Index + Fleet Discovery Bundle + this stall's discovery
+    registry — see services/fleetcard.py). No payment, no pack/pass:
+    an agent that finds one route can map the entire fleet in this
+    single step. The card is a free route, so it is not itself
+    listed among the priced routes it returns."""
+    return fleetcard_svc.build_card()
 
 
 @app.get("/.well-known/x402")
