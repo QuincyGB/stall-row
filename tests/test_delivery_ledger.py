@@ -3,13 +3,15 @@ verification, and endpoints behind the fleet's exact
 payment->route attribution.
 
 Owner's rules under test:
-  * a per-call record is accepted only when its settlement tx
-    provably carries the claimed USDC transfer (payer -> payTo,
-    amount) — a wrong or unknown tx is REJECTED, so the delivery
-    that claimed it fails loudly instead of being mis-recorded;
-  * an RPC outage accepts the record as pending (verified=0) —
-    the fleet does not halt on a public RPC, and reconciliation
-    settles the record later;
+  * a per-call record is verified when its settlement tx provably
+    carries the claimed USDC transfer (payer -> payTo, amount) —
+    a tx whose receipt exists but carries no matching transfer is
+    REJECTED, so the delivery that claimed it fails loudly instead
+    of being mis-recorded;
+  * an RPC outage — or a tx not yet visible to the node — accepts
+    the record as pending (verified=0): the fleet does not halt on
+    a public RPC or on settlement propagation lag, and
+    reconciliation settles the record later;
   * pass/pack records must name a funding row this hub's own
     ledger holds;
   * one settlement tx records once — duplicates return the
@@ -108,11 +110,18 @@ def test_wrong_amount_is_rejected(tmp_path, monkeypatch):
     assert _store(tmp_path).recent() == []
 
 
-def test_unknown_tx_is_rejected(tmp_path, monkeypatch):
+def test_unknown_tx_records_pending_not_blocked(tmp_path, monkeypatch):
+    # Behaviour change (2026-11-23): a just-settled tx can be
+    # invisible to the hub's node for a few seconds. After the
+    # receipt retries still come back empty, the record is accepted
+    # as pending (verified=0) — the same treatment as an RPC outage —
+    # instead of rejecting the delivery (which surfaced as a 502 to
+    # a buyer whose payment had already settled). Reconciliation
+    # settles the record later.
     monkeypatch.setattr(dl, "Rpc", _FakeRpc)
     _FakeRpc.receipt, _FakeRpc.raises = None, False
-    with pytest.raises(dl.RecordRejected):
-        _write(_store(tmp_path), _payload())
+    rec = _write(_store(tmp_path), _payload())
+    assert rec["verified"] == 0
 
 
 def test_rpc_outage_records_pending_not_blocked(tmp_path, monkeypatch):
@@ -183,7 +192,8 @@ def test_hub_delivery_glue_raises_on_record_failure(monkeypatch):
     the record cannot be verified/written, _record_delivery_or_raise
     propagates — the delivery fails loudly, never silently."""
     monkeypatch.setattr(dl, "Rpc", _FakeRpc)
-    _FakeRpc.receipt, _FakeRpc.raises = None, False  # tx unknown -> reject
+    # Receipt exists but its transfer mismatches the claim -> reject.
+    _FakeRpc.receipt, _FakeRpc.raises = _receipt(amount=9999), False
     request = SimpleNamespace(
         method="POST", url=SimpleNamespace(path="/v1/tube-search"), headers={}
     )

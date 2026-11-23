@@ -44,6 +44,7 @@ Design (owner correction, 2026-11-07 — fail-closed, no silent gaps):
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
@@ -185,14 +186,23 @@ def _now_iso() -> str:
 async def _verify_on_chain(payload: dict, rpc_url: str, pay_to: str) -> int:
     """1 when the settlement tx provably carries the claimed USDC
     transfer; 0 when the chain could not be asked (RPC unreachable —
-    accept pending, reconciliation settles it). Raises
-    RecordRejected when the chain answers and the claim is wrong
-    or the tx does not exist."""
+    accept pending, reconciliation settles it) or the tx is not yet
+    visible to the node (just settled — retried briefly, then also
+    accepted pending). Raises RecordRejected when the chain answers
+    with a receipt and the claimed transfer is not in it."""
     tx = payload["tx"]
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             rpc = Rpc(client, rpc_url)
             receipt = await rpc.eth_receipt(tx)
+            # A just-settled tx can be invisible to this node for a
+            # few seconds (receipt not yet indexed). Retry the lookup
+            # up to 3 times over ~5s before treating it as unseen.
+            for delay in (1.0, 2.0, 2.0):
+                if receipt is not None:
+                    break
+                await asyncio.sleep(delay)
+                receipt = await rpc.eth_receipt(tx)
     except (httpx.HTTPError, UpstreamError) as exc:
         log.warning(
             "delivery ledger: chain check unreachable for tx %s (%s) — "
@@ -202,10 +212,13 @@ async def _verify_on_chain(payload: dict, rpc_url: str, pay_to: str) -> int:
         )
         return 0
     if receipt is None:
-        raise RecordRejected(
-            f"settlement tx {tx} not found on Base — nothing settled, "
-            "no record (a delivery claiming it must fail loudly)"
+        log.warning(
+            "delivery ledger: settlement tx %s not yet visible on Base "
+            "after retries — recording as pending; reconciliation must "
+            "settle it",
+            tx,
         )
+        return 0
     for transfer in _usdc_transfers(receipt):
         if (
             (transfer["to"] or "").lower() == pay_to.lower()
