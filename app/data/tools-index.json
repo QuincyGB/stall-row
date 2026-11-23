@@ -1,6 +1,6 @@
 {
   "contact": "patrol@verdictrow.com",
-  "generated_at": "2026-11-22T16:25:51Z",
+  "generated_at": "2026-11-23T14:27:24Z",
   "generated_by": "Ren, Verdict Row Patrol \u2014 patrol@verdictrow.com",
   "host": {
     "html": "https://stall-row-production.up.railway.app/tools",
@@ -41,6 +41,10 @@
         {
           "label": "GET https://stall-row-production.up.railway.app/.well-known/verdict-row.json \u2014 Verdict Row Fleet Discovery Bundle (signed index of all five stalls: discovery docs, stability manifests, agent cards, gradeability reports, MCP server.json, fleet tools/status and feeds; one fetch walks the whole row, free)",
           "url": "https://stall-row-production.up.railway.app/.well-known/verdict-row.json"
+        },
+        {
+          "label": "GET https://stall-row-production.up.railway.app/v1/fleet-card \u2014 Fleet Card: the whole fleet in one free call (every priced route on all five stalls: service, method, path, price, short description, worked input example where carried; machine-readable JSON, free)",
+          "url": "https://stall-row-production.up.railway.app/v1/fleet-card"
         },
         {
           "label": "GET https://stall-row-production.up.railway.app/.well-known/a2a-agent-card.json \u2014 A2A agent card (registry-generated dialect twin of /.well-known/agent-card.json: skills mirror the priced routes at their registry prices, free)",
@@ -267,6 +271,13 @@
               "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
               "network": "eip155:8453",
               "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            },
+            {
+              "amount_decimal": "0.1",
+              "amount_units": "100000",
+              "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+              "pay_to": "FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ"
             }
           ],
           "description": "Counterparty Report \u2014 one bundled report on one seller: the payTo's wallet snapshot, an OFAC SDN exact-match screen, and its Verdict Index listing history, plus a Token Verdict when you name a token, a LockSmith audit when you name a service URL, and a ListSmith grade when you name a listing URL. Legs that are not requested or cannot run are marked as such, with no padding. Use this when an agent is about to rely on a seller with no prior dealings.",
@@ -282,6 +293,13 @@
               "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
               "network": "eip155:8453",
               "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
+            },
+            {
+              "amount_decimal": "0.25",
+              "amount_units": "250000",
+              "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+              "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+              "pay_to": "FeyyAfoCbn1psQ6x8gxN8YQbXZVpTSibZwP6mkXckXUJ"
             }
           ],
           "description": "Counterparty Report, full tier \u2014 everything the standard report has (wallet snapshot, OFAC SDN exact-match screen, Verdict Index history, plus named fleet legs), plus wallet age and funding sources, links to OFAC-flagged counterparty wallets in the sampled transfers, and rug-history signals derived only from the legs read. Coverage windows are stated in the response. Use this when an agent needs the deepest one-call read on a seller before a large commitment.",

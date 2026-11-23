@@ -3,6 +3,574 @@
   "entries": [
     {
       "after": {
+        "amount_units": "100000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "500000"
+      },
+      "id": "urn:verdict-row:changelog:fa72990e75893f63040a",
+      "kind": "price_changed",
+      "route": "/v1/audit",
+      "source": "checker-expectations",
+      "stall": "lock-smith",
+      "summary": "lock-smith: checker-expected amount changed on /v1/audit \u2014 500000 -> 100000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "100000"
+      },
+      "id": "urn:verdict-row:changelog:f8975b0bf3fc5d4ed369",
+      "kind": "price_changed",
+      "route": "/v1/fleet-check",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/fleet-check \u2014 100000 -> 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "100000"
+      },
+      "id": "urn:verdict-row:changelog:f815b00b5232d02520c6",
+      "kind": "price_changed",
+      "route": "/v1/index/changes",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/index/changes \u2014 100000 -> 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "50000"
+      },
+      "id": "urn:verdict-row:changelog:f64d8c7a33284f4ef5db",
+      "kind": "price_changed",
+      "route": "/v1/tube-search/batch",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/tube-search/batch \u2014 50000 -> 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "50000"
+      },
+      "id": "urn:verdict-row:changelog:f5a8c41c949aab13fc21",
+      "kind": "price_changed",
+      "route": "/v1/price-check",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/price-check \u2014 50000 -> 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "50000"
+      },
+      "id": "urn:verdict-row:changelog:f10e352ee01fb70c2190",
+      "kind": "price_changed",
+      "route": "/v1/check",
+      "source": "checker-expectations",
+      "stall": "route-verdict",
+      "summary": "route-verdict: checker-expected amount changed on /v1/check \u2014 50000 -> 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "100000"
+      },
+      "id": "urn:verdict-row:changelog:de2a8b395bdc7a9f0c99",
+      "kind": "price_changed",
+      "route": "/v1/grade",
+      "source": "checker-expectations",
+      "stall": "list-smith",
+      "summary": "list-smith: checker-expected amount changed on /v1/grade \u2014 100000 -> 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "100000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "500000"
+      },
+      "id": "urn:verdict-row:changelog:db2403445dbc5d31524d",
+      "kind": "price_changed",
+      "route": "/v1/fix",
+      "source": "checker-expectations",
+      "stall": "list-smith",
+      "summary": "list-smith: checker-expected amount changed on /v1/fix \u2014 500000 -> 100000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "100000"
+      },
+      "id": "urn:verdict-row:changelog:d9b2de0de6bfcaea780d",
+      "kind": "price_changed",
+      "route": "/v1/card-smith",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/card-smith \u2014 100000 -> 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "9000000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:d151c66a5c208d2a1a0c",
+      "kind": "route_added",
+      "route": "/v1/entitlement-pass",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/entitlement-pass at 9000000 units."
+    },
+    {
+      "after": {
+        "amount_units": "5000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "10000"
+      },
+      "id": "urn:verdict-row:changelog:cf1e5da29f65aeb38da8",
+      "kind": "price_changed",
+      "route": "/v1/video-transcript",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/video-transcript \u2014 10000 -> 5000 units."
+    },
+    {
+      "after": {
+        "amount_units": "100000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "1000000"
+      },
+      "id": "urn:verdict-row:changelog:c4de15195cc95ce02e6b",
+      "kind": "price_changed",
+      "route": "/v1/ledger-dataset/full",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/ledger-dataset/full \u2014 1000000 -> 100000 units."
+    },
+    {
+      "after": {
+        "amount_units": "100000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:c322da17b01f00a98c0c",
+      "kind": "route_added",
+      "route": "/v1/pre-trade-pack",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/pre-trade-pack at 100000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "50000"
+      },
+      "id": "urn:verdict-row:changelog:c161089454ed2b695e5a",
+      "kind": "price_changed",
+      "route": "/v1/physical",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/physical \u2014 50000 -> 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "100000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "1000000"
+      },
+      "id": "urn:verdict-row:changelog:bf88790ccd289f035d6d",
+      "kind": "price_changed",
+      "route": "/v1/toolkit/pack",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/toolkit/pack \u2014 1000000 -> 100000 units."
+    },
+    {
+      "after": {
+        "amount_units": "100000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "1000000"
+      },
+      "id": "urn:verdict-row:changelog:a593453a51c7e47070c6",
+      "kind": "price_changed",
+      "route": "/v1/counterparty-report",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/counterparty-report \u2014 1000000 -> 100000 units."
+    },
+    {
+      "after": {
+        "amount_units": "5000000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:9ce017aa56ed55da5dbf",
+      "kind": "route_added",
+      "route": "/v1/entitlement-pack",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/entitlement-pack at 5000000 units."
+    },
+    {
+      "after": {
+        "amount_units": "1000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:94191b934c35363be219",
+      "kind": "route_added",
+      "route": "/v1/wallet-ping",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/wallet-ping at 1000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:8e59592b090a0ca76bec",
+      "kind": "route_added",
+      "route": "/v1/sanctions-check",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/sanctions-check at 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "100000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "1000000"
+      },
+      "id": "urn:verdict-row:changelog:8b0ae20ab8423a8769a1",
+      "kind": "price_changed",
+      "route": "/v1/recheck/pack",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/recheck/pack \u2014 1000000 -> 100000 units."
+    },
+    {
+      "after": {
+        "amount_units": "5000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "10000"
+      },
+      "id": "urn:verdict-row:changelog:89155449098af62018e9",
+      "kind": "price_changed",
+      "route": "/v1/video-details",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/video-details \u2014 10000 -> 5000 units."
+    },
+    {
+      "after": {
+        "amount_units": "100000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:861b65b1fce3ff8fa7a6",
+      "kind": "route_added",
+      "route": "/v1/due-diligence-pack",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/due-diligence-pack at 100000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:7ebbb14a3fa3244e4203",
+      "kind": "route_added",
+      "route": "/v1/approval-check",
+      "source": "checker-expectations",
+      "stall": "lock-smith",
+      "summary": "lock-smith: route entered the standing checker's expectations \u2014 /v1/approval-check at 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "100000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "200000"
+      },
+      "id": "urn:verdict-row:changelog:76814b467da75883edcb",
+      "kind": "price_changed",
+      "route": "/v1/batch-verdict",
+      "source": "checker-expectations",
+      "stall": "token-verdict",
+      "summary": "token-verdict: checker-expected amount changed on /v1/batch-verdict \u2014 200000 -> 100000 units."
+    },
+    {
+      "after": {
+        "amount_units": "100000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:706bc3382aca73a0c117",
+      "kind": "route_added",
+      "route": "/v1/contract-check",
+      "source": "checker-expectations",
+      "stall": "lock-smith",
+      "summary": "lock-smith: route entered the standing checker's expectations \u2014 /v1/contract-check at 100000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "100000"
+      },
+      "id": "urn:verdict-row:changelog:6c598f4813ba4b3309ef",
+      "kind": "price_changed",
+      "route": "/v1/ledger-dataset",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/ledger-dataset \u2014 100000 -> 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "250000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:6a77a512ddc5b9573a4b",
+      "kind": "route_added",
+      "route": "/v1/counterparty-report/deep",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/counterparty-report/deep at 250000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:69f2f60c029787b071ef",
+      "kind": "route_added",
+      "route": "/v1/counterparty-watch",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/counterparty-watch at 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:440899390b8c7b6eb396",
+      "kind": "route_added",
+      "route": "/v1/second-opinion",
+      "source": "checker-expectations",
+      "stall": "token-verdict",
+      "summary": "token-verdict: route entered the standing checker's expectations \u2014 /v1/second-opinion at 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": null,
+      "id": "urn:verdict-row:changelog:3824f65bb8198994aec0",
+      "kind": "route_added",
+      "route": "/v1/liquidity-check",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: route entered the standing checker's expectations \u2014 /v1/liquidity-check at 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "50000"
+      },
+      "id": "urn:verdict-row:changelog:2c41337a64bdb0d6536e",
+      "kind": "price_changed",
+      "route": "/v1/job-scout",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/job-scout \u2014 50000 -> 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "5000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "10000"
+      },
+      "id": "urn:verdict-row:changelog:296d3babc6cf1217e715",
+      "kind": "price_changed",
+      "route": "/v1/tube-search",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/tube-search \u2014 10000 -> 5000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "50000"
+      },
+      "id": "urn:verdict-row:changelog:240cdf039b8049773fb7",
+      "kind": "price_changed",
+      "route": "/v1/page-to-markdown/batch",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/page-to-markdown/batch \u2014 50000 -> 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "30000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "50000"
+      },
+      "id": "urn:verdict-row:changelog:1ec99feae626834abeee",
+      "kind": "price_changed",
+      "route": "/v1/pre-trade",
+      "source": "checker-expectations",
+      "stall": "token-verdict",
+      "summary": "token-verdict: checker-expected amount changed on /v1/pre-trade \u2014 50000 -> 30000 units."
+    },
+    {
+      "after": {
+        "amount_units": "100000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "5000000"
+      },
+      "id": "urn:verdict-row:changelog:1e79cd19344519485dca",
+      "kind": "price_changed",
+      "route": "/v1/fleet-check/pack",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/fleet-check/pack \u2014 5000000 -> 100000 units."
+    },
+    {
+      "after": {
+        "amount_units": "5000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "10000"
+      },
+      "id": "urn:verdict-row:changelog:09370eec5459f4257f5d",
+      "kind": "price_changed",
+      "route": "/v1/page-to-markdown",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/page-to-markdown \u2014 10000 -> 5000 units."
+    },
+    {
+      "after": {
+        "amount_units": "100000"
+      },
+      "at": "2026-11-23T14:27:35Z",
+      "at_precision": "exact",
+      "before": {
+        "amount_units": "750000"
+      },
+      "id": "urn:verdict-row:changelog:0350ea831eab07782085",
+      "kind": "price_changed",
+      "route": "/v1/orchestrate",
+      "source": "checker-expectations",
+      "stall": "stall-row",
+      "summary": "stall-row: checker-expected amount changed on /v1/orchestrate \u2014 750000 -> 100000 units."
+    },
+    {
+      "after": {
         "amount_units": "5000"
       },
       "at": "2026-11-09T15:37:31Z",
@@ -508,7 +1076,7 @@
       "summary": "Pre-Trade Guard launched: POST /v1/guard at $0.01 (10000 units) on StallRow."
     }
   ],
-  "generated_at": "2026-11-09T15:37:31Z",
+  "generated_at": "2026-11-23T14:27:35Z",
   "generated_by": "Ren, Verdict Row Patrol \u2014 patrol@verdictrow.com",
   "host": {
     "atom": "https://stall-row-production.up.railway.app/changelog.atom",
@@ -518,6 +1086,6 @@
   "kind": "verdict-row-changelog/v1",
   "title": "Verdict Row \u2014 Public Changelog",
   "totals": {
-    "entries": 36
+    "entries": 73
   }
 }
